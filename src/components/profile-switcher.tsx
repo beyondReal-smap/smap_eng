@@ -26,6 +26,8 @@ import { apiFetch } from '@/lib/api-client';
 import type { Profile } from '@/lib/db/schema';
 import { useProfileStore } from '@/stores/profile';
 
+const AVATAR_PRESETS = ['🦊', '🐻', '🐼', '🐱', '🐯', '🦁', '🐨', '🐰', '🦄', '🐢'];
+
 export function ProfileSwitcher() {
   const currentProfileId = useProfileStore((s) => s.currentProfileId);
   const setCurrentProfile = useProfileStore((s) => s.setCurrentProfile);
@@ -72,23 +74,38 @@ export function ProfileSwitcher() {
     }
   }
 
+  const current = profiles.find((p) => p.id === currentProfileId);
+
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <Select
         value={currentProfileId?.toString() ?? ''}
         onValueChange={(v) => setCurrentProfile(Number(v))}
         disabled={loading || profiles.length === 0}
       >
-        <SelectTrigger className="w-[200px]">
-          <SelectValue
-            placeholder={
-              loading
-                ? '불러오는 중…'
-                : profiles.length === 0
-                  ? '프로필 없음'
-                  : '프로필 선택'
-            }
-          />
+        <SelectTrigger
+          className="h-10 w-auto min-w-[160px] gap-2 rounded-full border-border/70 bg-card/70 px-3 glass-card transition hover:shadow-sm data-[state=open]:ring-2 data-[state=open]:ring-primary/40"
+        >
+          {current ? (
+            <span className="flex items-center gap-2">
+              <Avatar className="h-7 w-7 ring-2 ring-primary/20">
+                <AvatarFallback className="bg-[color:var(--secondary)] text-base">
+                  {current.avatar ?? '👤'}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-semibold">{current.name}</span>
+            </span>
+          ) : (
+            <SelectValue
+              placeholder={
+                loading
+                  ? '불러오는 중…'
+                  : profiles.length === 0
+                    ? '프로필 없음'
+                    : '프로필 선택'
+              }
+            />
+          )}
         </SelectTrigger>
         <SelectContent>
           {profiles.map((p) => (
@@ -107,17 +124,25 @@ export function ProfileSwitcher() {
       </Select>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger render={<Button variant="outline" size="sm" />}>
-          + 프로필
+        <DialogTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 rounded-full px-3 font-semibold press-scale"
+            />
+          }
+        >
+          <span className="mr-1 text-base leading-none">＋</span> 프로필
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="animate-pop-in">
           <DialogHeader>
-            <DialogTitle>새 프로필</DialogTitle>
+            <DialogTitle className="text-xl">새 프로필 만들기</DialogTitle>
             <DialogDescription>
               가족 구성원을 추가하면 각자 책장과 독서 로그가 분리됩니다.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-2">
+          <div className="grid gap-5 py-2">
             <div className="grid gap-2">
               <Label htmlFor="name">이름</Label>
               <Input
@@ -126,16 +151,33 @@ export function ProfileSwitcher() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="예: 민서"
                 maxLength={30}
+                className="h-11 rounded-xl"
+                autoFocus
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="avatar">아바타 (이모지 1~2자)</Label>
-              <Input
-                id="avatar"
-                value={avatar}
-                onChange={(e) => setAvatar(e.target.value)}
-                maxLength={4}
-              />
+              <Label>아바타</Label>
+              <div className="flex flex-wrap gap-2">
+                {AVATAR_PRESETS.map((a) => {
+                  const active = a === avatar;
+                  return (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => setAvatar(a)}
+                      aria-pressed={active}
+                      aria-label={`아바타 ${a}`}
+                      className={`flex h-11 w-11 items-center justify-center rounded-2xl border text-2xl transition press-scale ${
+                        active
+                          ? 'border-primary bg-primary/10 ring-2 ring-primary/40'
+                          : 'border-border/60 hover:bg-muted'
+                      }`}
+                    >
+                      {a}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -143,10 +185,15 @@ export function ProfileSwitcher() {
               variant="outline"
               onClick={() => setOpen(false)}
               disabled={submitting}
+              className="rounded-xl"
             >
               취소
             </Button>
-            <Button onClick={handleCreate} disabled={submitting}>
+            <Button
+              onClick={handleCreate}
+              disabled={submitting}
+              className="rounded-xl press-scale"
+            >
               {submitting ? '생성 중…' : '추가'}
             </Button>
           </DialogFooter>

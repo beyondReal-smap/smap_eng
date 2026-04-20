@@ -1,16 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -25,6 +17,11 @@ import { CreateBookDialog } from './create-book-dialog';
 
 const AGES = [5, 6, 7, 8, 9, 10] as const;
 const CEFRS: CefrLevel[] = ['A1', 'A2', 'B1'];
+
+const COVER_EMOJIS = [
+  '🌳', '🐉', '🚀', '🦕', '🐳', '🧚', '🦖', '🐧', '🦉', '🌈',
+  '🍄', '🐝', '🐞', '🦋', '🏰', '🌙', '⭐️', '🎈', '🪁', '🦊',
+];
 
 export function Bookshelf() {
   const profileId = useProfileStore((s) => s.currentProfileId);
@@ -50,15 +47,14 @@ export function Bookshelf() {
   }, [profileId, ageFilter, cefrFilter, refreshKey]);
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="grid gap-1">
-          <span className="text-xs text-muted-foreground">연령</span>
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterGroup label="연령">
           <Select
             value={ageFilter || 'all'}
             onValueChange={(v) => setAgeFilter(!v || v === 'all' ? '' : v)}
           >
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="h-9 w-[120px] rounded-full">
               <SelectValue placeholder="전체" />
             </SelectTrigger>
             <SelectContent>
@@ -70,26 +66,27 @@ export function Bookshelf() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="grid gap-1">
-          <span className="text-xs text-muted-foreground">영어 수준</span>
-          <Select
-            value={cefrFilter || 'all'}
-            onValueChange={(v) => setCefrFilter(!v || v === 'all' ? '' : v)}
-          >
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="전체" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">전체</SelectItem>
-              {CEFRS.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        </FilterGroup>
+        <FilterGroup label="수준">
+          <div className="flex gap-1 rounded-full border border-border/60 bg-card/70 p-1 glass-card">
+            <LevelPill
+              active={cefrFilter === ''}
+              onClick={() => setCefrFilter('')}
+            >
+              전체
+            </LevelPill>
+            {CEFRS.map((c) => (
+              <LevelPill
+                key={c}
+                level={c}
+                active={cefrFilter === c}
+                onClick={() => setCefrFilter(cefrFilter === c ? '' : c)}
+              >
+                {c}
+              </LevelPill>
+            ))}
+          </div>
+        </FilterGroup>
         <div className="ml-auto">
           <CreateBookDialog
             profileId={profileId}
@@ -99,37 +96,23 @@ export function Bookshelf() {
       </div>
 
       {!profileId ? (
-        <EmptyState text="먼저 프로필을 선택하거나 추가해 주세요." />
+        <EmptyState
+          emoji="👋"
+          title="누가 읽을 거예요?"
+          text="먼저 프로필을 선택하거나 추가해 주세요."
+        />
       ) : loading ? (
-        <EmptyState text="책장 불러오는 중…" />
+        <SkeletonGrid />
       ) : books.length === 0 ? (
-        <EmptyState text='책장이 비어있어요. "새 동화 만들기"로 시작해 보세요.' />
+        <EmptyState
+          emoji="📖"
+          title="책장이 비어있어요"
+          text='오른쪽 위 "✨ 새 동화 만들기"로 첫 이야기를 시작해 볼까요?'
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {books.map((b) => (
-            <Link key={b.id} href={`/book/${b.id}`} className="focus:outline-none">
-              <Card className="h-full transition hover:shadow-md">
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base leading-tight">
-                      {b.title}
-                    </CardTitle>
-                    <Badge variant="secondary">{b.cefr}</Badge>
-                  </div>
-                  {b.topic ? (
-                    <CardDescription className="line-clamp-2">
-                      {b.topic}
-                    </CardDescription>
-                  ) : null}
-                </CardHeader>
-                <CardContent className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{b.age}세 수준</span>
-                  <time>
-                    {new Date(b.createdAt).toLocaleDateString('ko-KR')}
-                  </time>
-                </CardContent>
-              </Card>
-            </Link>
+            <BookCard key={b.id} book={b} />
           ))}
         </div>
       )}
@@ -137,10 +120,170 @@ export function Bookshelf() {
   );
 }
 
-function EmptyState({ text }: { text: string }) {
+/* ---------- Book Card ---------- */
+
+function BookCard({ book }: { book: Book }) {
+  const cover = useMemo(() => pickCover(book.id), [book.id]);
+  const levelClass =
+    book.cefr === 'A1'
+      ? 'level-a1'
+      : book.cefr === 'A2'
+        ? 'level-a2'
+        : 'level-b1';
+
   return (
-    <div className="rounded-lg border border-dashed py-16 text-center text-sm text-muted-foreground">
-      {text}
+    <Link
+      href={`/book/${book.id}`}
+      className="stagger-item group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-3xl"
+    >
+      <article className="press-scale relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-lg">
+        {/* Cover */}
+        <div
+          className="relative aspect-[5/3] w-full overflow-hidden"
+          style={{ background: cover.bg }}
+          aria-hidden
+        >
+          <div className="absolute inset-0 flex items-center justify-center text-7xl drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
+            {cover.emoji}
+          </div>
+          <span
+            className={`${levelClass} absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-extrabold shadow-sm`}
+          >
+            {book.cefr}
+          </span>
+          <span className="absolute right-3 top-3 rounded-full bg-background/80 px-2 py-0.5 text-[11px] font-semibold text-foreground/80 backdrop-blur">
+            {book.age}세
+          </span>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 flex-col gap-2 p-4">
+          <h3 className="line-clamp-2 text-base font-extrabold leading-snug group-hover:text-primary">
+            {book.title}
+          </h3>
+          {book.topic ? (
+            <p className="line-clamp-2 text-sm text-muted-foreground">
+              {book.topic}
+            </p>
+          ) : null}
+          <div className="mt-auto flex items-center justify-between pt-2 text-[11px] text-muted-foreground">
+            <time>{new Date(book.createdAt).toLocaleDateString('ko-KR')}</time>
+            <span className="inline-flex items-center gap-1 font-semibold text-primary transition group-hover:translate-x-0.5">
+              읽기 →
+            </span>
+          </div>
+        </div>
+      </article>
+    </Link>
+  );
+}
+
+function pickCover(seed: number) {
+  const palette = [
+    'linear-gradient(135deg, oklch(0.9 0.12 25) 0%, oklch(0.92 0.1 60) 100%)',
+    'linear-gradient(135deg, oklch(0.9 0.12 175) 0%, oklch(0.93 0.1 200) 100%)',
+    'linear-gradient(135deg, oklch(0.9 0.11 145) 0%, oklch(0.93 0.08 80) 100%)',
+    'linear-gradient(135deg, oklch(0.88 0.13 300) 0%, oklch(0.92 0.1 260) 100%)',
+    'linear-gradient(135deg, oklch(0.92 0.12 85) 0%, oklch(0.9 0.11 45) 100%)',
+    'linear-gradient(135deg, oklch(0.9 0.11 220) 0%, oklch(0.92 0.09 280) 100%)',
+  ];
+  return {
+    bg: palette[seed % palette.length],
+    emoji: COVER_EMOJIS[seed % COVER_EMOJIS.length],
+  };
+}
+
+/* ---------- Filter helpers ---------- */
+
+function FilterGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-semibold text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+function LevelPill({
+  children,
+  level,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  level?: CefrLevel;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const lvlClass =
+    level === 'A1'
+      ? 'level-a1'
+      : level === 'A2'
+        ? 'level-a2'
+        : level === 'B1'
+          ? 'level-b1'
+          : '';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`relative rounded-full px-3 py-1 text-xs font-bold transition ${
+        active
+          ? `${lvlClass || 'bg-primary text-primary-foreground'} shadow-sm`
+          : 'text-muted-foreground hover:bg-muted'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ---------- States ---------- */
+
+function EmptyState({
+  emoji,
+  title,
+  text,
+}: {
+  emoji: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="animate-pop-in rounded-3xl border border-dashed border-border/80 bg-card/50 p-12 text-center glass-card">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-4xl animate-float-soft">
+        {emoji}
+      </div>
+      <h3 className="mt-4 text-lg font-extrabold">{title}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{text}</p>
+    </div>
+  );
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="overflow-hidden rounded-3xl border border-border/60 bg-card"
+        >
+          <div className="shimmer aspect-[5/3] w-full" />
+          <div className="space-y-2 p-4">
+            <div className="shimmer h-4 w-3/4 rounded" />
+            <div className="shimmer h-3 w-1/2 rounded" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

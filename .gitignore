@@ -41,9 +41,20 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# smap_eng: 로컬 스토리지 (TTS 오디오, 이미지, SQLite)
+# smap_eng: 로컬 스토리지 (SQLite + TTS/이미지 생성물)
 /storage/
+/public/audio/
+/public/images/
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+
+# Python 서비스 venv / 캐시
+services/*/.venv/
+services/*/__pycache__/
+services/*/*/__pycache__/

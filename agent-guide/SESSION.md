@@ -181,3 +181,55 @@ last-updated: 2026-04-20
 - ⏳ **남은 큰 작업**: ① Kokoro TTS Python 서버 구동 + `src/lib/tts/` 프록시 (Task #13) ② FLUX.1-schnell + `src/lib/image/` (Task #14)
 - 📝 **미구현 플로우**: 독서 완료 시 `/api/logs` 호출(진행률·점수 저장) — UI에 훅 추가 필요 (퀴즈 제출 시점)
 - ⚠️ **참고**: 최초 1회 "새 동화 만들기" 클릭 시 OpenAI 호출 10~30초 소요 (reasoning_effort=medium 고정)
+
+---
+
+### 2026-04-20 (TTS/이미지 연동 세션)
+
+#### 세션 목표
+- **Kokoro TTS** + **FLUX.1-schnell 이미지** 로컬 서빙 통합
+
+#### 변경 파일 (주요)
+| 파일/경로 | 변경 유형 | 요약 |
+|----------|----------|------|
+| `services/tts/{requirements.txt,server.py,run.sh}` | 추가 | Python 3.10 venv + FastAPI + Kokoro 0.9.4, port 8880 |
+| `services/image/{requirements.txt,server.py,run.sh}` | 추가 | Python 3.10 venv + FastAPI + mflux 0.17.5 (MLX), port 8890. `mflux-generate` CLI subprocess 호출 방식 |
+| `src/lib/tts/kokoro.ts` | 추가 | Kokoro fetch 프록시 + `synthesize()` + `tts_health()` |
+| `src/lib/image/flux.ts` | 추가 | FLUX 프록시 + `buildCoverPrompt()`·`buildSceneprompt()` + `generateImage()` |
+| `src/app/api/tts/[passageId]/route.ts` | 추가 | POST: WAV 생성·캐싱 (`/public/audio/`) + `passages.audio_path` 갱신 |
+| `src/app/api/image/book/[bookId]/cover/route.ts` | 추가 | POST: 책 표지 PNG 생성·캐싱 + `books.cover_image_path` 갱신 |
+| `src/app/api/image/passage/[passageId]/route.ts` | 추가 | POST: 장면 삽화 PNG 생성·캐싱 + `passages.scene_image_path` 갱신 |
+| `src/lib/db/queries.ts` | 수정 | `updatePassageAudio`, `updatePassageImage` 추가 |
+| `src/components/reader.tsx` | 수정 | 🔊 낭독 버튼 활성화 + `<audio controls>` + passage별 캐시 |
+| `.gitignore` | 수정 | `services/*/.venv/`, `/public/audio/`, `/public/images/` |
+
+#### 검증
+| 서비스 | 포트 | 상태 |
+|--------|------|------|
+| Next.js dev | 3000 | ✅ 정상 |
+| Kokoro TTS | 8880 | ✅ /health OK, WAV 생성 확인 (170KB 36s 콜드) |
+| FLUX image | 8890 | ✅ /health OK, mflux-generate CLI 존재 확인 (실제 생성은 첫 호출 시 ~6GB 다운로드) |
+| `tsc --noEmit` | — | ✅ 0 에러 |
+
+#### 결정 사항 (추가)
+9. **로컬 스토리지 경로**: 오디오·이미지 모두 `/public/audio/`, `/public/images/`로 저장해 Next.js 정적 서빙. DB에는 웹 경로(`/audio/passage-xx.wav`, `/images/book-xx-cover.png`) 기록
+10. **mflux API 변경 내성**: mflux 0.17.5는 Python API가 재구성됨(`mflux.Flux1`, `mflux.Config` 제거). `mflux-generate` CLI를 subprocess로 호출하는 방식 채택 — 향후 버전 변경에도 강건
+11. **UI 리뉴얼**: 대표님이 `page/bookshelf/profile-switcher/create-book-dialog/reader/quiz-runner/book page`를 아동 친화적 디자인으로 리뉴얼(레벨 필 필터, 그래디언트 표지, `animate-*`/`press-scale`/`glass-card`/`level-*` 유틸). 기능 로직은 그대로 유지
+
+#### 남은 작업 (다음 세션 후보)
+- UI에 **이미지 생성 버튼** 통합 (Bookshelf 카드 "표지 만들기" / Reader "장면 그리기") — 현재는 API만 존재
+- FLUX 첫 호출 시 모델 다운로드 진행률 UI (long-polling 또는 SSE)
+- 독서 완료 시 `/api/logs` 호출 훅 (퀴즈 제출 시점) — `reading_logs` 레코드
+- 프로덕션 빌드(`pnpm build`) 검증
+
+#### 서버 기동 명령
+```bash
+# Kokoro TTS
+bash services/tts/run.sh      # -> http://127.0.0.1:8880
+
+# FLUX.1-schnell
+bash services/image/run.sh    # -> http://127.0.0.1:8890
+
+# Next.js dev
+pnpm dev                       # -> http://localhost:3000
+```
