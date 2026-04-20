@@ -1,4 +1,4 @@
-import { ollamaChatJson } from './client';
+import { chatJson } from './client';
 import {
   StorySchema,
   QuizSetSchema,
@@ -12,22 +12,27 @@ import { buildStoryPrompt } from './prompts/story';
 import { buildQuizPrompt } from './prompts/quiz';
 import { buildTranslationPrompt } from './prompts/translation';
 
-export { OLLAMA_MODEL, OLLAMA_BASE_URL } from './config';
+export { OPENAI_MODEL, OPENAI_BASE_URL } from './config';
+export { LLMError } from './client';
 export type { Story, QuizSet, Translation, Level } from './schemas';
-export { StorySchema, QuizSetSchema, TranslationSchema, LevelSchema } from './schemas';
+export {
+  StorySchema,
+  QuizSetSchema,
+  TranslationSchema,
+  LevelSchema,
+} from './schemas';
 
 /**
  * 레벨·(선택)주제에 맞춰 영어 동화 1편 생성 + Zod 검증.
  */
-export async function generateStory(level: Level, topic?: string): Promise<Story> {
+export async function generateStory(
+  level: Level,
+  topic?: string,
+): Promise<Story> {
   const { system, user } = buildStoryPrompt(level, topic);
-  const raw = await ollamaChatJson<unknown>({
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-    temperature: 0.9,
-  });
+  // temperature는 gpt-5.2-chat-latest가 1 고정이라 지정하지 않는다.
+  // 창의성이 필요한 작업은 프롬프트 표현으로 유도.
+  const raw = await chatJson<unknown>({ system, user });
   return StorySchema.parse(raw);
 }
 
@@ -40,13 +45,9 @@ export async function generateQuizSet(ctx: {
   level: Level;
 }): Promise<QuizSet> {
   const { system, user } = buildQuizPrompt(ctx);
-  const raw = await ollamaChatJson<unknown>({
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-    temperature: 0.3, // 문제 출제는 낮은 창의성으로
-  });
+  // 낮은 창의성이 필요하지만 모델 제약상 temperature 지정 불가 —
+  // 프롬프트에서 "do not add outside information" 식으로 제어.
+  const raw = await chatJson<unknown>({ system, user });
   return QuizSetSchema.parse(raw);
 }
 
@@ -60,12 +61,7 @@ export async function translateSentences(
     return { translations: [] };
   }
   const { system, user } = buildTranslationPrompt(englishSentences);
-  const raw = await ollamaChatJson<unknown>({
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-    temperature: 0.2,
-  });
+  // 번역도 낮은 창의성이 이상적이지만 모델 제약상 temperature 지정 불가.
+  const raw = await chatJson<unknown>({ system, user });
   return TranslationSchema.parse(raw);
 }

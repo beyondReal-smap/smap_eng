@@ -26,9 +26,10 @@ last-updated: 2026-04-20
 | 우선순위 | 작업 | 상태 |
 |---------|------|------|
 | **P0** | ~~Next.js 14 초기화~~ → **Next.js 16.2.4 + Tailwind 4 + React 19** 스캐폴딩 | ✅ Done (2026-04-20) |
-| **P0** | Ollama 설치 및 Gemma 4 E4B 로드 | 🔄 In Progress (`ollama pull` 백그라운드 실행 중) |
+| **P0** | ~~Ollama + Gemma 4 E4B 로드~~ → **OpenAI API 전환** (`gpt-5.2-chat-latest`) | ✅ Done (2026-04-20, 대표님 키 입력 대기) |
 | **P0** | `src/lib/db/` Drizzle 스키마 구현 (`profiles` / `books` / `passages` / `quizzes` / `reading_logs`) | Todo |
-| **P1** | `src/lib/llm/` Ollama 클라이언트 + 레벨별 동화 프롬프트 + Zod 스키마 | Todo |
+| **P1** | `src/lib/llm/` OpenAI 클라이언트 + 레벨별 동화 프롬프트 + Zod 스키마 | ✅ Done (2026-04-20) |
+| **P0** | OpenAI API 키 입력 (`.env.local`) + 실제 호출 스모크 테스트 | 🔄 대표님 키 입력 대기 |
 | **P1** | `src/lib/tts/` Kokoro-82M TTS 연동 | Todo |
 | **P1** | `src/lib/image/` FLUX.1-schnell 이미지 생성 (책 표지 + 장면 삽화) | Todo |
 | **P1** | shadcn/ui 설치 + Bookshelf / Reader / QuizCard 컴포넌트 | Todo |
@@ -45,8 +46,9 @@ last-updated: 2026-04-20
 |---|------|------|
 | 1 | Kokoro 구동 방식 (별도 Python 서버 vs Node 내 임베딩) | 구현 시 결정 |
 | 2 | FLUX.1-schnell 구동 방식 (ComfyUI API vs Diffusers Python 서버) | 구현 시 결정 |
-| 3 | `smap_eng/`를 **자체 git 레포로 분리**할지 (현재 상위 `/SmapSource` git의 서브디렉토리 상태) | 대표님 확인 필요 |
-| 4 | **Next.js 16 브레이킹 체인지** — `AGENTS.md`가 `node_modules/next/dist/docs/` 참조 권고. 학습 데이터 기반 코드 지양 | 구현 중 상시 확인 |
+| 3 | 향후 오픈 LLM 재검토 (Gemma 4 Ollama 지원 안정화 시 전환 가능성) | 분기별 재평가 |
+| 4 | Next.js 16 브레이킹 체인지 — `AGENTS.md` 지침 준수 | 구현 중 상시 확인 |
+| 5 | `/usr/local/bin/ollama` 잔여 심링크 삭제 (root 소유, `sudo rm /usr/local/bin/ollama`) | 대표님 수동 처리 |
 
 ---
 
@@ -98,3 +100,38 @@ last-updated: 2026-04-20
 - ✅ Next.js 16 스캐폴딩 완료, `agent-guide/` 복귀
 - 🔄 Ollama 모델 pull 진행 중 (백그라운드)
 - ⏭️ **다음 세션 착수점**: ① 모델 pull 완료 확인 → ② Drizzle + better-sqlite3 설치 → ③ `src/lib/db/schema.ts` 6개 테이블 구현 → ④ `src/lib/llm/` Ollama 클라이언트 + 레벨별 프롬프트 + Zod 스키마
+
+---
+
+### 2026-04-20 (후반 세션)
+
+#### 세션 목표
+- Drizzle 스키마 + LLM 레이어 구현, 초기 git 커밋, Ollama → OpenAI 전환
+
+#### 변경 파일
+| 파일 | 변경 유형 | 요약 |
+|------|----------|------|
+| `src/lib/db/{schema,index}.ts`, `drizzle.config.ts`, `drizzle/0000_*.sql` | 추가 | Drizzle 5 테이블 + 마이그레이션 적용 (`data.db` 생성) |
+| `src/lib/llm/{client,config,schemas,index}.ts`, `prompts/{story,quiz,translation}.ts` | 추가/**교체** | 초기 Ollama 기반 → OpenAI Chat Completions 기반으로 재작성 |
+| `.env.example`, `.env.local` | 추가/교체 | OpenAI 전용 변수 (`OPENAI_API_KEY` 등) |
+| `.gitignore` | 수정 | `!.env.example` 예외, `/storage/`, `*.db` 추가 |
+| `package.json` | 수정 | `drizzle-orm`, `better-sqlite3`, `zod`, `drizzle-kit`, `@types/better-sqlite3`, **`openai`** 추가. `db:*` 스크립트 추가 |
+| `agent-guide/{GUIDE,PROJECT,SESSION}.md` | 수정 | 모델 정책 개정 (LLM 예외), 실제 Next.js 16 구조, 커밋·전환 기록 |
+
+#### 결정 사항 (순차)
+1. **git 초기 커밋 완료**: `a14c8f4` — `feat: initial Next.js 16 scaffolding with Drizzle + LLM layer`. 브랜치 `main`, remote `https://github.com/bluemusk/smap_eng.git` 설정 (푸시 미수행)
+2. **Ollama 구동 실패**: `gemma4` 아키텍처를 Ollama 0.20.5 / 0.21.0 내장 llama.cpp가 미지원 (`unknown model architecture: 'gemma4'`). Unsloth GGUF의 자체 포크 문제로 판단
+3. **Ollama 완전 제거** (대표님 지시): `/Applications/Ollama.app`, `~/.ollama/` (5.7GB) 삭제. `/usr/local/bin/ollama` 심링크는 root 소유 — `sudo rm`으로 대표님 수동 처리 예정
+4. **LLM 정책 개정**: TTS·이미지는 오픈모델 유지, **LLM만 OpenAI 허용**. 모델 `gpt-5.2-chat-latest` 지정
+5. **LLM 레이어 재작성**: `openai` Node SDK(6.34.0) 기반 싱글톤 + `response_format: json_object` + `LLMError`. 기존 `generateStory/QuizSet/Translation` 인터페이스 그대로 유지
+
+#### 환경
+- Ollama 제거됨 (심링크 잔여)
+- openai SDK 6.34.0 설치됨
+- 타입체크(`tsc --noEmit`) 통과 — 0 에러
+
+#### 현재 상태
+- ✅ LLM 레이어 OpenAI 마이그레이션 완료, 문서 개정 완료
+- ⏳ **대표님이 `.env.local`의 `OPENAI_API_KEY`를 실제 키로 교체 필요**
+- ⏭️ **다음 착수점**: ① 키 입력 후 `generateStory({age:7, cefr:'A1'})` 스모크 테스트 → ② API 라우트 (`/api/books`, `/api/quiz`) → ③ 책장·리더 UI (shadcn/ui 설치) → ④ TTS(Kokoro) 연동 → ⑤ FLUX 연동
+- ⏭️ **추가 커밋 예정**: OpenAI 전환분 (`feat: migrate LLM layer from Ollama to OpenAI`) — 대표님 승인 후 push

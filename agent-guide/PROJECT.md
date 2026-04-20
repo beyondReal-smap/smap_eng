@@ -16,7 +16,7 @@ last-updated: 2026-04-20
 |------|------|
 | **프로젝트** | smap_eng |
 | **목적** | AI 생성 영어 동화책 + TTS 낭독 + 4지선다 퀴즈 + 한글 해석을 통한 아동 영어 학습 |
-| **기술 스택** | Next.js 16.2.4 + React 19.2 + TypeScript / Tailwind 4 / Ollama(Gemma 4 E4B) / Kokoro-82M TTS / FLUX.1-schnell / SQLite + Drizzle |
+| **기술 스택** | Next.js 16.2.4 + React 19.2 + TypeScript / Tailwind 4 / **OpenAI (`gpt-5.2-chat-latest`)** / Kokoro-82M TTS / FLUX.1-schnell / SQLite + Drizzle |
 | **MVP 기능** | 레벨별 동화 생성 · 문장 TTS · 4지선다 5문제 · 한글 해석 · 책장 · 독서 로그/재독 · **이미지 생성** · 가족 프로필 전환 |
 | **작업 관리** | **GitHub Issues** — [bluemusk/smap_eng](https://github.com/bluemusk/smap_eng) |
 
@@ -26,10 +26,10 @@ last-updated: 2026-04-20
 
 | # | 기능 | 구현 핵심 |
 |---|------|-----------|
-| 1 | **레벨별 동화 생성** | Gemma에 `age + CEFR + topic` 프롬프트 → JSON(제목, 문장 배열, 어휘) |
+| 1 | **레벨별 동화 생성** | OpenAI Chat Completions에 `age + CEFR + topic` 프롬프트 → JSON(제목, 문장 배열, 어휘). `response_format: {type: "json_object"}` 강제 |
 | 2 | **문장 단위 TTS 낭독** | Kokoro-82M로 Passage별 오디오 생성, 재생 중 현재 문장 하이라이트 |
-| 3 | **4지선다 퀴즈 5문제** | 완독 시 Gemma에 본문 + 스키마로 요청, 정답률 기록 |
-| 4 | **한글 해석** | 문장/단락 단위 토글. Gemma로 자연스러운 번역 + 어려운 단어 주석 |
+| 3 | **4지선다 퀴즈 5문제** | 완독 시 OpenAI에 본문 + 스키마로 요청, 정답률 기록 |
+| 4 | **한글 해석** | 문장/단락 단위 토글. OpenAI로 자연스러운 번역 + 어려운 단어 주석 |
 | 5 | **책장(Bookshelf)** | 프로필별 생성/읽은 책 카드 뷰, **Level 필터** (연령 × CEFR) |
 | 6 | **독서 로그/재독** | 읽은 시각·완료율·퀴즈 점수 저장. 동일 책 재생성 없이 **재독 가능** |
 | 7 | **이미지 생성** | 장면별 프롬프트 → FLUX.1-schnell → 책 표지 및 삽화 (MVP 포함) |
@@ -117,9 +117,9 @@ data.db                     # SQLite (.gitignore)
 | **UI** | **Tailwind CSS 4** (`@tailwindcss/postcss`) + shadcn/ui (예정) |
 | **린터** | ESLint 9 (`eslint-config-next`) |
 | **상태관리** | Zustand |
-| **LLM** | Ollama + **Gemma 4 E4B** (Unsloth GGUF, `hf.co/unsloth/gemma-4-E4B-it-GGUF:UD-Q4_K_XL`) |
-| **TTS** | Kokoro-82M (영어 특화 경량 모델) |
-| **이미지 생성** | FLUX.1-schnell (ComfyUI 또는 Diffusers) — MVP 포함 |
+| **LLM** | **OpenAI Chat Completions** (`gpt-5.2-chat-latest`, 공식 `openai` Node SDK, singleton) |
+| **TTS** | Kokoro-82M (영어 특화 경량 모델, 오픈) |
+| **이미지 생성** | FLUX.1-schnell (ComfyUI 또는 Diffusers, 오픈) — MVP 포함 |
 | **데이터베이스** | SQLite (파일 기반) |
 | **ORM** | Drizzle ORM |
 | **오디오 저장** | 로컬 파일 시스템 (`./storage/audio/`) |
@@ -166,16 +166,11 @@ cd /Users/genie/SmapSource/smap_eng
 pnpm install
 ```
 
-### 2) Ollama 서버 실행 및 모델 pull
+### 2) OpenAI API 키 설정
 ```bash
-# 서버 (별도 터미널 또는 macOS Ollama.app)
-ollama serve
-
-# 모델 pull (최초 1회, 약 3~5GB)
-ollama pull hf.co/unsloth/gemma-4-E4B-it-GGUF:UD-Q4_K_XL
-
-# 대화 테스트
-ollama run hf.co/unsloth/gemma-4-E4B-it-GGUF:UD-Q4_K_XL
+# .env.local에 실제 키 입력 (이 파일은 .gitignore 포함됨)
+cp .env.example .env.local
+# 에디터로 OPENAI_API_KEY=sk-... 입력
 ```
 
 ### 3) 개발 서버
@@ -193,11 +188,13 @@ pnpm build            # 프로덕션 빌드
 
 ---
 
-## 오픈모델 원칙
+## 모델 정책 (2026-04-20 개정)
 
-- **상용 API 금지**: OpenAI, Anthropic, Google Cloud TTS 등 폐쇄형 유료 API 도입 금지
-- **로컬 우선**: 모델은 Ollama / 로컬 Python 서버에서 구동
-- **대체 가능성 보장**: LLM/TTS/Image 레이어는 추상화하여 모델 교체 용이하게 구성
+- **LLM**: OpenAI `gpt-5.2-chat-latest` 사용 (승인됨). Anthropic·Google 등 추가 상용 LLM은 별도 승인 필요
+- **TTS / 이미지**: 오픈 모델만 허용 (Kokoro, FLUX.1-schnell)
+- **대체 가능성 보장**: LLM/TTS/Image 레이어는 `src/lib/{llm,tts,image}/`로 추상화 — 벤더 교체 용이
+- **키 관리**: `OPENAI_API_KEY`는 `.env.local`에만 저장, 커밋·로깅·에러 메시지 노출 금지
+- **사유 기록**: LLM 예외는 Gemma 4 로컬 구동이 Ollama 호환성 문제로 반복 실패하여 도입. 오픈 LLM 재검토는 `SESSION.md` 열린 질문 참조
 
 ---
 
