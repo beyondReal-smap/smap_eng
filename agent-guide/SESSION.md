@@ -135,3 +135,49 @@ last-updated: 2026-04-20
 - ⏳ **대표님이 `.env.local`의 `OPENAI_API_KEY`를 실제 키로 교체 필요**
 - ⏭️ **다음 착수점**: ① 키 입력 후 `generateStory({age:7, cefr:'A1'})` 스모크 테스트 → ② API 라우트 (`/api/books`, `/api/quiz`) → ③ 책장·리더 UI (shadcn/ui 설치) → ④ TTS(Kokoro) 연동 → ⑤ FLUX 연동
 - ⏭️ **추가 커밋 예정**: OpenAI 전환분 (`feat: migrate LLM layer from Ollama to OpenAI`) — 대표님 승인 후 push
+
+---
+
+### 2026-04-20 (최종 세션)
+
+#### 세션 목표
+- OpenAI 전환 커밋 push → shadcn/ui + API 라우트 + 책장/리더/퀴즈 UI 일괄 구현
+
+#### 변경 파일 (주요)
+| 파일/경로 | 변경 유형 | 요약 |
+|----------|----------|------|
+| `src/components/ui/*` | 추가 (shadcn init) | 12개 (button, card, dialog, select, badge, tabs, progress, input, label, avatar, radio-group, sonner) |
+| `src/lib/utils.ts` | 추가 (shadcn init) | `cn()` 유틸 |
+| `src/lib/api-client.ts` | 추가 | `apiFetch<T>`, `ApiError` |
+| `src/lib/db/queries.ts` | 추가 | profiles/books/passages/quizzes/readingLogs CRUD, 트랜잭션 `insertBookWithPassages` |
+| `src/app/api/profiles/route.ts` | 추가 | GET/POST |
+| `src/app/api/books/route.ts` | 추가 | POST(동화 생성) / GET(레벨 필터 목록) |
+| `src/app/api/books/[id]/route.ts` | 추가 | GET (book + passages) |
+| `src/app/api/books/[id]/quiz/route.ts` | 추가 | GET/POST (멱등 생성) |
+| `src/app/api/logs/route.ts` | 추가 | POST/PATCH/GET |
+| `src/app/api/_lib/errors.ts` | 추가 | Zod/LLMError/SyntaxError → HTTP 매핑 |
+| `src/stores/profile.ts` | 추가 | Zustand persist 스토어 |
+| `src/components/{profile-switcher,create-book-dialog,bookshelf,reader,quiz-runner}.tsx` | 추가 | UI 컴포넌트 5종 |
+| `src/app/{page,book/[id]/page,quiz/[bookId]/page}.tsx` | 추가/교체 | 책장·리더·퀴즈 페이지 |
+| `src/app/layout.tsx` | 수정 | 한국어 메타, Sonner Toaster |
+| `package.json` | 수정 | `openai`, `zustand` 등 추가. `db:*` 스크립트 |
+
+#### 결정 사항 (추가)
+6. **shadcn/ui 엔진 Base UI 확인**: 현재 shadcn은 Radix가 아닌 `@base-ui/react` 기반. `asChild` 대신 `render` prop, 또는 `buttonVariants` 클래스 적용 패턴 사용
+7. **레이어 분리 원칙**: GET은 서버 컴포넌트에서 `queries.ts` 직접 호출, 변이(POST/PATCH)는 API 라우트 통과
+8. **Next.js 16 dynamic params는 `Promise<>`** — `await params` 패턴 준수 (모든 `[id]`, `[bookId]` 라우트 반영)
+
+#### 커밋 & 푸시
+- `a14c8f4` · `1ad9aca` · `6db5787` — **3 commits pushed**
+- 원격은 현재 `git@github.com:beyondReal-smap/smap_eng.git` (SSH). 대표님이 remote 조정하신 것으로 추정
+
+#### 검증
+- `tsc --noEmit` 통과 (0 에러)
+- `pnpm dev` → `http://localhost:3000` HTTP 200 · 컴파일 330ms
+- `/api/profiles` 200 / `{"profiles":[]}` 정상
+
+#### 현재 상태
+- ✅ 책장 · 리더 · 퀴즈 UI 동작 가능 상태 (브라우저 열면 바로 테스트 가능)
+- ⏳ **남은 큰 작업**: ① Kokoro TTS Python 서버 구동 + `src/lib/tts/` 프록시 (Task #13) ② FLUX.1-schnell + `src/lib/image/` (Task #14)
+- 📝 **미구현 플로우**: 독서 완료 시 `/api/logs` 호출(진행률·점수 저장) — UI에 훅 추가 필요 (퀴즈 제출 시점)
+- ⚠️ **참고**: 최초 1회 "새 동화 만들기" 클릭 시 OpenAI 호출 10~30초 소요 (reasoning_effort=medium 고정)
