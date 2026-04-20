@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -112,7 +113,11 @@ export function Bookshelf() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {books.map((b) => (
-            <BookCard key={b.id} book={b} />
+            <BookCard
+              key={b.id}
+              book={b}
+              onCoverGenerated={() => setRefreshKey((k) => k + 1)}
+            />
           ))}
         </div>
       )}
@@ -122,7 +127,13 @@ export function Bookshelf() {
 
 /* ---------- Book Card ---------- */
 
-function BookCard({ book }: { book: Book }) {
+function BookCard({
+  book,
+  onCoverGenerated,
+}: {
+  book: Book;
+  onCoverGenerated?: () => void;
+}) {
   const cover = useMemo(() => pickCover(book.id), [book.id]);
   const levelClass =
     book.cefr === 'A1'
@@ -130,6 +141,7 @@ function BookCard({ book }: { book: Book }) {
       : book.cefr === 'A2'
         ? 'level-a2'
         : 'level-b1';
+  const hasCover = Boolean(book.coverImagePath);
 
   return (
     <Link
@@ -140,12 +152,28 @@ function BookCard({ book }: { book: Book }) {
         {/* Cover */}
         <div
           className="relative aspect-[5/3] w-full overflow-hidden"
-          style={{ background: cover.bg }}
-          aria-hidden
+          style={hasCover ? undefined : { background: cover.bg }}
+          aria-hidden={!hasCover}
         >
-          <div className="absolute inset-0 flex items-center justify-center text-7xl drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
-            {cover.emoji}
-          </div>
+          {hasCover ? (
+            <Image
+              src={book.coverImagePath!}
+              alt={book.title}
+              fill
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            />
+          ) : (
+            <>
+              <div className="absolute inset-0 flex items-center justify-center text-7xl drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
+                {cover.emoji}
+              </div>
+              <CoverGenButton
+                bookId={book.id}
+                onGenerated={onCoverGenerated}
+              />
+            </>
+          )}
           <span
             className={`${levelClass} absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-extrabold shadow-sm`}
           >
@@ -175,6 +203,45 @@ function BookCard({ book }: { book: Book }) {
         </div>
       </article>
     </Link>
+  );
+}
+
+function CoverGenButton({
+  bookId,
+  onGenerated,
+}: {
+  bookId: number;
+  onGenerated?: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  async function handle(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (loading) return;
+    setLoading(true);
+    toast.info('🎨 AI가 표지를 그리는 중… (30~60초)');
+    try {
+      await apiFetch(`/api/image/book/${bookId}/cover`, { method: 'POST' });
+      toast.success('표지 완성! ✨');
+      onGenerated?.();
+    } catch (err) {
+      toast.error(`표지 생성 실패: ${(err as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handle}
+      disabled={loading}
+      aria-label="AI로 표지 그리기"
+      className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-background/90 px-3 py-1.5 text-xs font-bold text-foreground shadow-sm backdrop-blur press-scale hover:bg-background disabled:opacity-70"
+    >
+      {loading ? '⏳ 그리는 중…' : '🎨 표지 만들기'}
+    </button>
   );
 }
 

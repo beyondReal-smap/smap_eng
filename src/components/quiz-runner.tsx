@@ -7,6 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { apiFetch } from '@/lib/api-client';
 import type { Book, Quiz } from '@/lib/db/schema';
+import { useProfileStore } from '@/stores/profile';
 
 interface Props {
   book: Book;
@@ -15,12 +16,48 @@ interface Props {
 
 type AnswerMap = Record<number, number>;
 
+/** 퀴즈 제출 시 독서 로그 저장 (best-effort, 실패해도 UX 유지). */
+async function saveReadingLog(
+  profileId: number,
+  bookId: number,
+  quizScore: number,
+) {
+  try {
+    const { log } = await apiFetch<{ log: { id: number } }>('/api/logs', {
+      method: 'POST',
+      body: JSON.stringify({ profileId, bookId }),
+    });
+    await apiFetch('/api/logs', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        id: log.id,
+        progressRatio: 1,
+        quizScore,
+        finishedAtUnix: Math.floor(Date.now() / 1000),
+      }),
+    });
+  } catch (err) {
+    console.warn('[reading-log] save failed:', err);
+  }
+}
+
 export function QuizRunner({ book, initialQuizzes }: Props) {
+  const profileId = useProfileStore((s) => s.currentProfileId);
   const [quizzes, setQuizzes] = useState<Quiz[]>(initialQuizzes);
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [submitted, setSubmitted] = useState(false);
   const [generating, setGenerating] = useState(false);
+
+  function handleSubmit() {
+    const correct = quizzes.filter(
+      (q) => answers[q.id] === q.answerIndex,
+    ).length;
+    setSubmitted(true);
+    if (profileId) {
+      void saveReadingLog(profileId, book.id, correct);
+    }
+  }
 
   useEffect(() => {
     if (initialQuizzes.length > 0) return;
@@ -233,7 +270,7 @@ export function QuizRunner({ book, initialQuizzes }: Props) {
         </Button>
         {isLast ? (
           <Button
-            onClick={() => setSubmitted(true)}
+            onClick={handleSubmit}
             disabled={Object.keys(answers).length < quizzes.length}
             size="lg"
             className="rounded-full press-scale bg-gradient-to-r from-[color:var(--primary)] to-[color:var(--chart-4)] text-primary-foreground shadow-lg"

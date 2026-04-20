@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -19,6 +20,12 @@ interface TtsResponse {
   cached: boolean;
 }
 
+interface SceneResponse {
+  passageId: number;
+  sceneImagePath: string;
+  cached: boolean;
+}
+
 export function Reader({ book, passages }: Props) {
   const [idx, setIdx] = useState(0);
   const [showKo, setShowKo] = useState(false);
@@ -29,7 +36,15 @@ export function Reader({ book, passages }: Props) {
     }
     return initial;
   });
+  const [sceneCache, setSceneCache] = useState<Record<number, string>>(() => {
+    const initial: Record<number, string> = {};
+    for (const p of passages) {
+      if (p.sceneImagePath) initial[p.id] = p.sceneImagePath;
+    }
+    return initial;
+  });
   const [loadingAudio, setLoadingAudio] = useState(false);
+  const [loadingScene, setLoadingScene] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const total = passages.length;
@@ -40,6 +55,7 @@ export function Reader({ book, passages }: Props) {
   );
   const isLast = idx >= total - 1;
   const currentAudio = current ? audioCache[current.id] : undefined;
+  const currentScene = current ? sceneCache[current.id] : undefined;
 
   useEffect(() => {
     audioRef.current?.pause();
@@ -65,6 +81,24 @@ export function Reader({ book, passages }: Props) {
       toast.error(`낭독 준비 실패: ${(err as Error).message}`);
     } finally {
       setLoadingAudio(false);
+    }
+  }
+
+  async function handleDrawScene() {
+    if (!current || loadingScene) return;
+    setLoadingScene(true);
+    toast.info('🖼️ AI가 장면을 그리는 중… (30~60초)');
+    try {
+      const res = await apiFetch<SceneResponse>(
+        `/api/image/passage/${current.id}`,
+        { method: 'POST' },
+      );
+      setSceneCache((prev) => ({ ...prev, [current.id]: res.sceneImagePath }));
+      toast.success('장면 완성! ✨');
+    } catch (err) {
+      toast.error(`장면 생성 실패: ${(err as Error).message}`);
+    } finally {
+      setLoadingScene(false);
     }
   }
 
@@ -149,6 +183,20 @@ export function Reader({ book, passages }: Props) {
           className="pointer-events-none absolute -bottom-16 -left-12 h-40 w-40 rounded-full bg-[color:var(--secondary)] opacity-40 blur-3xl"
         />
         <div className="relative">
+          {currentScene ? (
+            <div className="mb-5 overflow-hidden rounded-2xl border border-border/50 shadow-sm animate-pop-in">
+              <Image
+                src={currentScene}
+                alt={current.textEn}
+                width={1024}
+                height={768}
+                className="aspect-[4/3] w-full object-cover"
+                priority={idx === 0}
+                sizes="(max-width: 640px) 100vw, 640px"
+              />
+            </div>
+          ) : null}
+
           <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
             Passage {idx + 1}
           </span>
@@ -192,6 +240,17 @@ export function Reader({ book, passages }: Props) {
                   ? '🔊 다시 듣기'
                   : '🔊 낭독 듣기'}
             </Button>
+            {!currentScene ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDrawScene}
+                disabled={loadingScene}
+                className="rounded-full press-scale"
+              >
+                {loadingScene ? '⏳ 그리는 중…' : '🖼️ 장면 그리기'}
+              </Button>
+            ) : null}
           </div>
           {currentAudio ? (
             <audio
