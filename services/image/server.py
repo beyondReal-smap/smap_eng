@@ -60,9 +60,11 @@ def image(req: ImageRequest) -> Response:
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
             out_path = tmp.name
 
+        # mflux 0.17.x에서 --base-model schnell 단독 사용 시 VAE download_url이
+        # 레지스트리에 없어 실패한다. --model로 HF 경로를 직접 지정해 우회.
         cmd = [
             str(MFLUX_GENERATE),
-            "--base-model", "schnell",
+            "--model", "black-forest-labs/FLUX.1-schnell",
             "--quantize", "4",
             "--prompt", req.prompt,
             "--width", str(req.width),
