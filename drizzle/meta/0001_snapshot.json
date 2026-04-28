@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "de14d636-e7fe-4a87-8f8b-8f71e9a4a0e4",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "a1b2c3d4-0001-0000-0000-000000000001",
+  "prevId": "de14d636-e7fe-4a87-8f8b-8f71e9a4a0e4",
   "tables": {
     "accounts": {
       "name": "accounts",
@@ -795,6 +795,14 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(now())"
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'user'"
         }
       },
       "indexes": {},
