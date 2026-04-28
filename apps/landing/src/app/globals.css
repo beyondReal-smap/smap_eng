@@ -1,0 +1,674 @@
+/*
+ * 하루책 랜딩 — 스토리북 감성 (아동 친화, 파스텔, AtoZ 손글씨 톤).
+ * 메인 앱(src/app/globals.css)의 warm paper + ink navy 팔레트에 맞춤.
+ *
+ * AtoZ 한글 폰트 9 웨이트.
+ * 파일: apps/landing/public/fonts/AtoZ-{1Thin~9Black}.woff2
+ * CSS font-weight: 1Thin=100 / 2ExtraLight=200 / 3Light=300 / 4Regular=400 /
+ *                  5Medium=500 / 6SemiBold=600 / 7Bold=700 / 8ExtraBold=800 / 9Black=900
+ */
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url('/fonts/AtoZ-1Thin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url('/fonts/AtoZ-2ExtraLight.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('/fonts/AtoZ-3Light.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/AtoZ-4Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/AtoZ-5Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/AtoZ-6SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/AtoZ-7Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/AtoZ-8ExtraBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'AtoZ';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('/fonts/AtoZ-9Black.woff2') format('woff2');
+}
+
+:root {
+  color-scheme: light;
+  --paper: oklch(0.982 0.012 92);
+  --paper-warm: oklch(0.965 0.02 82);
+  --ink: oklch(0.235 0.032 258);
+  --ink-soft: oklch(0.44 0.03 258);
+  --line: oklch(0.55 0.03 258 / 0.22);
+  --gold: oklch(0.82 0.15 84);
+  --gold-deep: oklch(0.68 0.16 62);
+  --sky: oklch(0.84 0.08 235);
+  --sky-deep: oklch(0.62 0.12 238);
+  --mint: oklch(0.88 0.07 160);
+  --peach: oklch(0.88 0.08 42);
+  --rose: oklch(0.86 0.08 18);
+  --lilac: oklch(0.84 0.07 300);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--paper);
+  font-family:
+    'AtoZ',
+    'Apple SD Gothic Neo',
+    'Malgun Gothic',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-size: 17px;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 15% 10%, oklch(0.92 0.05 82 / 0.45), transparent 30rem),
+    radial-gradient(circle at 88% 14%, oklch(0.9 0.06 235 / 0.35), transparent 28rem),
+    radial-gradient(circle at 50% 110%, oklch(0.92 0.06 18 / 0.28), transparent 36rem),
+    var(--paper);
+  color: var(--ink);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 종이 질감: 아주 옅은 점 패턴 */
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(circle, oklch(0.5 0.03 258 / 0.07) 0 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  content: '';
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+.page {
+  width: min(1160px, calc(100% - 36px));
+  margin: 0 auto;
+}
+
+/* ==================== 네비게이션 ==================== */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 1.18rem;
+  letter-spacing: -0.03em;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: 1rem;
+  background: var(--paper-warm);
+  box-shadow:
+    0 2px 0 oklch(0.75 0.03 258 / 0.4),
+    0 10px 22px oklch(0.5 0.08 82 / 0.15);
+  overflow: hidden;
+}
+
+.brand-mark img {
+  width: 1.9rem;
+  height: 1.9rem;
+  object-fit: contain;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.nav-links a {
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+}
+
+.nav-links a:hover {
+  background: oklch(0.95 0.02 258);
+  color: var(--ink);
+}
+
+/* ==================== 버튼 ==================== */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 3.3rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.9rem 1.4rem;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+}
+
+.button-primary {
+  background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+  color: oklch(0.22 0.05 60);
+  box-shadow:
+    0 3px 0 oklch(0.55 0.16 60),
+    0 14px 32px oklch(0.65 0.18 60 / 0.35);
+}
+
+.button-primary:hover {
+  box-shadow:
+    0 3px 0 oklch(0.55 0.16 60),
+    0 20px 40px oklch(0.65 0.18 60 / 0.45);
+}
+
+.button-ghost {
+  border: 2px solid var(--line);
+  background: var(--paper-warm);
+  color: var(--ink);
+  box-shadow: 0 2px 0 oklch(0.7 0.03 258 / 0.3);
+}
+
+.button-ghost:hover {
+  background: oklch(0.97 0.02 82);
+}
+
+/* ==================== 히어로 ==================== */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  align-items: center;
+  min-height: calc(100dvh - 5rem);
+  padding: clamp(2rem, 6vw, 5rem) 0 3.5rem;
+}
+
+.hero-sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: fit-content;
+  border: 2px solid oklch(0.8 0.1 84 / 0.55);
+  border-radius: 999px;
+  background: oklch(0.95 0.06 84 / 0.7);
+  color: oklch(0.42 0.12 60);
+  padding: 0.4rem 0.95rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  transform: rotate(-1.5deg);
+  box-shadow: 0 4px 0 oklch(0.78 0.12 60 / 0.3);
+}
+
+.hero h1 {
+  max-width: 760px;
+  margin: 1.3rem 0 1.2rem;
+  font-size: clamp(2.8rem, 8.5vw, 6.2rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.055em;
+}
+
+.hero h1 .accent-gold {
+  display: inline-block;
+  position: relative;
+  color: oklch(0.52 0.16 62);
+}
+
+.hero h1 .accent-gold::after {
+  position: absolute;
+  left: -0.12em;
+  right: -0.12em;
+  bottom: 0.04em;
+  height: 0.28em;
+  z-index: -1;
+  background: oklch(0.9 0.14 88 / 0.7);
+  border-radius: 999px;
+  content: '';
+  transform: rotate(-1deg);
+}
+
+.hero h1 .accent-sky {
+  color: oklch(0.5 0.13 238);
+}
+
+.hero-copy {
+  max-width: 620px;
+  color: var(--ink-soft);
+  font-size: clamp(1.02rem, 1.5vw, 1.2rem);
+  font-weight: 500;
+  line-height: 1.75;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-top: 2rem;
+}
+
+.hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.hero-tags span {
+  border: 1.5px dashed oklch(0.7 0.04 258 / 0.5);
+  border-radius: 999px;
+  background: oklch(0.98 0.015 82);
+  padding: 0.38rem 0.85rem;
+}
+
+/* ==================== 히어로 일러스트 ==================== */
+.hero-scene {
+  position: relative;
+  aspect-ratio: 1 / 1.05;
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 70% 30%, oklch(0.94 0.07 84 / 0.55), transparent 60%),
+    linear-gradient(165deg, oklch(0.98 0.02 235), oklch(0.95 0.04 82));
+  box-shadow:
+    inset 0 0 0 2px oklch(0.55 0.03 258 / 0.08),
+    0 30px 60px oklch(0.55 0.08 258 / 0.12);
+  overflow: hidden;
+}
+
+.hero-scene svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ==================== 섹션 공통 ==================== */
+.section {
+  padding: clamp(3.5rem, 8vw, 6rem) 0;
+}
+
+.section-head {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 760px;
+  margin: 0 auto 2.6rem;
+  text-align: center;
+}
+
+.section-eyebrow {
+  color: oklch(0.5 0.13 238);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.section h2 {
+  margin: 0;
+  font-size: clamp(1.95rem, 4.2vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+}
+
+.section-head p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.7;
+}
+
+/* ==================== 스텝 (작동 방식) ==================== */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  gap: 0.6rem;
+  border: 2px solid oklch(0.55 0.03 258 / 0.14);
+  border-radius: 1.6rem;
+  background: var(--paper-warm);
+  padding: 1.6rem 1.3rem 1.4rem;
+  box-shadow: 0 4px 0 oklch(0.55 0.03 258 / 0.14);
+  transition: transform 200ms ease;
+}
+
+.step:hover {
+  transform: translateY(-3px);
+}
+
+.step-number {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: var(--gold);
+  color: oklch(0.25 0.06 60);
+  font-size: 1.15rem;
+  font-weight: 800;
+  box-shadow: 0 3px 0 var(--gold-deep);
+}
+
+.step:nth-child(2) .step-number {
+  background: var(--sky);
+  color: oklch(0.25 0.08 238);
+  box-shadow: 0 3px 0 var(--sky-deep);
+}
+
+.step:nth-child(3) .step-number {
+  background: var(--peach);
+  color: oklch(0.28 0.08 40);
+  box-shadow: 0 3px 0 oklch(0.62 0.13 40);
+}
+
+.step:nth-child(4) .step-number {
+  background: var(--mint);
+  color: oklch(0.28 0.07 160);
+  box-shadow: 0 3px 0 oklch(0.58 0.1 160);
+}
+
+.step h3 {
+  margin: 0.35rem 0 0;
+  font-size: 1.22rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.step p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+/* ==================== 책 샘플 ==================== */
+.books {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.3rem;
+}
+
+.book {
+  display: grid;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.book-cover {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 2px oklch(0 0 0 / 0.06),
+    0 18px 38px oklch(0.4 0.06 258 / 0.2);
+  transition: transform 220ms ease;
+}
+
+.book:hover .book-cover {
+  transform: translateY(-4px) rotate(-0.5deg);
+}
+
+.book-cover svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.book-meta {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0 0.1rem;
+}
+
+.book-meta strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.book-meta span {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+/* ==================== 기능 카드 ==================== */
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+}
+
+.feature {
+  display: grid;
+  gap: 0.9rem;
+  border: 2px solid oklch(0.55 0.03 258 / 0.14);
+  border-radius: 1.8rem;
+  background: var(--paper-warm);
+  padding: 1.8rem 1.5rem 1.6rem;
+  box-shadow: 0 4px 0 oklch(0.55 0.03 258 / 0.14);
+}
+
+.feature-icon {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 1.1rem;
+  background: oklch(0.94 0.07 84 / 0.7);
+}
+
+.feature:nth-child(2) .feature-icon {
+  background: oklch(0.92 0.06 235 / 0.65);
+}
+
+.feature:nth-child(3) .feature-icon {
+  background: oklch(0.92 0.07 160 / 0.7);
+}
+
+.feature-icon svg {
+  width: 1.95rem;
+  height: 1.95rem;
+}
+
+.feature h3 {
+  margin: 0;
+  font-size: 1.32rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.feature p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.65;
+}
+
+/* ==================== 최종 CTA ==================== */
+.final {
+  margin: clamp(3rem, 6vw, 5rem) auto 4rem;
+  border: 2px solid oklch(0.8 0.1 84 / 0.4);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 18% 20%, oklch(0.92 0.08 84 / 0.6), transparent 22rem),
+    radial-gradient(circle at 82% 80%, oklch(0.9 0.06 235 / 0.5), transparent 20rem),
+    var(--paper-warm);
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.4rem, 5vw, 3rem);
+  text-align: center;
+  box-shadow: 0 4px 0 oklch(0.8 0.1 60 / 0.3);
+}
+
+.final h2 {
+  max-width: 780px;
+  margin: 0 auto 1rem;
+  font-size: clamp(1.9rem, 4.5vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+}
+
+.final p {
+  max-width: 560px;
+  margin: 0 auto 1.8rem;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+/* ==================== 푸터 ==================== */
+.footer {
+  padding: 2rem 0 3rem;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* ==================== 반응형 ==================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .hero-scene {
+    max-width: 520px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .books,
+  .features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav-links a:not(.button) {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  html {
+    font-size: 16px;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.6rem, 12vw, 4rem);
+  }
+
+  .steps,
+  .books,
+  .features {
+    grid-template-columns: 1fr;
+  }
+}

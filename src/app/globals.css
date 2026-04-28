@@ -2,12 +2,87 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+/* 다크 모드 제거(2026-04-24) — 랜딩과의 톤 일관성을 위해 light 고정.
+   `@custom-variant dark`를 정의하지 않으면 Tailwind v4에서 `dark:` 접두사는
+   no-op이 되어 기존 다크 전용 유틸이 자동으로 무력화된다. */
 
 /* ------------------------------------------------------------------
-   A2Z (에이투지체) — 오토노머스에이투지 X 이주임, 상업용 무료
+   AtoZ — 랜딩과 동일한 손글씨 폰트(로컬 woff2).
+   랜딩(apps/landing)과 메인 앱이 동일한 타이포그래피를 쓰도록 통일.
+   파일: public/fonts/AtoZ-{1Thin~9Black}.woff2 (9 웨이트)
+   가중치 매핑: 1Thin=100 / 2ExtraLight=200 / 3Light=300 / 4Regular=400 /
+                5Medium=500 / 6SemiBold=600 / 7Bold=700 / 8ExtraBold=800 / 9Black=900
+   네트워크 장애 대비 fallback으로 하단 A2Z CDN(projectnoonnu) 선언을 유지.
+   ------------------------------------------------------------------ */
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 100;
+  font-display: swap;
+  src: url("/fonts/AtoZ-1Thin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 200;
+  font-display: swap;
+  src: url("/fonts/AtoZ-2ExtraLight.woff2") format("woff2");
+}
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/AtoZ-3Light.woff2") format("woff2");
+}
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/AtoZ-4Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/AtoZ-5Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/AtoZ-6SemiBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/AtoZ-7Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/AtoZ-8ExtraBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "AtoZ";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("/fonts/AtoZ-9Black.woff2") format("woff2");
+}
+
+/* ------------------------------------------------------------------
+   A2Z (에이투지체) — 오토노머스에이투지 X 이주임, 상업용 무료.
    출처: https://noonnu.cc/font_page/1778
    CDN : https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/
+   역할: 로컬 AtoZ 로드 실패 시 fallback. font-family list에 AtoZ 다음 배치.
    ------------------------------------------------------------------ */
 @font-face {
   font-family: "A2Z";
@@ -85,10 +160,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "A2Z", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-sans: "AtoZ", "A2Z", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-geist-mono);
-  --font-heading: "A2Z", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "AtoZ", "A2Z", ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -132,107 +207,78 @@
   --color-level-a2-fg: var(--level-a2-fg);
   --color-level-b1: var(--level-b1);
   --color-level-b1-fg: var(--level-b1-fg);
+  --color-level-b2: var(--level-b2);
+  --color-level-b2-fg: var(--level-b2-fg);
 }
 
 /* ------------------------------------------------------------------
-   라이트 모드 — 크림/코랄/민트 웜 파스텔
+   라이트 모드 — 따뜻한 종이(warm paper) + story gold + off-blue ink
+   (Codex 토론 Round 2/3에서 확정된 역할 기반 팔레트.
+    기존 코랄/민트/라벤더 삼원색은 "AI 생성 티"가 강하다는 판단으로 교체.)
    ------------------------------------------------------------------ */
 :root {
-  --background: oklch(0.985 0.015 82);          /* 크림 */
-  --foreground: oklch(0.22 0.03 275);           /* 네이비 잉크 */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.03 275);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.03 275);
-  --primary: oklch(0.72 0.18 22);               /* 코랄 */
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.04 75);             /* 피치 */
-  --secondary-foreground: oklch(0.35 0.09 30);
-  --muted: oklch(0.96 0.015 82);
-  --muted-foreground: oklch(0.52 0.03 275);
-  --accent: oklch(0.85 0.13 175);               /* 민트 */
-  --accent-foreground: oklch(0.25 0.07 180);
-  --destructive: oklch(0.63 0.22 27);
-  --border: oklch(0.9 0.02 60);
-  --input: oklch(0.93 0.02 60);
-  --ring: oklch(0.72 0.18 22);
-  --chart-1: oklch(0.72 0.18 22);               /* 코랄 */
-  --chart-2: oklch(0.78 0.14 175);              /* 민트 */
-  --chart-3: oklch(0.78 0.15 95);               /* 라임 */
-  --chart-4: oklch(0.72 0.16 300);              /* 라벤더 */
-  --chart-5: oklch(0.78 0.15 55);               /* 머스터드 */
-  --radius: 1rem;
-  --sidebar: oklch(0.99 0.01 82);
-  --sidebar-foreground: oklch(0.22 0.03 275);
-  --sidebar-primary: oklch(0.72 0.18 22);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.04 75);
-  --sidebar-accent-foreground: oklch(0.35 0.09 30);
-  --sidebar-border: oklch(0.9 0.02 60);
-  --sidebar-ring: oklch(0.72 0.18 22);
+  --background: oklch(0.982 0.012 92);          /* warm paper */
+  --foreground: oklch(0.235 0.032 258);         /* ink navy */
+  --card: oklch(0.997 0.004 95);
+  --card-foreground: oklch(0.235 0.032 258);
+  --popover: oklch(0.997 0.004 95);
+  --popover-foreground: oklch(0.235 0.032 258);
+  --primary: oklch(0.74 0.13 82);               /* story gold (주요 행동) */
+  --primary-foreground: oklch(0.21 0.035 258);
+  --secondary: oklch(0.93 0.025 92);            /* paper shade */
+  --secondary-foreground: oklch(0.30 0.04 258);
+  --muted: oklch(0.94 0.012 92);
+  --muted-foreground: oklch(0.48 0.025 258);
+  --accent: oklch(0.62 0.095 205);              /* off-blue ink (보조 행동) */
+  --accent-foreground: oklch(0.98 0.01 95);
+  --destructive: oklch(0.60 0.22 27);
+  /* 영역별 경계가 뚜렷하게 보이도록 라이트 border를 한 단계 짙게 조정.
+     카드·툴바·헤딩 패널 등 분할 요소가 실제로 "떠 보이게" 하기 위함. */
+  --border: oklch(0.82 0.018 92);
+  --input: oklch(0.86 0.02 92);
+  --ring: oklch(0.74 0.13 82);
+  --chart-1: oklch(0.74 0.13 82);               /* gold */
+  --chart-2: oklch(0.62 0.095 205);             /* off-blue */
+  --chart-3: oklch(0.68 0.15 145);              /* success green */
+  --chart-4: oklch(0.80 0.14 75);               /* warning amber */
+  --chart-5: oklch(0.58 0.10 252);              /* info blue */
+  --radius: 0.75rem;
+  --sidebar: oklch(0.986 0.010 92);
+  --sidebar-foreground: oklch(0.235 0.032 258);
+  --sidebar-primary: oklch(0.74 0.13 82);
+  --sidebar-primary-foreground: oklch(0.21 0.035 258);
+  --sidebar-accent: oklch(0.93 0.025 92);
+  --sidebar-accent-foreground: oklch(0.30 0.04 258);
+  --sidebar-border: oklch(0.87 0.015 92);
+  --sidebar-ring: oklch(0.74 0.13 82);
 
-  /* 레벨 배지 컬러 */
-  --level-a1: oklch(0.9 0.12 150);              /* soft green */
-  --level-a1-fg: oklch(0.32 0.12 150);
-  --level-a2: oklch(0.92 0.13 80);              /* warm amber */
-  --level-a2-fg: oklch(0.38 0.12 60);
-  --level-b1: oklch(0.88 0.13 25);              /* coral */
-  --level-b1-fg: oklch(0.38 0.15 25);
+  /* 레벨 배지 — hue 중복 해소(A2 82→220 blue) + 이중 인코딩 전제 */
+  --level-a1: oklch(0.90 0.10 145);             /* green  · 1 dot */
+  --level-a1-fg: oklch(0.30 0.11 145);
+  --level-a2: oklch(0.88 0.08 220);             /* blue   · 2 dots */
+  --level-a2-fg: oklch(0.32 0.10 220);
+  --level-b1: oklch(0.88 0.10 25);              /* coral  · 3 dots */
+  --level-b1-fg: oklch(0.36 0.13 25);
+  --level-b2: oklch(0.84 0.10 300);             /* violet · ◆ mark */
+  --level-b2-fg: oklch(0.32 0.14 300);
 
-  /* 배경 그라디언트 */
-  --bg-grad:
-    radial-gradient(1200px 600px at 10% -10%, oklch(0.95 0.07 25 / 0.55), transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, oklch(0.92 0.09 175 / 0.45), transparent 60%),
-    radial-gradient(700px 400px at 50% 110%, oklch(0.94 0.09 85 / 0.4), transparent 60%);
-}
-
-/* ------------------------------------------------------------------
-   다크 모드 — 딥 네이비 + 부드러운 파스텔 악센트
-   ------------------------------------------------------------------ */
-.dark {
-  --background: oklch(0.2 0.04 275);
-  --foreground: oklch(0.96 0.02 80);
-  --card: oklch(0.27 0.05 275);
-  --card-foreground: oklch(0.96 0.02 80);
-  --popover: oklch(0.27 0.05 275);
-  --popover-foreground: oklch(0.96 0.02 80);
-  --primary: oklch(0.78 0.17 28);
-  --primary-foreground: oklch(0.2 0.04 275);
-  --secondary: oklch(0.33 0.06 275);
-  --secondary-foreground: oklch(0.96 0.02 80);
-  --muted: oklch(0.3 0.04 275);
-  --muted-foreground: oklch(0.77 0.03 80);
-  --accent: oklch(0.5 0.12 175);
-  --accent-foreground: oklch(0.97 0.02 175);
-  --destructive: oklch(0.7 0.2 25);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.78 0.17 28);
-  --chart-1: oklch(0.78 0.17 28);
-  --chart-2: oklch(0.78 0.15 175);
-  --chart-3: oklch(0.82 0.14 95);
-  --chart-4: oklch(0.75 0.15 300);
-  --chart-5: oklch(0.8 0.14 55);
-  --sidebar: oklch(0.25 0.05 275);
-  --sidebar-foreground: oklch(0.96 0.02 80);
-  --sidebar-primary: oklch(0.78 0.17 28);
-  --sidebar-primary-foreground: oklch(0.2 0.04 275);
-  --sidebar-accent: oklch(0.33 0.06 275);
-  --sidebar-accent-foreground: oklch(0.96 0.02 80);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.78 0.17 28);
-
-  --level-a1: oklch(0.38 0.11 150);
-  --level-a1-fg: oklch(0.94 0.1 150);
-  --level-a2: oklch(0.4 0.12 70);
-  --level-a2-fg: oklch(0.96 0.1 80);
-  --level-b1: oklch(0.42 0.15 25);
-  --level-b1-fg: oklch(0.96 0.09 25);
-
-  --bg-grad:
-    radial-gradient(1200px 600px at 10% -10%, oklch(0.4 0.12 28 / 0.35), transparent 60%),
-    radial-gradient(900px 500px at 110% 10%, oklch(0.35 0.1 200 / 0.35), transparent 60%),
-    radial-gradient(700px 400px at 50% 110%, oklch(0.35 0.1 85 / 0.25), transparent 60%);
+  /* ----------------------------------------------------------------
+     랜딩(구 apps/landing) 통합 토큰 — `.landing-scope` 자손에서만 사용.
+     기존 background/foreground와 매핑되는 paper/ink는 동의어로 둔다.
+     ---------------------------------------------------------------- */
+  --paper: oklch(0.982 0.012 92);
+  --paper-warm: oklch(0.965 0.02 82);
+  --ink: oklch(0.235 0.032 258);
+  --ink-soft: oklch(0.44 0.03 258);
+  --line: oklch(0.55 0.03 258 / 0.22);
+  --gold: oklch(0.82 0.15 84);
+  --gold-deep: oklch(0.68 0.16 62);
+  --sky: oklch(0.84 0.08 235);
+  --sky-deep: oklch(0.62 0.12 238);
+  --mint: oklch(0.88 0.07 160);
+  --peach: oklch(0.88 0.08 42);
+  --rose: oklch(0.86 0.08 18);
+  --lilac: oklch(0.84 0.07 300);
 }
 
 /* ------------------------------------------------------------------
@@ -243,24 +289,66 @@
     @apply border-border outline-ring/50;
   }
   html {
+    /* 랜딩(apps/landing)과 동일한 17px.
+       다크모드 제거(2026-04-24)에 맞춰 color-scheme도 light로 고정. */
+    color-scheme: light;
+    font-size: 17px;
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv01", "cv11", "palt";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    /* PC에서 페이지 전환 시 콘텐츠 높이 차이로 세로 스크롤바가 나타났다 사라지면
+       viewport 너비가 ~15px씩 변하고, sticky 헤더의 brand 위치가 좌우로 떨려
+       보이던 회귀(2026-04-27 피드백). 스크롤바 영역을 항상 예약해 viewport 너비를
+       고정한다. 모바일은 overlay scrollbar라 무영향. */
+    scrollbar-gutter: stable;
   }
   body {
     @apply bg-background text-foreground;
-    background-image: var(--bg-grad);
-    background-attachment: fixed;
+    /* 랜딩과 픽셀 단위 동일한 3겹 radial + 종이 점 패턴(::before).
+       이전에는 ellipse + SVG noise였으나, 랜딩→앱 전환 시 오브 위치·알파가
+       어긋나 보여서 "다른 페이지" 느낌을 줬다. circle+30rem transparent로
+       통일. */
+    background:
+      radial-gradient(circle at 15% 10%, oklch(0.92 0.05 82 / 0.45), transparent 30rem),
+      radial-gradient(circle at 88% 14%, oklch(0.9 0.06 235 / 0.35), transparent 28rem),
+      radial-gradient(circle at 50% 110%, oklch(0.92 0.06 18 / 0.28), transparent 36rem),
+      var(--background);
     min-height: 100dvh;
+    /* 한글 음절 단위 끊김 방지.
+       - keep-all: 한국어·CJK 단어가 음절 경계에서 줄바꿈되지 않게 (예: "이야기"가
+         줄 끝에서 "이야/기"로 쪼개지는 현상 차단).
+       - overflow-wrap: break-word로 너무 긴 영어 단어/URL은 넘칠 때만 끊도록 허용.
+       후손 요소에 자동 상속되므로 전역 1회 설정으로 충분. */
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
+  /* 종이 결 점 패턴(22px dot grid) — 랜딩과 동일.
+     fixed + z-index:-1 로 깔아 전체 화면을 채우지만 포인터 이벤트는 통과. */
+  body::before {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    content: "";
+    background-image:
+      radial-gradient(circle, oklch(0.5 0.03 258 / 0.07) 0 1px, transparent 1.4px);
+    background-size: 22px 22px;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  /* 헤딩 — 랜딩(apps/landing)과 동일한 스토리북 타이포 위계.
+     font-weight 900 + 타이트한 letter-spacing으로 손글씨감 강조.
+     개별 컴포넌트가 더 약한 weight(font-extrabold 등)을 tw 유틸로 덮으면
+     그 값이 우선 적용되므로 기존 UI 강도 변화는 최소. */
   h1,
   h2,
   h3,
   h4 {
     font-family: var(--font-heading);
-    letter-spacing: -0.01em;
+    font-weight: 800;
+    letter-spacing: -0.028em;
   }
   ::selection {
     background: color-mix(in oklch, var(--primary) 40%, transparent);
@@ -269,17 +357,11 @@
 }
 
 /* ------------------------------------------------------------------
-   모션 키프레임 — 부드러운 스프링/플로트/위글
+   모션 키프레임 — 의도 모션만 유지 (장식 모션 제거 2026-04-26)
+   pop-in/fade-up/bounce-in/shake-no/slide-{right,left}/confetti-fall/
+   shine/trophy-spin 9종. 사용 0건이던 float-soft/wiggle/pulse-ring/
+   scale-breathe/glow-soft 5종 제거.
    ------------------------------------------------------------------ */
-@keyframes float-soft {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50%      { transform: translateY(-6px) rotate(-1.5deg); }
-}
-@keyframes wiggle {
-  0%, 100% { transform: rotate(0deg); }
-  25%      { transform: rotate(-3deg); }
-  75%      { transform: rotate(3deg); }
-}
 @keyframes pop-in {
   0%   { opacity: 0; transform: scale(0.9) translateY(8px); }
   60%  { opacity: 1; transform: scale(1.03) translateY(-2px); }
@@ -293,19 +375,70 @@
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-@keyframes pulse-ring {
-  0%   { box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 55%, transparent); }
-  70%  { box-shadow: 0 0 0 12px color-mix(in oklch, var(--primary) 0%, transparent); }
-  100% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 0%, transparent); }
+@keyframes bounce-in {
+  0%   { opacity: 0; transform: scale(0.6); }
+  55%  { opacity: 1; transform: scale(1.08); }
+  80%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+@keyframes shake-no {
+  0%, 100% { transform: translateX(0); }
+  15%      { transform: translateX(-6px); }
+  30%      { transform: translateX(6px); }
+  45%      { transform: translateX(-4px); }
+  60%      { transform: translateX(4px); }
+  80%      { transform: translateX(-2px); }
+}
+@keyframes trophy-spin {
+  0%   { transform: rotate(0) scale(1); }
+  30%  { transform: rotate(-12deg) scale(1.15); }
+  60%  { transform: rotate(12deg) scale(1.15); }
+  100% { transform: rotate(0) scale(1); }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes confetti-fall {
+  0%   { opacity: 0; transform: translate3d(0, -20px, 0) rotate(0deg); }
+  10%  { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--x, 40px), 480px, 0) rotate(var(--r, 720deg)); }
+}
+
+/* AppSplash 전용 — 차분 톤(2026-04-26).
+ * 점프/점프-스케일 모션은 layout.tsx의 <ViewTransition> fade+slide와 겹치면
+ * 화면이 "움찔"거리는 인상을 준다는 피드백이 있어 정적 호흡 + opacity-only 펄스로 변경.
+ */
+@keyframes splash-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.02); }
+}
+
+/*
+ * 점 3개 stagger 펄스 — translateY/scale 제거, opacity만 변화시켜 "튀는" 인상을 없앤다.
+ * 1500ms 주기에서 각 점은 처음 ~33% 구간에 한 번 밝아졌다 어두워지고 나머지는 dim 유지.
+ */
+@keyframes splash-dot {
+  0%, 33%, 100% { opacity: 0.3; }
+  16.5%         { opacity: 1; }
 }
 
 @layer utilities {
-  .animate-float-soft { animation: float-soft 5s ease-in-out infinite; }
-  .animate-wiggle-slow { animation: wiggle 2.4s ease-in-out infinite; }
   .animate-pop-in { animation: pop-in 420ms cubic-bezier(.34,1.56,.64,1) both; }
   .animate-fade-up { animation: fade-up 420ms cubic-bezier(.22,1,.36,1) both; }
-  .animate-pulse-ring { animation: pulse-ring 1.6s ease-out infinite; }
-  /* 지연 유틸: 카드 stagger 진입 */
+  .animate-bounce-in { animation: bounce-in 380ms cubic-bezier(.34,1.56,.64,1) both; }
+  .animate-shake-no { animation: shake-no 480ms cubic-bezier(.36,.07,.19,.97) both; }
+  .animate-trophy { animation: trophy-spin 900ms cubic-bezier(.34,1.56,.64,1) both; }
+  .animate-slide-in-right { animation: slide-in-right 360ms cubic-bezier(.22,1,.36,1) both; }
+  .animate-slide-in-left { animation: slide-in-left 360ms cubic-bezier(.22,1,.36,1) both; }
+  .animate-splash-breathe { animation: splash-breathe 1800ms ease-in-out infinite; }
+  .animate-splash-dot { animation: splash-dot 1500ms ease-in-out infinite; }
+
+  /* 지연 유틸: 카드 stagger 진입 (최대 20개) */
   .stagger-item { animation: fade-up 420ms cubic-bezier(.22,1,.36,1) both; }
   .stagger-item:nth-child(1)  { animation-delay:  40ms; }
   .stagger-item:nth-child(2)  { animation-delay:  90ms; }
@@ -316,6 +449,17 @@
   .stagger-item:nth-child(7)  { animation-delay: 340ms; }
   .stagger-item:nth-child(8)  { animation-delay: 390ms; }
   .stagger-item:nth-child(9)  { animation-delay: 440ms; }
+  .stagger-item:nth-child(10) { animation-delay: 490ms; }
+  .stagger-item:nth-child(11) { animation-delay: 540ms; }
+  .stagger-item:nth-child(12) { animation-delay: 580ms; }
+  .stagger-item:nth-child(13) { animation-delay: 620ms; }
+  .stagger-item:nth-child(14) { animation-delay: 660ms; }
+  .stagger-item:nth-child(15) { animation-delay: 700ms; }
+  .stagger-item:nth-child(16) { animation-delay: 740ms; }
+  .stagger-item:nth-child(17) { animation-delay: 780ms; }
+  .stagger-item:nth-child(18) { animation-delay: 820ms; }
+  .stagger-item:nth-child(19) { animation-delay: 860ms; }
+  .stagger-item:nth-child(20) { animation-delay: 900ms; }
 
   /* 카드 hover lift */
   .press-scale {
@@ -325,17 +469,80 @@
   .press-scale:hover { transform: translateY(-3px) scale(1.01); }
   .press-scale:active { transform: translateY(0) scale(0.985); }
 
-  /* 글래스 카드 */
-  .glass-card {
-    background: color-mix(in oklch, var(--card) 82%, transparent);
-    backdrop-filter: saturate(140%) blur(10px);
-    -webkit-backdrop-filter: saturate(140%) blur(10px);
+  /* 카드 3D 틸트 (마우스 추적은 JS에서 CSS var로 전달) */
+  .tilt-3d {
+    transition: transform 220ms cubic-bezier(.22,1,.36,1), box-shadow 220ms ease;
+    transform-style: preserve-3d;
+    transform: perspective(800px)
+               rotateX(var(--tilt-x, 0deg))
+               rotateY(var(--tilt-y, 0deg))
+               translateY(var(--tilt-z, 0px));
   }
 
-  /* 레벨 뱃지 */
+  /* glass-card 유틸은 사용처 전부 제거됨(Round 1~3 합의).
+     상단 SiteHeader의 반투명 효과는 bg-background/85 + backdrop-blur-md로 인라인 처리. */
+
+  /* 책장 화면 헤더 컨트롤 — 랜딩 헤더 CTA와 높이/캡슐 형태를 맞춘다.
+     프로필·계정 버튼 컴포넌트의 내부 h-9 기본값은 유지하되, 헤더 안에서만
+     3.3rem 높이를 강제해 랜딩 → 앱 진입 시 헤더 모양이 달라 보이지 않게 한다. */
+  .app-header-controls > button,
+  .app-header-controls > a,
+  .app-header-controls > div {
+    min-height: 3.3rem;
+    border-radius: 999px;
+  }
+
+  .app-header-controls > button,
+  .app-header-controls > a {
+    gap: 0.7rem;
+    padding-inline: 0.9rem;
+  }
+
+  .app-header-controls .h-7.w-7 {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  @media (max-width: 640px) {
+    .app-header-controls > button,
+    .app-header-controls > a,
+    .app-header-controls > div {
+      min-height: 2.9rem;
+    }
+
+    .app-header-controls > button,
+    .app-header-controls > a {
+      padding-inline: 0.75rem;
+    }
+
+    .app-header-controls .h-7.w-7 {
+      width: 2rem;
+      height: 2rem;
+    }
+  }
+
+  /* 레벨 뱃지 — 색만으로 구분하지 않고 dot/mark를 겹쳐 이중 인코딩.
+     색맹 대응 + 동일 화면에 여러 레벨이 뜰 때 혼동 방지. */
   .level-a1 { background: var(--level-a1); color: var(--level-a1-fg); }
   .level-a2 { background: var(--level-a2); color: var(--level-a2-fg); }
   .level-b1 { background: var(--level-b1); color: var(--level-b1-fg); }
+  .level-b2 { background: var(--level-b2); color: var(--level-b2-fg); }
+
+  /* 레벨 배지 내부에 <span class="level-dots" data-level="A1/A2/B1/B2">
+     를 두면 레벨별 모양(● · ●● · ●●● · ◆)이 자동 표시된다. */
+  .level-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: 4px;
+    font-size: 0.65em;
+    line-height: 1;
+    opacity: 0.9;
+  }
+  .level-dots[data-level="A1"]::before { content: "●"; }
+  .level-dots[data-level="A2"]::before { content: "●●"; letter-spacing: 1px; }
+  .level-dots[data-level="B1"]::before { content: "●●●"; letter-spacing: 1px; }
+  .level-dots[data-level="B2"]::before { content: "◆"; }
 
   /* 쉬머 로더 */
   .shimmer {
@@ -348,9 +555,41 @@
     background-size: 200% 100%;
     animation: shine 1.6s linear infinite;
   }
+
+  /* 스티커 스타일 — 랜딩(apps/landing)의 2D offset shadow 감성을 메인 앱 전역에
+     공통 유틸로 제공. Tailwind의 shadow-*와 병행 사용 가능하며, 카드·버튼·배지 등
+     "눌리는 느낌"을 주고 싶은 모든 요소에 부착 가능.
+       .sticker-shadow      — 기본(h=3px).  버튼·배지·small 카드.
+       .sticker-shadow-lg   — 강조(h=4~5px). 주요 카드·패널.
+     색은 현재 foreground(잉크 네이비)를 alpha로 희석. 다크 모드에서도 자연스럽게
+     밝기 대비를 유지한다. */
+  .sticker-shadow {
+    box-shadow: 0 3px 0 0 color-mix(in oklch, var(--foreground) 14%, transparent);
+  }
+  .sticker-shadow-lg {
+    box-shadow: 0 5px 0 0 color-mix(in oklch, var(--foreground) 16%, transparent);
+  }
+  .sticker-shadow-primary {
+    box-shadow: 0 3px 0 0 color-mix(in oklch, var(--primary) 70%, var(--foreground) 30%);
+  }
+
+  /* Confetti 파티클 (CSS 전용, 외부 라이브러리 없음) */
+  .confetti-piece {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 10px;
+    height: 14px;
+    border-radius: 2px;
+    pointer-events: none;
+    animation: confetti-fall 1600ms cubic-bezier(.2,.7,.3,1) forwards;
+    will-change: transform, opacity;
+  }
 }
 
-/* 접근성 — 모션 감소 요청 시 모든 장식 애니메이션 정지 */
+/* 접근성 — 모션 감소 요청 시:
+   장식 모션은 완전 정지, 의미 모션(bounce/shake/confetti)도 축소/비활성.
+   Codex Round 3 지적(F2) 반영: "의미 모션이라도 민감 사용자에게 부담 가능." */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -359,5 +598,781 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0ms !important;
     scroll-behavior: auto !important;
+  }
+  .animate-bounce-in,
+  .animate-shake-no,
+  .animate-trophy,
+  .animate-slide-in-right,
+  .animate-slide-in-left,
+  .confetti-piece,
+  .shimmer {
+    animation: none !important;
+  }
+}
+
+/* shadcn/base-ui Progress 호환 보정.
+   현재 Progress 컴포넌트는 className을 Root에 붙이므로 h-* 지정이 실제 Track 높이에
+   반영되지 않는다. progress.tsx 파일 권한이 nobody 소유라 직접 수정이 불가해,
+   data-slot 기반으로 기존 호출부 API를 유지한다. */
+[data-slot="progress"].h-1 [data-slot="progress-track"] {
+  height: 0.25rem;
+}
+[data-slot="progress"].h-1\.5 [data-slot="progress-track"] {
+  height: 0.375rem;
+}
+[data-slot="progress"].h-2 [data-slot="progress-track"] {
+  height: 0.5rem;
+}
+[data-slot="progress"].h-2\.5 [data-slot="progress-track"] {
+  height: 0.625rem;
+}
+[data-slot="progress-indicator"] {
+  transition-property: width;
+}
+
+/* ====================================================================
+   랜딩(구 apps/landing) — `.landing-scope` 자손 격리.
+   원본: apps/landing/src/app/globals.css. html/body/body::before/font-face
+   블록은 메인 globals와 중복(또는 Tailwind preflight 처리)이라 제외.
+   ==================================================================== */
+.landing-scope a {
+  color: inherit;
+  text-decoration: none;
+}
+.landing-scope button {
+  font-family: inherit;
+}
+
+.landing-scope .page {
+  width: min(1160px, calc(100% - 36px));
+  margin: 0 auto;
+}
+
+/* ==================== 네비게이션 ==================== */
+.landing-scope .nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 0;
+}
+
+.landing-scope .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 1.18rem;
+  letter-spacing: -0.03em;
+  /* apps/landing(별도 Next.js 앱)은 Tailwind 미사용이라 html line-height가
+     브라우저 기본 `normal`(≈1.2)인데, smap_eng는 Tailwind preflight로 1.5가
+     상속되어 .brand 텍스트 박스가 24px → 30px로 더 커지는 차이가 있었다
+     (eng.smap.site/ → /login 이동 시 "더 커진다" 피드백, 2026-04-26).
+     랜딩과 픽셀 단위로 맞추기 위해 명시적으로 normal을 강제. */
+  line-height: normal;
+}
+
+.landing-scope .brand-mark {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: 1rem;
+  background: var(--paper-warm);
+  box-shadow:
+    0 2px 0 oklch(0.75 0.03 258 / 0.4),
+    0 10px 22px oklch(0.5 0.08 82 / 0.15);
+  overflow: hidden;
+}
+
+.landing-scope .brand-mark img {
+  width: 1.9rem;
+  height: 1.9rem;
+  object-fit: contain;
+}
+
+.landing-scope .nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.landing-scope .nav-links a {
+  border-radius: 999px;
+  padding: 0.55rem 0.9rem;
+}
+
+.landing-scope .nav-links a:hover {
+  background: oklch(0.95 0.02 258);
+  color: var(--ink);
+}
+
+/* ==================== 버튼 ====================
+   Tailwind preflight가 button의 padding/border/font-size를 0/none으로
+   reset하므로, .landing-scope .button은 모든 박스 속성을 명시한다. */
+.landing-scope .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 3.3rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.9rem 1.4rem;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 1.02rem;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.landing-scope .button:hover {
+  transform: translateY(-2px);
+}
+
+.landing-scope .button-primary {
+  background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+  color: oklch(0.22 0.05 60);
+  box-shadow:
+    0 3px 0 oklch(0.55 0.16 60),
+    0 14px 32px oklch(0.65 0.18 60 / 0.35);
+}
+
+.landing-scope .button-primary:hover {
+  box-shadow:
+    0 3px 0 oklch(0.55 0.16 60),
+    0 20px 40px oklch(0.65 0.18 60 / 0.45);
+}
+
+.landing-scope .button-ghost {
+  border: 2px solid var(--line);
+  background: var(--paper-warm);
+  color: var(--ink);
+  box-shadow: 0 2px 0 oklch(0.7 0.03 258 / 0.3);
+}
+
+.landing-scope .button-ghost:hover {
+  background: oklch(0.97 0.02 82);
+}
+
+/* ==================== 앱 헤더 통합 토큰 ====================
+   배경: 책장/학습 페이지 헤더는 콘텐츠가 길어 sticky가 UX 가치를 가진다.
+   랜딩/로그인은 사용 안 함. AuthHeader와 동일한 `.page.nav` 마크업을 공유하면서
+   sticky+blur만 옵션화하기 위해 wrapper modifier로 분리.
+
+   2026-04-26: AccountMenu/ProfileSwitcher/MobileMenu의 Tailwind UI 트리거가
+   랜딩의 .button-primary pill과 디자인 언어가 충돌(36px 컴팩트 vs 56px sticker)
+   했다. 헤더 우측을 같은 시스템에 묶기 위한 컴팩트 pill 토큰을 도입. */
+.landing-scope.app-header-shell {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: oklch(from var(--paper) l c h / 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding-top: env(safe-area-inset-top);
+}
+
+/* ProfileSwitcher / AccountMenu(로그인 시) — 둥근 풀 pill.
+   brand-mark와 같은 2.6rem 높이로 좌우 대칭을 맞춘다. */
+.landing-scope .nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.6rem;
+  padding: 0 0.85rem 0 0.4rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+  box-shadow: 0 2px 0 oklch(0.7 0.03 258 / 0.3);
+}
+
+.landing-scope .nav-pill:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: oklch(0.97 0.02 82);
+  box-shadow:
+    0 3px 0 oklch(0.7 0.03 258 / 0.35),
+    0 8px 18px oklch(0.5 0.05 258 / 0.08);
+}
+
+.landing-scope .nav-pill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.landing-scope .nav-pill .nav-pill-chev {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--ink-soft);
+  margin-left: 0.05rem;
+}
+
+/* MobileMenu 햄버거 등 단일 아이콘 트리거. */
+.landing-scope .nav-icon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+  box-shadow: 0 2px 0 oklch(0.7 0.03 258 / 0.3);
+}
+
+.landing-scope .nav-icon:hover {
+  transform: translateY(-1px);
+  background: oklch(0.97 0.02 82);
+}
+
+/* AccountMenu 비로그인 CTA — .button-ghost를 헤더 사이즈로 축소. */
+.landing-scope .button.nav-cta {
+  min-height: 2.6rem;
+  padding: 0.45rem 1.05rem;
+  font-size: 0.92rem;
+}
+
+/* nav-links 안에 들어온 button(트리거) 텍스트 폰트가 나머지 a 룰과 일관되도록 보강.
+   Tailwind preflight가 button 폰트를 reset하지만 .button/.nav-pill에서 명시한다. */
+.landing-scope .nav-links button {
+  font-family: inherit;
+}
+
+/* ==================== 히어로 ==================== */
+.landing-scope .hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: clamp(2rem, 5vw, 4.5rem);
+  /* 2026-04-26: hero-sticker가 헤더에서 너무 떨어져 보이는 문제로
+     center 정렬을 start로 전환. min-height는 유지해 시각적 높이감은 보존하되
+     상단 패딩을 줄여 sticker → 헤더 거리감을 좁힌다. */
+  align-items: start;
+  min-height: calc(100dvh - 5rem);
+  padding: clamp(0.75rem, 2vw, 1.5rem) 0 3.5rem;
+}
+
+.landing-scope .hero-sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: fit-content;
+  border: 2px solid oklch(0.8 0.1 84 / 0.55);
+  border-radius: 999px;
+  background: oklch(0.95 0.06 84 / 0.7);
+  color: oklch(0.42 0.12 60);
+  padding: 0.4rem 0.95rem;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  transform: rotate(-1.5deg);
+  box-shadow: 0 4px 0 oklch(0.78 0.12 60 / 0.3);
+}
+
+.landing-scope .hero h1 {
+  max-width: 760px;
+  margin: 1.3rem 0 1.2rem;
+  font-size: clamp(2.8rem, 8.5vw, 6.2rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.055em;
+}
+
+.landing-scope .hero h1 .accent-gold {
+  display: inline-block;
+  position: relative;
+  color: oklch(0.52 0.16 62);
+}
+
+.landing-scope .hero h1 .accent-gold::after {
+  position: absolute;
+  left: -0.12em;
+  right: -0.12em;
+  bottom: 0.04em;
+  height: 0.28em;
+  z-index: -1;
+  background: oklch(0.9 0.14 88 / 0.7);
+  border-radius: 999px;
+  content: '';
+  transform: rotate(-1deg);
+}
+
+.landing-scope .hero h1 .accent-sky {
+  color: oklch(0.5 0.13 238);
+}
+
+.landing-scope .hero-copy {
+  max-width: 620px;
+  color: var(--ink-soft);
+  font-size: clamp(1.02rem, 1.5vw, 1.2rem);
+  font-weight: 500;
+  line-height: 1.75;
+}
+
+.landing-scope .cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-top: 2rem;
+}
+
+.landing-scope .hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.landing-scope .hero-tags span {
+  border: 1.5px dashed oklch(0.7 0.04 258 / 0.5);
+  border-radius: 999px;
+  background: oklch(0.98 0.015 82);
+  padding: 0.38rem 0.85rem;
+}
+
+/* ==================== 히어로 일러스트 ==================== */
+.landing-scope .hero-scene {
+  position: relative;
+  aspect-ratio: 1 / 1.05;
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 70% 30%, oklch(0.94 0.07 84 / 0.55), transparent 60%),
+    linear-gradient(165deg, oklch(0.98 0.02 235), oklch(0.95 0.04 82));
+  box-shadow:
+    inset 0 0 0 2px oklch(0.55 0.03 258 / 0.08),
+    0 30px 60px oklch(0.55 0.08 258 / 0.12);
+  overflow: hidden;
+}
+
+.landing-scope .hero-scene svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ==================== 섹션 공통 ==================== */
+.landing-scope .section {
+  padding: clamp(3.5rem, 8vw, 6rem) 0;
+}
+
+.landing-scope .section-head {
+  display: grid;
+  gap: 0.7rem;
+  max-width: 760px;
+  margin: 0 auto 2.6rem;
+  text-align: center;
+}
+
+.landing-scope .section-eyebrow {
+  color: oklch(0.5 0.13 238);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.landing-scope .section h2 {
+  margin: 0;
+  font-size: clamp(1.95rem, 4.2vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+}
+
+.landing-scope .section-head p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.7;
+}
+
+/* ==================== 스텝 (작동 방식) ==================== */
+.landing-scope .steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.landing-scope .step {
+  position: relative;
+  display: grid;
+  gap: 0.6rem;
+  border: 2px solid oklch(0.55 0.03 258 / 0.14);
+  border-radius: 1.6rem;
+  background: var(--paper-warm);
+  padding: 1.6rem 1.3rem 1.4rem;
+  box-shadow: 0 4px 0 oklch(0.55 0.03 258 / 0.14);
+  transition: transform 200ms ease;
+}
+
+.landing-scope .step:hover {
+  transform: translateY(-3px);
+}
+
+.landing-scope .step-number {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: var(--gold);
+  color: oklch(0.25 0.06 60);
+  font-size: 1.15rem;
+  font-weight: 800;
+  box-shadow: 0 3px 0 var(--gold-deep);
+}
+
+.landing-scope .step:nth-child(2) .step-number {
+  background: var(--sky);
+  color: oklch(0.25 0.08 238);
+  box-shadow: 0 3px 0 var(--sky-deep);
+}
+
+.landing-scope .step:nth-child(3) .step-number {
+  background: var(--peach);
+  color: oklch(0.28 0.08 40);
+  box-shadow: 0 3px 0 oklch(0.62 0.13 40);
+}
+
+.landing-scope .step:nth-child(4) .step-number {
+  background: var(--mint);
+  color: oklch(0.28 0.07 160);
+  box-shadow: 0 3px 0 oklch(0.58 0.1 160);
+}
+
+.landing-scope .step h3 {
+  margin: 0.35rem 0 0;
+  font-size: 1.22rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.landing-scope .step p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+/* ==================== 책 샘플 ==================== */
+.landing-scope .books {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.3rem;
+}
+
+.landing-scope .book {
+  display: grid;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.landing-scope .book-cover {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 1.2rem;
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 2px oklch(0 0 0 / 0.06),
+    0 18px 38px oklch(0.4 0.06 258 / 0.2);
+  transition: transform 220ms ease;
+}
+
+.landing-scope .book:hover .book-cover {
+  transform: translateY(-4px) rotate(-0.5deg);
+}
+
+.landing-scope .book-cover svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.landing-scope .book-meta {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0 0.1rem;
+}
+
+.landing-scope .book-meta strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.landing-scope .book-meta span {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+/* ==================== 기능 카드 ==================== */
+.landing-scope .features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.1rem;
+}
+
+.landing-scope .feature {
+  display: grid;
+  gap: 0.9rem;
+  border: 2px solid oklch(0.55 0.03 258 / 0.14);
+  border-radius: 1.8rem;
+  background: var(--paper-warm);
+  padding: 1.8rem 1.5rem 1.6rem;
+  box-shadow: 0 4px 0 oklch(0.55 0.03 258 / 0.14);
+}
+
+.landing-scope .feature-icon {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 1.1rem;
+  background: oklch(0.94 0.07 84 / 0.7);
+}
+
+.landing-scope .feature:nth-child(2) .feature-icon {
+  background: oklch(0.92 0.06 235 / 0.65);
+}
+
+.landing-scope .feature:nth-child(3) .feature-icon {
+  background: oklch(0.92 0.07 160 / 0.7);
+}
+
+.landing-scope .feature-icon svg {
+  width: 1.95rem;
+  height: 1.95rem;
+}
+
+.landing-scope .feature h3 {
+  margin: 0;
+  font-size: 1.32rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.landing-scope .feature p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.65;
+}
+
+/* ==================== 최종 CTA ==================== */
+.landing-scope .final {
+  margin: clamp(3rem, 6vw, 5rem) auto 4rem;
+  border: 2px solid oklch(0.8 0.1 84 / 0.4);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 18% 20%, oklch(0.92 0.08 84 / 0.6), transparent 22rem),
+    radial-gradient(circle at 82% 80%, oklch(0.9 0.06 235 / 0.5), transparent 20rem),
+    var(--paper-warm);
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.4rem, 5vw, 3rem);
+  text-align: center;
+  box-shadow: 0 4px 0 oklch(0.8 0.1 60 / 0.3);
+}
+
+.landing-scope .final h2 {
+  max-width: 780px;
+  margin: 0 auto 1rem;
+  font-size: clamp(1.9rem, 4.5vw, 3.2rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.045em;
+}
+
+.landing-scope .final p {
+  max-width: 560px;
+  margin: 0 auto 1.8rem;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+/* ==================== 푸터 ==================== */
+.landing-scope .footer {
+  padding: 2rem 0 3rem;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+/* ==================== 반응형 ==================== */
+@media (max-width: 960px) {
+  .landing-scope .hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .landing-scope .hero-scene {
+    max-width: 520px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .landing-scope .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landing-scope .books,
+  .landing-scope .features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landing-scope .nav-links a:not(.button) {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .landing-scope .hero h1 {
+    font-size: clamp(2.6rem, 12vw, 4rem);
+  }
+
+  .landing-scope .steps,
+  .landing-scope .books,
+  .landing-scope .features {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Sonner 토스트 — 라이브러리 기본 CSS(node_modules/sonner/dist/styles.css)가
+   `[data-sonner-toaster]`에 `font-family: ui-sans-serif, system-ui, …`를 직접
+   박아넣어 우리 `var(--font-sans)`(AtoZ)가 무시되는 문제. @layer 외부에서
+   덮어써 우선순위를 확실히 한다. wrapper와 toast item 둘 다 지정해 portal
+   내부 어떤 inline 스타일/inheritance 경로로 와도 AtoZ가 적용되도록. */
+[data-sonner-toaster],
+[data-sonner-toaster] [data-sonner-toast],
+[data-sonner-toaster] [data-sonner-toast] * {
+  font-family: var(--font-sans);
+}
+
+/* View Transitions API 페이지 전환은 2026-04-26 제거.
+   children diff(/book → /loading.tsx → /page.tsx)마다 슬라이드업이 fire되면서
+   본문이 두 번 떠오르는 현상이 거슬린다는 사용자 피드백. ViewTransition을
+   layout.tsx에서 제거했으므로 ::view-transition-* 규칙도 더 이상 매칭되지 않는다. */
+
+/* ==================== /legal/* 약관 본문 타이포그래피 ====================
+   Tailwind typography 플러그인 의존 없이 약관/방침 4개 페이지의 본문 위계만
+   일관되게 보여주기 위한 스코프 셀렉터. 시멘틱 HTML(h1/h2/h3/p/ul/ol/dl)을
+   그대로 유지하고 클래스 폭격을 피한다. 다른 라우트에는 영향 없음. */
+.legal-article h1 {
+  font-size: 1.875rem;
+  line-height: 1.25;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.01em;
+}
+.legal-article p.legal-meta {
+  font-size: 0.85rem;
+  color: var(--muted-foreground, oklch(0.5 0.04 60));
+  margin-bottom: 2rem;
+}
+.legal-article h2 {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  font-weight: 700;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.005em;
+}
+.legal-article h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-top: 1.4rem;
+  margin-bottom: 0.5rem;
+}
+.legal-article p {
+  line-height: 1.75;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+.legal-article ul,
+.legal-article ol {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.4rem;
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
+.legal-article li + li {
+  margin-top: 0.25rem;
+}
+.legal-article ul {
+  list-style: disc;
+}
+.legal-article ol {
+  list-style: decimal;
+}
+.legal-article dl {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0.5rem 0 1.25rem;
+}
+.legal-article dt {
+  font-weight: 600;
+  color: oklch(from currentColor calc(l * 0.85) c h);
+}
+.legal-article table.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0 1.5rem;
+  font-size: 0.9rem;
+}
+.legal-article table.legal-table th,
+.legal-article table.legal-table td {
+  border: 1px solid var(--border, oklch(0.88 0.01 80));
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+.legal-article table.legal-table th {
+  background: oklch(0.97 0.01 80);
+  font-weight: 600;
+}
+.legal-article a {
+  color: var(--primary, oklch(0.55 0.16 50));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 640px) {
+  .legal-article dl {
+    grid-template-columns: 1fr;
+    gap: 0.15rem 0;
+  }
+  .legal-article dl dd {
+    margin-bottom: 0.6rem;
   }
 }
