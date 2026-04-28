@@ -44,7 +44,12 @@ next-env.d.ts
 # smap_eng: 로컬 스토리지 (SQLite + TTS/이미지 생성물)
 /storage/
 /public/audio/
+/public/audio.24khz.bak/
 /public/images/
+/public/mobile/
+
+# 모노레포 백업/실험 디렉토리
+/apps/landing-astro-backup/
 *.db
 *.db-journal
 *.db-shm
