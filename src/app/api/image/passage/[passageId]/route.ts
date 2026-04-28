@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { db, schema } from '@/lib/db';
 import { buildSceneprompt, generateImage, ImageError } from '@/lib/image/flux';
 import { updatePassageImage } from '@/lib/db/queries';
+import { requirePassageOwnershipForApi } from '@/lib/auth/session';
 import { handleApiError } from '../../../_lib/errors';
 
 export const runtime = 'nodejs';
@@ -39,12 +40,13 @@ export async function POST(
     if (!Number.isInteger(passageId) || passageId <= 0) {
       return NextResponse.json({ error: 'invalid_id' }, { status: 400 });
     }
+    await requirePassageOwnershipForApi(passageId);
 
-    const passage = db
+    const [passage] = await db
       .select()
       .from(schema.passages)
       .where(eq(schema.passages.id, passageId))
-      .get();
+      .limit(1);
     if (!passage) {
       return NextResponse.json({ error: 'passage_not_found' }, { status: 404 });
     }
@@ -59,11 +61,11 @@ export async function POST(
     }
 
     // 책의 topic도 프롬프트에 포함 (맥락 유지)
-    const book = db
+    const [book] = await db
       .select()
       .from(schema.books)
       .where(eq(schema.books.id, passage.bookId))
-      .get();
+      .limit(1);
 
     const prompt = buildSceneprompt(passage.textEn, book?.topic ?? undefined);
 
@@ -88,7 +90,7 @@ export async function POST(
 
     await mkdir(path.dirname(abs), { recursive: true });
     await writeFile(abs, png);
-    updatePassageImage(passageId, webPath);
+    await updatePassageImage(passageId, webPath);
 
     return NextResponse.json(
       {

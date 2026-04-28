@@ -6,6 +6,7 @@ import {
   listPassagesByBook,
   listQuizzesByBook,
 } from '@/lib/db/queries';
+import { requireBookOwnershipForApi } from '@/lib/auth/session';
 import { handleApiError } from '../../../_lib/errors';
 
 export const runtime = 'nodejs';
@@ -26,15 +27,14 @@ export async function GET(
     if (bookId === null) {
       return NextResponse.json({ error: 'invalid_id' }, { status: 400 });
     }
-    return NextResponse.json({ quizzes: listQuizzesByBook(bookId) });
+    await requireBookOwnershipForApi(bookId);
+    return NextResponse.json({ quizzes: await listQuizzesByBook(bookId) });
   } catch (err) {
     return handleApiError(err);
   }
 }
 
-/**
- * 퀴즈 생성(멱등) — 이미 있으면 생성 스킵. 없으면 LLM 호출 + 저장.
- */
+/** 퀴즈 생성(멱등) — 이미 있으면 생성 스킵. 없으면 LLM 호출 + 저장. */
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -45,23 +45,21 @@ export async function POST(
     if (bookId === null) {
       return NextResponse.json({ error: 'invalid_id' }, { status: 400 });
     }
+    await requireBookOwnershipForApi(bookId);
 
-    const existing = listQuizzesByBook(bookId);
+    const existing = await listQuizzesByBook(bookId);
     if (existing.length > 0) {
       return NextResponse.json({ quizzes: existing, created: false });
     }
 
-    const book = getBookById(bookId);
+    const book = await getBookById(bookId);
     if (!book) {
       return NextResponse.json({ error: 'book_not_found' }, { status: 404 });
     }
 
-    const passages = listPassagesByBook(bookId);
+    const passages = await listPassagesByBook(bookId);
     if (passages.length === 0) {
-      return NextResponse.json(
-        { error: 'no_passages' },
-        { status: 409 },
-      );
+      return NextResponse.json({ error: 'no_passages' }, { status: 409 });
     }
 
     const quizSet = await generateQuizSet({
@@ -70,7 +68,7 @@ export async function POST(
       level: { age: book.age, cefr: book.cefr },
     });
 
-    insertQuizzes(
+    await insertQuizzes(
       bookId,
       quizSet.quizzes.map((q, i) => ({
         orderIndex: i + 1,
@@ -82,7 +80,7 @@ export async function POST(
     );
 
     return NextResponse.json(
-      { quizzes: listQuizzesByBook(bookId), created: true },
+      { quizzes: await listQuizzesByBook(bookId), created: true },
       { status: 201 },
     );
   } catch (err) {

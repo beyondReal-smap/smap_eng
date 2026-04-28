@@ -1,5 +1,5 @@
 // FLUX.1-schnell 프록시 — services/image/ FastAPI 서버를 호출한다.
-// 오픈모델 원칙 유지: 로컬 MLX Python 서버만 허용.
+// 오픈모델 원칙 유지: 로컬 Diffusers(PyTorch CPU) Python 서버.
 
 const FLUX_BASE_URL = process.env.FLUX_BASE_URL ?? 'http://localhost:8890';
 
