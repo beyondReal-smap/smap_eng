@@ -58,3 +58,25 @@ next-env.d.ts
 services/*/.venv/
 services/*/__pycache__/
 services/*/*/__pycache__/
+/logs/
+
+# 작업 도구 / IDE 설정
+/.claude/
+/.codex
+/.codex-write-test
+/.collab-loop/
+/.playwright-mcp/
+
+# 외부 자료 / 실험 디렉토리
+/AtoZ/
+/SuperClaude_Framework/
+
+# 작업 중 캡처한 스크린샷 (루트 한정)
+/auth-*.png
+/header-*.png
+/home-*.png
+/landing-*.png
+/login-*.png
+/signup-*.png
+/subscribe-*.png
+/book_icon.png
