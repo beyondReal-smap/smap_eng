@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "하루책",
+    "slug": "smap-eng",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/book_icon.png",
+    "scheme": "smapeng",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.smap.eng",
+      "icon": "./assets/expo.icon",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.smap.eng",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFF7E8",
+        "foregroundImage": "./assets/images/book_icon.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/book_icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/book_icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFF8EA",
+          "android": {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 76
+          }
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ]
+    ],
+    "experiments": {
+      "baseUrl": "/mobile",
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
