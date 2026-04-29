@@ -33,16 +33,7 @@ const nextConfig: NextConfig = {
         { source: "/audio/:file", destination: "/api/static/audio/:file" },
         { source: "/images/:file", destination: "/api/static/images/:file" },
       ],
-      // Expo 웹 정적 빌드는 public/mobile 아래에 배치된다. fallback에 두어야
-      // 실제 정적 자산(/_expo/static/...js 등)은 디스크에서 직접 서빙되고,
-      // 매칭되지 않는 SPA 라우트(/mobile/onboarding 등)만 index.html로 폴백된다.
-      // afterFiles에 두면 JS/CSS 번들도 HTML로 응답되어 SyntaxError가 난다.
-      // 주의: pnpm mobile:export는 next build 이전에 실행해야 한다 — turbopack은
-      // 빌드 타임에 public/ 스냅샷을 고정하므로 이후 추가된 파일은 서빙되지 않는다.
-      fallback: [
-        { source: "/mobile", destination: "/mobile/index.html" },
-        { source: "/mobile/:path*", destination: "/mobile/index.html" },
-      ],
+      fallback: [],
     };
   },
 };

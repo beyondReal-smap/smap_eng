@@ -12,17 +12,10 @@
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
     "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
     "db:tunnel": "bash scripts/db-tunnel.sh",
-    "mobile:start": "pnpm --dir apps/mobile start",
-    "mobile:android": "pnpm --dir apps/mobile android",
-    "mobile:ios": "pnpm --dir apps/mobile ios",
-    "mobile:web": "pnpm --dir apps/mobile web",
-    "mobile:export": "HOME=/tmp EXPO_NO_TELEMETRY=1 CI=1 EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL:-https://eng.smap.site} pnpm --dir apps/mobile exec expo export --platform web --output-dir ../../public/mobile --clear --max-workers 1 --no-minify",
-    "mobile:lint": "pnpm --dir apps/mobile lint",
-    "mobile:typecheck": "pnpm --dir apps/mobile exec tsc --noEmit",
     "landing:dev": "pnpm --dir apps/landing dev",
     "landing:build": "pnpm --dir apps/landing build",
     "landing:start": "pnpm --dir apps/landing start",
-    "build:prod": "pnpm mobile:export && pnpm build && pnpm landing:build",
+    "build:prod": "pnpm build && pnpm landing:build",
     "deploy": "pnpm build:prod && pm2 reload smap-eng-next smap-eng-web --update-env"
   },
   "dependencies": {
