@@ -1,0 +1,16 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+
+# xcodegen 결과물 (커밋: 선택)
+SmapEng.xcodeproj/
+
+# Swift Package Manager
+.build/
+Package.resolved
+
+# OS
+.DS_Store

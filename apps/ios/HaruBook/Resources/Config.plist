@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_BASE_URL</key>
+	<string>https://eng.smap.site</string>
+	<key>AUTH_CALLBACK_SCHEME</key>
+	<string>smapeng</string>
+	<key>AUTH_CALLBACK_HOST</key>
+	<string>auth</string>
+	<key>AUTH_CALLBACK_PATH</key>
+	<string>/callback</string>
+</dict>
+</plist>
