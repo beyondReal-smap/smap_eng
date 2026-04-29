@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ReaderView: View {
     @State private var viewModel: ReaderViewModel
-    @Environment(\.dismiss) private var dismiss
+    @State private var audio = AudioPlayer.shared
 
     init(book: Book, profileId: Int) {
         _viewModel = State(initialValue: ReaderViewModel(book: book, profileId: profileId))
@@ -79,11 +79,17 @@ struct ReaderView: View {
             )
         ) {
             ForEach(Array(viewModel.passages.enumerated()), id: \.offset) { index, passage in
+                let isPlaying = audio.nowPlayingPassageId == passage.id
+                let isPreparing = audio.preparingPassageId == passage.id
+                    || viewModel.synthesizingPassageId == passage.id
                 PassageView(
                     passage: passage,
                     showsKorean: viewModel.showsKorean,
-                    pageNumber: index + 1,
-                    totalPages: viewModel.passages.count
+                    isPlaying: isPlaying,
+                    isPreparing: isPreparing,
+                    onTogglePlayback: {
+                        Task { await viewModel.togglePlayback(for: index) }
+                    }
                 )
                 .tag(index)
             }
@@ -92,7 +98,10 @@ struct ReaderView: View {
         .indexViewStyle(.page(backgroundDisplayMode: .never))
     }
 
+    @ViewBuilder
     private var bottomBar: some View {
+        let isLastPage = viewModel.currentIndex + 1 >= viewModel.passages.count
+
         HStack(spacing: 12) {
             Button {
                 viewModel.toggleKorean()
@@ -115,40 +124,58 @@ struct ReaderView: View {
 
             Spacer()
 
-            Button {
-                if viewModel.currentIndex > 0 {
-                    Task { await viewModel.reportPageChanged(to: viewModel.currentIndex - 1) }
-                }
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.smapHeading)
-                    .padding(12)
-                    .background(Color.smapSurface)
-                    .foregroundStyle(Color.smapText)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-            .disabled(viewModel.currentIndex == 0)
-
-            Button {
-                let next = viewModel.currentIndex + 1
-                if next < viewModel.passages.count {
-                    Task { await viewModel.reportPageChanged(to: next) }
-                }
-            } label: {
-                Image(systemName: "chevron.right")
-                    .font(.smapHeading)
-                    .padding(12)
-                    .background(Color.smapPrimary)
+            if isLastPage {
+                NavigationLink(value: QuizDestination(book: viewModel.book, readingLogId: viewModel.readingLogId)) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "questionmark.circle.fill")
+                        Text("퀴즈 풀기").font(.smapBodyEmphasis)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .background(Color.smapPrimary, in: Capsule())
                     .foregroundStyle(.white)
-                    .clipShape(Circle())
+                }
+            } else {
+                Button {
+                    if viewModel.currentIndex > 0 {
+                        Task { await viewModel.reportPageChanged(to: viewModel.currentIndex - 1) }
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.smapHeading)
+                        .padding(12)
+                        .background(Color.smapSurface)
+                        .foregroundStyle(Color.smapText)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.currentIndex == 0)
+
+                Button {
+                    let next = viewModel.currentIndex + 1
+                    if next < viewModel.passages.count {
+                        Task { await viewModel.reportPageChanged(to: next) }
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.smapHeading)
+                        .padding(12)
+                        .background(Color.smapPrimary)
+                        .foregroundStyle(.white)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .disabled(viewModel.currentIndex + 1 >= viewModel.passages.count)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .background(.ultraThinMaterial)
     }
+}
+
+/// `NavigationStack(path:)` 의 destination value.
+struct QuizDestination: Hashable {
+    let book: Book
+    let readingLogId: Int?
 }

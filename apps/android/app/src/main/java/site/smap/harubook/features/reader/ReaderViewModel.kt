@@ -1,5 +1,6 @@
 package site.smap.harubook.features.reader
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -7,6 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import site.smap.harubook.core.audio.AudioPlayer
 import site.smap.harubook.core.models.BookDetail
 import site.smap.harubook.core.models.Passage
 import site.smap.harubook.core.models.PatchLogRequest
@@ -21,8 +24,10 @@ data class ReaderUiState(
     val cefrLabel: String = "",
     val currentIndex: Int = 0,
     val showsKorean: Boolean = false,
-    val isLoading: Boolean = true,
+    val isLoadingDetail: Boolean = true,
     val error: String? = null,
+    val readingLogId: Int? = null,
+    val synthesizingPassageId: Int? = null,
 )
 
 class ReaderViewModel(
@@ -33,7 +38,6 @@ class ReaderViewModel(
     private val _state = MutableStateFlow(ReaderUiState())
     val state: StateFlow<ReaderUiState> = _state.asStateFlow()
 
-    private var logId: Int? = null
     private var hasReportedFinish: Boolean = false
 
     fun bootstrap() {
@@ -43,7 +47,9 @@ class ReaderViewModel(
 
     fun reportPageChanged(index: Int) {
         _state.update { it.copy(currentIndex = index) }
-        val total = _state.value.passages.size.coerceAtLeast(1)
+        val passages = _state.value.passages
+        if (passages.isEmpty()) return
+        val total = passages.size.coerceAtLeast(1)
         val ratio = (index + 1).toDouble() / total.toDouble()
         patchLog(progressRatio = ratio, finishedAtUnix = null)
     }
@@ -52,11 +58,45 @@ class ReaderViewModel(
         _state.update { it.copy(showsKorean = !it.showsKorean) }
     }
 
+    fun togglePlayback(passageIndex: Int, context: Context) {
+        val passage = _state.value.passages.getOrNull(passageIndex) ?: return
+        val cachedPath = passage.audioPath
+
+        if (!cachedPath.isNullOrEmpty()) {
+            AudioPlayer.toggle(passageId = passage.id, audioPath = cachedPath, context = context)
+            return
+        }
+
+        viewModelScope.launch {
+            _state.update { it.copy(synthesizingPassageId = passage.id) }
+            try {
+                val response: TtsResponse = ApiClient.post("/api/tts/${passage.id}")
+                _state.update { s ->
+                    s.copy(
+                        passages = s.passages.map { p ->
+                            if (p.id == passage.id) p.copy(audioPath = response.audioPath) else p
+                        },
+                        synthesizingPassageId = null,
+                    )
+                }
+                AudioPlayer.toggle(passageId = passage.id, audioPath = response.audioPath, context = context)
+            } catch (e: Throwable) {
+                _state.update {
+                    it.copy(
+                        synthesizingPassageId = null,
+                        error = "오디오 준비 실패: ${e.message ?: e::class.java.simpleName}",
+                    )
+                }
+            }
+        }
+    }
+
     fun leave() {
         if (hasReportedFinish) return
         hasReportedFinish = true
         val now = System.currentTimeMillis() / 1000
         patchLog(progressRatio = null, finishedAtUnix = now)
+        AudioPlayer.stop()
     }
 
     private fun loadDetail() {
@@ -69,12 +109,17 @@ class ReaderViewModel(
                         title = detail.book.title,
                         age = detail.book.age,
                         cefrLabel = detail.book.cefr.label,
-                        isLoading = false,
+                        isLoadingDetail = false,
                         error = null,
                     )
                 }
             } catch (e: Throwable) {
-                _state.update { it.copy(isLoading = false, error = e.message ?: "책을 불러오지 못했습니다.") }
+                _state.update {
+                    it.copy(
+                        isLoadingDetail = false,
+                        error = e.message ?: "책을 불러오지 못했습니다.",
+                    )
+                }
             }
         }
     }
@@ -86,15 +131,15 @@ class ReaderViewModel(
                     path = "/api/logs",
                     body = StartLogRequest(profileId = profileId, bookId = bookId),
                 )
-                logId = response.log.id
+                _state.update { it.copy(readingLogId = response.log.id) }
             } catch (_: Throwable) {
-                // soft fail — 로그 없이도 리더 동작
+                // 소프트 페일
             }
         }
     }
 
     private fun patchLog(progressRatio: Double?, finishedAtUnix: Long?) {
-        val id = logId ?: return
+        val id = _state.value.readingLogId ?: return
         viewModelScope.launch {
             try {
                 ApiClient.patch<ReadingLogResponse>(
@@ -106,8 +151,16 @@ class ReaderViewModel(
                     ),
                 )
             } catch (_: Throwable) {
-                // soft fail
+                // 소프트 페일
             }
         }
     }
 }
+
+@Serializable
+private data class TtsResponse(
+    val passageId: Int,
+    val audioPath: String,
+    val cached: Boolean? = null,
+    val bytes: Long? = null,
+)

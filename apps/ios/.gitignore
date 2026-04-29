@@ -5,7 +5,8 @@ DerivedData/
 *.xcuserdatad/
 xcuserdata/
 
-# xcodegen 결과물 (커밋: 선택)
+# xcodegen 결과물 (재생성 가능)
+HaruBook.xcodeproj/
 SmapEng.xcodeproj/
 
 # Swift Package Manager

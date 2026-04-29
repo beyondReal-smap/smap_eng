@@ -16,6 +16,12 @@ struct HomeRouter: View {
                     .navigationDestination(for: Book.self) { book in
                         ReaderView(book: book, profileId: profileId)
                     }
+                    .navigationDestination(for: QuizDestination.self) { dest in
+                        QuizView(book: dest.book, readingLogId: dest.readingLogId) {
+                            // 책장으로 복귀 — Reader/Quiz 둘 다 pop.
+                            path = NavigationPath()
+                        }
+                    }
                 } else {
                     ProfilePickerView { profile in
                         selectedProfileId = profile.id

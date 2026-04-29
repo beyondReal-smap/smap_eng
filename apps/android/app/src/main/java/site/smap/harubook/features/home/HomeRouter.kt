@@ -10,13 +10,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import java.net.URLDecoder
+import java.net.URLEncoder
 import site.smap.harubook.features.bookshelf.BookshelfScreen
 import site.smap.harubook.features.profiles.ProfilePickerScreen
+import site.smap.harubook.features.quiz.QuizScreen
 import site.smap.harubook.features.reader.ReaderScreen
 
 private const val PROFILE_PICKER_ROUTE = "profilePicker"
 private const val BOOKSHELF_ROUTE = "bookshelf"
 private const val READER_ROUTE = "reader/{bookId}"
+private const val QUIZ_ROUTE = "quiz/{bookId}/{title}/{logId}"
 
 @Composable
 fun HomeRouter() {
@@ -64,6 +70,38 @@ fun HomeRouter() {
                 bookId = bookId,
                 profileId = pid,
                 onBack = { nav.popBackStack() },
+                onOpenQuiz = { qBookId, qTitle, qLogId ->
+                    val encodedTitle = URLEncoder.encode(qTitle, Charsets.UTF_8.name())
+                    val logArg = qLogId?.toString() ?: "0"
+                    nav.navigate("quiz/$qBookId/$encodedTitle/$logArg")
+                },
+            )
+        }
+
+        composable(
+            route = QUIZ_ROUTE,
+            arguments = listOf(
+                navArgument("bookId") { type = NavType.IntType },
+                navArgument("title") { type = NavType.StringType },
+                navArgument("logId") { type = NavType.IntType },
+            ),
+        ) { backStackEntry ->
+            val args = backStackEntry.arguments ?: return@composable
+            val bookId = args.getInt("bookId")
+            val title = URLDecoder.decode(args.getString("title").orEmpty(), Charsets.UTF_8.name())
+            val logIdRaw = args.getInt("logId")
+            val readingLogId = if (logIdRaw > 0) logIdRaw else null
+            QuizScreen(
+                bookId = bookId,
+                bookTitle = title,
+                readingLogId = readingLogId,
+                onClose = {
+                    // 책장으로 복귀 — Reader/Quiz 모두 pop.
+                    nav.navigate(BOOKSHELF_ROUTE) {
+                        popUpTo(BOOKSHELF_ROUTE) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
             )
         }
     }

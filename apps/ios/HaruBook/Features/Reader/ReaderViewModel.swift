@@ -13,7 +13,12 @@ final class ReaderViewModel {
     var isLoadingDetail: Bool = true
     var error: String?
 
-    private var logId: Int?
+    /// 현재 진행 중인 reading_log id. 외부(QuizView)가 점수 PATCH 시 참조한다.
+    private(set) var readingLogId: Int?
+
+    /// 마지막으로 TTS 합성이 진행 중인 passage id. UI 인디케이터용.
+    private(set) var synthesizingPassageId: Int?
+
     private var hasReportedFinish: Bool = false
 
     init(book: Book, profileId: Int) {
@@ -40,10 +45,44 @@ final class ReaderViewModel {
         hasReportedFinish = true
         let now = Int(Date().timeIntervalSince1970)
         await patchLog(progressRatio: nil, finishedAtUnix: now)
+        AudioPlayer.shared.stop()
     }
 
     func toggleKorean() {
         showsKorean.toggle()
+    }
+
+    /// 재생 토글. audioPath가 없으면 TTS 합성을 먼저 요청한다.
+    func togglePlayback(for passageIndex: Int) async {
+        guard passages.indices.contains(passageIndex) else { return }
+        let passage = passages[passageIndex]
+
+        if let path = passage.audioPath, !path.isEmpty {
+            AudioPlayer.shared.toggle(passageId: passage.id, audioPath: path)
+            return
+        }
+
+        synthesizingPassageId = passage.id
+        defer { synthesizingPassageId = nil }
+        do {
+            let response: TtsResponse = try await APIClient.shared.send(
+                Endpoint(path: "/api/tts/\(passage.id)", method: .post, requiresAuth: true)
+            )
+            if let idx = passages.firstIndex(where: { $0.id == passage.id }) {
+                passages[idx] = Passage(
+                    id: passage.id,
+                    bookId: passage.bookId,
+                    orderIndex: passage.orderIndex,
+                    textEn: passage.textEn,
+                    textKo: passage.textKo,
+                    audioPath: response.audioPath,
+                    sceneImagePath: passage.sceneImagePath
+                )
+            }
+            AudioPlayer.shared.toggle(passageId: passage.id, audioPath: response.audioPath)
+        } catch {
+            self.error = "오디오 준비 실패: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Private
@@ -70,14 +109,14 @@ final class ReaderViewModel {
                     body: StartLogRequest(profileId: profileId, bookId: book.id)
                 )
             )
-            self.logId = response.log.id
+            self.readingLogId = response.log.id
         } catch {
-            // 로그 생성 실패는 사용자 흐름을 막지 않는다 (소프트 페일).
+            // 소프트 페일
         }
     }
 
     private func patchLog(progressRatio: Double?, finishedAtUnix: Int?) async {
-        guard let logId else { return }
+        guard let logId = readingLogId else { return }
         do {
             let _: ReadingLogResponse = try await APIClient.shared.send(
                 Endpoint(
@@ -107,4 +146,11 @@ private struct PatchLogRequest: Encodable {
     let progressRatio: Double?
     let finishedAtUnix: Int?
     let quizScore: Int?
+}
+
+private struct TtsResponse: Decodable {
+    let passageId: Int
+    let audioPath: String
+    let cached: Bool?
+    let bytes: Int?
 }

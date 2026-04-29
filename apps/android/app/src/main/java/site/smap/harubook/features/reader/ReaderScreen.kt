@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,7 +22,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
@@ -40,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -49,6 +52,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import site.smap.harubook.R
+import site.smap.harubook.core.audio.AudioPlayer
 import site.smap.harubook.core.models.Passage
 import site.smap.harubook.designsystem.AuthenticatedAsyncImage
 import site.smap.harubook.designsystem.BadgeChip
@@ -72,6 +76,7 @@ fun ReaderScreen(
     bookId: Int,
     profileId: Int,
     onBack: () -> Unit,
+    onOpenQuiz: (bookId: Int, bookTitle: String, readingLogId: Int?) -> Unit,
 ) {
     val viewModel: ReaderViewModel = viewModel(
         key = "reader-$bookId",
@@ -85,8 +90,14 @@ fun ReaderScreen(
         },
     )
     val state by viewModel.state.collectAsState()
+    val nowPlaying by AudioPlayer.nowPlayingPassageId.collectAsState()
+    val preparing by AudioPlayer.preparingPassageId.collectAsState()
+    val context = LocalContext.current
 
-    LaunchedEffect(bookId) { viewModel.bootstrap() }
+    LaunchedEffect(bookId) {
+        AudioPlayer.init(context)
+        viewModel.bootstrap()
+    }
 
     DisposableEffect(Unit) {
         onDispose { viewModel.leave() }
@@ -107,7 +118,7 @@ fun ReaderScreen(
         )
 
         when {
-            state.isLoading -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            state.isLoadingDetail -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = SmapPrimary)
             }
             state.error != null -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -132,12 +143,20 @@ fun ReaderScreen(
                         .fillMaxWidth()
                         .weight(1f),
                 ) { page ->
-                    PassagePane(passage = state.passages[page], showsKorean = state.showsKorean)
+                    val passage = state.passages[page]
+                    PassagePane(
+                        passage = passage,
+                        showsKorean = state.showsKorean,
+                        isPlaying = nowPlaying == passage.id,
+                        isPreparing = preparing == passage.id || state.synthesizingPassageId == passage.id,
+                        onTogglePlayback = { viewModel.togglePlayback(page, context) },
+                    )
                 }
 
                 BottomBar(
                     showsKorean = state.showsKorean,
                     onToggleKorean = viewModel::toggleKorean,
+                    isLastPage = pagerState.currentPage + 1 >= state.passages.size,
                     canPrev = pagerState.currentPage > 0,
                     canNext = pagerState.currentPage + 1 < state.passages.size,
                     onPrev = {
@@ -146,6 +165,9 @@ fun ReaderScreen(
                     onNext = {
                         val next = pagerState.currentPage + 1
                         if (next < state.passages.size) viewModel.reportPageChanged(next)
+                    },
+                    onOpenQuiz = {
+                        onOpenQuiz(bookId, state.title, state.readingLogId)
                     },
                 )
             }
@@ -197,13 +219,19 @@ private fun Header(title: String, age: Int, cefr: String, currentIndex: Int, tot
 }
 
 @Composable
-private fun PassagePane(passage: Passage, showsKorean: Boolean) {
+private fun PassagePane(
+    passage: Passage,
+    showsKorean: Boolean,
+    isPlaying: Boolean,
+    isPreparing: Boolean,
+    onTogglePlayback: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         passage.sceneImagePath?.takeIf { it.isNotBlank() }?.let { path ->
             AuthenticatedAsyncImage(
@@ -216,7 +244,50 @@ private fun PassagePane(passage: Passage, showsKorean: Boolean) {
                 failure = { Icon(Icons.Filled.MenuBook, contentDescription = null, tint = SmapPrimary.copy(alpha = 0.5f)) },
             )
         }
-        Text(passage.textEn, style = SmapReaderStyle, color = SmapText)
+
+        // 재생 버튼
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable(onClick = onTogglePlayback)
+                .background(SmapPrimary)
+                .padding(horizontal = 18.dp, vertical = 12.dp),
+        ) {
+            if (isPreparing) {
+                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+            } else {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White,
+                )
+            }
+            Text(
+                text = when {
+                    isPlaying -> "일시정지"
+                    isPreparing -> "준비 중…"
+                    else -> "이 문장 듣기"
+                },
+                style = SmapBodyEmphasisStyle,
+                color = Color.White,
+            )
+        }
+
+        Text(
+            text = passage.textEn,
+            style = SmapReaderStyle,
+            color = SmapText,
+            modifier = Modifier
+                .padding(8.dp)
+                .background(
+                    if (isPlaying) SmapPrimarySoft else Color.Transparent,
+                    RoundedCornerShape(12.dp),
+                )
+                .padding(12.dp),
+        )
+
         if (showsKorean) {
             passage.textKo?.takeIf { it.isNotBlank() }?.let { ko ->
                 Divider(color = SmapBorder)
@@ -230,10 +301,12 @@ private fun PassagePane(passage: Passage, showsKorean: Boolean) {
 private fun BottomBar(
     showsKorean: Boolean,
     onToggleKorean: () -> Unit,
+    isLastPage: Boolean,
     canPrev: Boolean,
     canNext: Boolean,
     onPrev: () -> Unit,
     onNext: () -> Unit,
+    onOpenQuiz: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -249,23 +322,38 @@ private fun BottomBar(
 
         Spacer(Modifier.weight(1f))
 
-        IconCircle(
-            icon = Icons.Filled.ChevronLeft,
-            background = SmapSurface,
-            tint = SmapText,
-            border = SmapBorder,
-            enabled = canPrev,
-            onClick = onPrev,
-        )
-        Spacer(Modifier.size(8.dp))
-        IconCircle(
-            icon = Icons.Filled.ChevronRight,
-            background = SmapPrimary,
-            tint = Color.White,
-            border = Color.Transparent,
-            enabled = canNext,
-            onClick = onNext,
-        )
+        if (isLastPage) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(onClick = onOpenQuiz)
+                    .background(SmapPrimary)
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+            ) {
+                Icon(Icons.Filled.HelpOutline, contentDescription = null, tint = Color.White)
+                Text("퀴즈 풀기", style = SmapBodyEmphasisStyle, color = Color.White)
+            }
+        } else {
+            IconCircle(
+                icon = Icons.Filled.ChevronLeft,
+                background = SmapSurface,
+                tint = SmapText,
+                border = SmapBorder,
+                enabled = canPrev,
+                onClick = onPrev,
+            )
+            Spacer(Modifier.size(8.dp))
+            IconCircle(
+                icon = Icons.Filled.ChevronRight,
+                background = SmapPrimary,
+                tint = Color.White,
+                border = Color.Transparent,
+                enabled = canNext,
+                onClick = onNext,
+            )
+        }
     }
 }
 

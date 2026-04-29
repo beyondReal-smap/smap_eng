@@ -3,8 +3,9 @@ import SwiftUI
 struct PassageView: View {
     let passage: Passage
     let showsKorean: Bool
-    let pageNumber: Int
-    let totalPages: Int
+    let isPlaying: Bool
+    let isPreparing: Bool
+    let onTogglePlayback: () -> Void
 
     var body: some View {
         ScrollView {
@@ -20,10 +21,32 @@ struct PassageView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 }
 
+                Button(action: onTogglePlayback) {
+                    HStack(spacing: 10) {
+                        if isPreparing {
+                            ProgressView().tint(.white)
+                        } else {
+                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        }
+                        Text(isPlaying ? "일시정지" : (isPreparing ? "준비 중…" : "이 문장 듣기"))
+                            .font(.smapBodyEmphasis)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .background(Color.smapPrimary, in: Capsule())
+                }
+                .buttonStyle(.plain)
+
                 Text(passage.textEn)
                     .font(.smapReader)
                     .foregroundStyle(Color.smapText)
                     .lineSpacing(8)
+                    .padding(12)
+                    .background(
+                        isPlaying ? Color.smapPrimarySoft : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 12)
+                    )
 
                 if showsKorean, let textKo = passage.textKo, !textKo.isEmpty {
                     Divider().background(Color.smapBorder)
