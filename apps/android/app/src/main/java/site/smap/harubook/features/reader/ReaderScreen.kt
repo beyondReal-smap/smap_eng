@@ -23,11 +23,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.HelpOutline
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
@@ -241,7 +241,7 @@ private fun PassagePane(
                     .height(200.dp)
                     .clip(RoundedCornerShape(20.dp)),
                 placeholder = { Box(Modifier.fillMaxSize().background(SmapPrimarySoft)) },
-                failure = { Icon(Icons.Filled.MenuBook, contentDescription = null, tint = SmapPrimary.copy(alpha = 0.5f)) },
+                failure = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, tint = SmapPrimary.copy(alpha = 0.5f)) },
             )
         }
 
@@ -290,7 +290,7 @@ private fun PassagePane(
 
         if (showsKorean) {
             passage.textKo?.takeIf { it.isNotBlank() }?.let { ko ->
-                Divider(color = SmapBorder)
+                HorizontalDivider(color = SmapBorder)
                 Text(ko, style = SmapBodyStyle, color = SmapMuted)
             }
         }

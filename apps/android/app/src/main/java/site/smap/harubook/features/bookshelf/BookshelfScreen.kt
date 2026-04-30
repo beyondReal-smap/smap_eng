@@ -17,7 +17,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -146,7 +146,7 @@ private fun EmptyBlock() {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
-            Icons.Filled.MenuBook,
+            Icons.AutoMirrored.Filled.MenuBook,
             contentDescription = null,
             tint = SmapMuted,
             modifier = Modifier.size(56.dp),

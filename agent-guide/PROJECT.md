@@ -199,14 +199,16 @@ smap_eng/
 
 **보안 정책 통일**: 소유권 실패는 모두 **404**(미로그인=401, 관리자 권한 부족=403). 자원 enumeration 차단 — `agent-guide/SESSION.md` 결정사항 참조.
 
-### 클라이언트 호출 (웹 / 모바일 동등)
+### 클라이언트 호출 (웹 / 네이티브 동등)
 
-| 시점 | 웹 | 모바일 |
-|------|----|--------|
-| Reader 진입 후 첫 진행 | `src/components/reader.tsx:477+` POST → state에 id 저장 | `apps/mobile/src/app/books/[bookId].tsx:143` `updateReadingLog` (앞서 POST된 id 사용) |
-| passage 이동 | `reader.tsx:533+` PATCH `progressRatio` | `books/[bookId].tsx:143` PATCH `progressRatio` |
-| Reader 이탈 | `reader.tsx:550` `fetch` (`navigator.sendBeacon` 대체) PATCH `finishedAtUnix` | `books/[bookId].tsx:180` PATCH `finishedAtUnix` |
-| Quiz 완료 | `src/components/quiz-runner.tsx:55+` POST/PATCH `quizScore` | `apps/mobile/src/app/quiz/[bookId].tsx:206` PATCH `quizScore` |
+> 모바일은 **HaruBook 네이티브 앱**(iOS SwiftUI / Android Jetpack Compose) — 위치는 `apps/ios` / `apps/android`. 과거 Expo/RN 워크스페이스 `apps/mobile`은 폐기됨.
+
+| 시점 | 웹 | iOS | Android |
+|------|----|-----|---------|
+| Reader 진입 후 첫 진행 | `src/components/reader.tsx:477+` POST → state에 id 저장 | `ReaderViewModel.startLog()` | `ReaderViewModel.startLog()` |
+| passage 이동 | `reader.tsx:533+` PATCH `progressRatio` | `ReaderViewModel.reportPageChanged` | `ReaderViewModel.reportPageChanged` |
+| Reader 이탈 | `reader.tsx:550` `fetch` (`navigator.sendBeacon` 대체) PATCH `finishedAtUnix` | `ReaderViewModel.leave` (`onDisappear`) | `ReaderViewModel.leave` (`DisposableEffect.onDispose`) |
+| Quiz 완료 | `src/components/quiz-runner.tsx:55+` POST/PATCH `quizScore` | `QuizViewModel.submit()` | `QuizViewModel.submit()` |
 
 ### 디버깅 시 주의
 

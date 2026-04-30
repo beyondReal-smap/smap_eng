@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -100,7 +100,7 @@ private fun CoverPlaceholder(title: String, loading: Boolean) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp)
             } else {
                 Icon(
-                    imageVector = Icons.Filled.MenuBook,
+                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.padding(4.dp),

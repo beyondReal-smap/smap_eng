@@ -1,7 +1,7 @@
 ---
 name: session
 description: smap_eng 프로젝트 현재 상태. 세션 시작 시 현재 상태 파악용.
-last-updated: 2026-04-28 (디바이스 검증 중 — 모바일 미인증 게이트 추가)
+last-updated: 2026-04-29 (Expo/RN 앱 폐기 + HaruBook 네이티브 iOS·Android 도입)
 ---
 
 # 세션 상태
@@ -59,6 +59,61 @@ last-updated: 2026-04-28 (디바이스 검증 중 — 모바일 미인증 게이
 ---
 
 ## 최근 세션
+
+### 2026-04-29 (HaruBook 네이티브 iOS·Android Phase 1+2 도입 + Expo/RN 폐기)
+
+#### 세션 목표
+- 모바일 클라이언트를 Expo/RN(`apps/mobile`)에서 네이티브로 일원화. iOS(SwiftUI) + Android(Jetpack Compose). 백엔드 변경 0.
+
+#### 결정 사항
+- **앱 표시명**: 하루책 (HaruBook). 번들/Application ID `site.smap.harubook.{ios,android}`.
+- **모듈/타겟 명**: `HaruBook` (Swift 모듈) / `site.smap.harubook` (Kotlin 패키지).
+- **인증 흐름**: 백엔드의 기존 `/api/auth/mobile/{start,exchange}` + PKCE S256 그대로 사용. iOS는 ASWebAuthenticationSession, Android는 Chrome Custom Tabs.
+- **URL scheme**: `smapeng://` 유지 (백엔드 `parseMobileRedirect`가 해당 프로토콜만 화이트리스트). 사용자 비노출.
+- **결제**: iOS MVP에서 비노출. App Store 정책상 외부 결제(Toss/PortOne) 사용 불가 → Phase 4에서 StoreKit 2 + 영수증 검증.
+- **Apple Developer Team ID**: `ZVXXRV5MTP`.
+
+#### 변경 파일 (요약)
+| 영역 | 변경 |
+|------|------|
+| `apps/ios/` | 신규 — 33 Swift 파일, xcodegen 기반 (`project.yml`). SwiftUI + Swift 6, iOS 17+ |
+| `apps/android/` | 신규 — 30 Kotlin 파일, Gradle 8.10 + AGP 8.7.3 + Kotlin 2.0.21 + Compose BOM 2024.12.01. minSdk 26 |
+| `apps/mobile/` | 삭제 (90 파일, ~17.7K 라인) |
+| `package.json` | `mobile:*` 7개 스크립트 + `build:prod`의 `mobile:export` 호출 제거 |
+| `next.config.ts` | `/mobile/*` SPA fallback rewrite 제거 |
+| `agent-guide/PROJECT.md` | ReadingLog 클라이언트 호출 표를 iOS/Android 네이티브 기준으로 정정 |
+
+#### Phase 1 (스캐폴딩 + 기본 흐름)
+- iOS / Android 양쪽: 인증 → 프로필 전환 → 책장(레벨 필터) → 리더(텍스트 + 한글 토글) + 독서 로그 POST/PATCH.
+- 디자인 토큰 통일: `#1D5B53` primary, `#FFF7E8` background, `book_icon.png` 1024 업스케일.
+- Keychain (iOS) / EncryptedSharedPreferences (Android, AES-256 GCM)에 토큰 저장.
+
+#### Phase 2 (TTS + 4지선다 퀴즈)
+- TTS: `POST /api/tts/[passageId]` → `{ audioPath: "/audio/passage-N.wav" }` → Bearer 인증 다운로드 → 메모리/디스크 캐시 → 재생.
+- 퀴즈: 마지막 페이지 → "퀴즈 풀기" CTA → `POST /api/books/[id]/quiz` (멱등) → 5문제 진행 → 점수 PATCH `/api/logs { quizScore }`.
+
+#### 검증
+- iOS: Xcode 26.4 / iOS 26.4 시뮬레이터(iPhone 17 Pro) — `xcodebuild build` BUILD SUCCEEDED. LoginView 시각 검증 통과.
+- Android: AGP 8.7.3 / Gradle 8.10 — `./gradlew :app:assembleDebug` BUILD SUCCESSFUL. APK 20MB. Pixel 9 Pro AVD에서 LoginScreen 시각 검증 통과. PKCE 단위 테스트 3/3 통과.
+
+#### 커밋 (로컬, push 미수행)
+- `f25a7e7` — Phase 1 스캐폴딩 (105 파일, +6,128)
+- `8aff265` — Phase 2 TTS + 퀴즈 (20 파일, +1,625 / -70)
+- `55a34b9` — Apple Developer Team ID 적용 + xcodegen 산출물 추적 해제
+- `b4c0311` — Expo/RN 폐기 (92 파일, +2 / -17,701)
+
+#### 환경
+- macOS · Xcode 26.4 / Swift 6.3 / xcodegen 2.44.1
+- JDK 17.0.8 / Gradle 8.14.2 (system) → wrapper 8.10
+- Android Studio · `~/Library/Android/sdk` (platforms 34/35/36, build-tools 36.1.0)
+
+#### 다음 착수점
+- Phase 3: 동화 생성(intake 마법사 — `/api/books/intake/questions`, `POST /api/books`) + 책 표지/장면 이미지(`/api/image/book/[bookId]/cover`, `/api/image/passage/[passageId]`).
+- Phase 4: StoreKit 2 / Google Play Billing(IAP), Sign in with Apple, APNs/FCM 푸시.
+- iOS test target XCTest 모듈 자동 링크(xcodegen 옵션 보완).
+- Android Material Icons `MenuBook`/`Divider` deprecation 정리(AutoMirrored / HorizontalDivider).
+
+---
 
 ### 2026-04-20
 
