@@ -22,6 +22,18 @@ struct HomeRouter: View {
                             path = NavigationPath()
                         }
                     }
+                    .navigationDestination(for: CreateBookDestination.self) { dest in
+                        CreateBookFlow(
+                            profileId: dest.profileId,
+                            onCreated: { book in
+                                // 책장으로 복귀 후 곧바로 새 책으로 진입.
+                                var newPath = NavigationPath()
+                                newPath.append(book)
+                                path = newPath
+                            },
+                            onCancel: { path = NavigationPath() }
+                        )
+                    }
                 } else {
                     ProfilePickerView { profile in
                         selectedProfileId = profile.id

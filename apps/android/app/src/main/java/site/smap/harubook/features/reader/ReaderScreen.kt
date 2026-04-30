@@ -20,9 +20,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -149,7 +150,9 @@ fun ReaderScreen(
                         showsKorean = state.showsKorean,
                         isPlaying = nowPlaying == passage.id,
                         isPreparing = preparing == passage.id || state.synthesizingPassageId == passage.id,
+                        isGeneratingScene = state.generatingScenePassageId == passage.id,
                         onTogglePlayback = { viewModel.togglePlayback(page, context) },
+                        onRequestScene = { viewModel.requestSceneImage(page) },
                     )
                 }
 
@@ -224,7 +227,9 @@ private fun PassagePane(
     showsKorean: Boolean,
     isPlaying: Boolean,
     isPreparing: Boolean,
+    isGeneratingScene: Boolean,
     onTogglePlayback: () -> Unit,
+    onRequestScene: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -233,9 +238,10 @@ private fun PassagePane(
             .padding(horizontal = 24.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        passage.sceneImagePath?.takeIf { it.isNotBlank() }?.let { path ->
+        val scenePath = passage.sceneImagePath?.takeIf { it.isNotBlank() }
+        if (scenePath != null) {
             AuthenticatedAsyncImage(
-                path = path,
+                path = scenePath,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp)
@@ -243,6 +249,25 @@ private fun PassagePane(
                 placeholder = { Box(Modifier.fillMaxSize().background(SmapPrimarySoft)) },
                 failure = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, tint = SmapPrimary.copy(alpha = 0.5f)) },
             )
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .clickable(enabled = !isGeneratingScene, onClick = onRequestScene)
+                    .background(SmapPrimarySoft)
+                    .padding(vertical = 18.dp, horizontal = 16.dp),
+            ) {
+                if (isGeneratingScene) {
+                    CircularProgressIndicator(color = SmapPrimary, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                    Text("삽화 그리는 중…", style = SmapBodyEmphasisStyle, color = SmapPrimary)
+                } else {
+                    Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, tint = SmapPrimary)
+                    Text("이 장면 그리기", style = SmapBodyEmphasisStyle, color = SmapPrimary)
+                }
+            }
         }
 
         // 재생 버튼
@@ -332,7 +357,7 @@ private fun BottomBar(
                     .background(SmapPrimary)
                     .padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
-                Icon(Icons.Filled.HelpOutline, contentDescription = null, tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = null, tint = Color.White)
                 Text("퀴즈 풀기", style = SmapBodyEmphasisStyle, color = Color.White)
             }
         } else {

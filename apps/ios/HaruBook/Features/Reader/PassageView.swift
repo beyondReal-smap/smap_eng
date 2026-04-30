@@ -5,21 +5,14 @@ struct PassageView: View {
     let showsKorean: Bool
     let isPlaying: Bool
     let isPreparing: Bool
+    let isGeneratingScene: Bool
     let onTogglePlayback: () -> Void
+    let onRequestScene: () -> Void
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if let path = passage.sceneImagePath, !path.isEmpty {
-                    AuthenticatedAsyncImage(
-                        path: path,
-                        placeholder: { ScenePlaceholder(isLoading: true) },
-                        failure: { ScenePlaceholder(isLoading: false) }
-                    )
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                }
+                sceneSection
 
                 Button(action: onTogglePlayback) {
                     HStack(spacing: 10) {
@@ -61,6 +54,43 @@ struct PassageView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollIndicators(.hidden)
+    }
+
+    @ViewBuilder
+    private var sceneSection: some View {
+        if let path = passage.sceneImagePath, !path.isEmpty {
+            AuthenticatedAsyncImage(
+                path: path,
+                placeholder: { ScenePlaceholder(isLoading: true) },
+                failure: { ScenePlaceholder(isLoading: false) }
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else {
+            Button(action: onRequestScene) {
+                HStack(spacing: 10) {
+                    if isGeneratingScene {
+                        ProgressView().tint(Color.smapPrimary)
+                        Text("삽화 그리는 중…")
+                    } else {
+                        Image(systemName: "photo.badge.plus")
+                        Text("이 장면 그리기")
+                    }
+                }
+                .font(.smapBodyEmphasis)
+                .foregroundStyle(Color.smapPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(Color.smapPrimarySoft, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(Color.smapPrimary.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isGeneratingScene)
+        }
     }
 }
 

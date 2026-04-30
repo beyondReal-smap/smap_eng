@@ -10,9 +10,21 @@ final class BookshelfViewModel {
     var cefrFilter: CefrLevel?
     var isLoading: Bool = false
     var error: String?
+    var credits: CreditBalance?
 
     init(profileId: Int) {
         self.profileId = profileId
+    }
+
+    func fetchCredits() async {
+        do {
+            let response: CreditsResponse = try await APIClient.shared.send(
+                Endpoint(path: "/api/billing/credits", method: .get)
+            )
+            self.credits = response.credits
+        } catch {
+            // 소프트 페일 — 별 잔액은 보조 정보.
+        }
     }
 
     func load() async {

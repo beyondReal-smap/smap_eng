@@ -82,13 +82,18 @@ struct ReaderView: View {
                 let isPlaying = audio.nowPlayingPassageId == passage.id
                 let isPreparing = audio.preparingPassageId == passage.id
                     || viewModel.synthesizingPassageId == passage.id
+                let isGeneratingScene = viewModel.generatingScenePassageId == passage.id
                 PassageView(
                     passage: passage,
                     showsKorean: viewModel.showsKorean,
                     isPlaying: isPlaying,
                     isPreparing: isPreparing,
+                    isGeneratingScene: isGeneratingScene,
                     onTogglePlayback: {
                         Task { await viewModel.togglePlayback(for: index) }
+                    },
+                    onRequestScene: {
+                        Task { await viewModel.requestSceneImage(for: index) }
                     }
                 )
                 .tag(index)

@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -55,6 +56,7 @@ fun BookshelfScreen(
     profileId: Int,
     onSwitchProfile: () -> Unit,
     onOpenBook: (Int) -> Unit,
+    onCreateBook: () -> Unit,
 ) {
     val viewModel: BookshelfViewModel = viewModel(
         key = "bookshelf-$profileId",
@@ -69,7 +71,10 @@ fun BookshelfScreen(
     )
     val state by viewModel.state.collectAsState()
 
-    LaunchedEffect(profileId) { viewModel.load() }
+    LaunchedEffect(profileId) {
+        viewModel.load()
+        viewModel.fetchCredits()
+    }
 
     Column(
         modifier = Modifier
@@ -83,18 +88,38 @@ fun BookshelfScreen(
                 Text(stringResource(R.string.bookshelf_title), style = SmapDisplayStyle, color = SmapText)
                 Text(stringResource(R.string.bookshelf_subtitle), style = SmapBodyStyle, color = SmapMuted)
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier
-                    .clickable(onClick = onSwitchProfile)
-                    .background(SmapSurface, RoundedCornerShape(percent = 50))
-                    .border(1.dp, SmapBorder, RoundedCornerShape(percent = 50))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(Icons.Filled.SwapHoriz, contentDescription = null, tint = SmapText, modifier = Modifier.size(16.dp))
-                Text(stringResource(R.string.action_switch_profile), style = SmapCaptionStyle, color = SmapText)
+                CreditBadge(balance = state.credits?.balance)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .clickable(onClick = onSwitchProfile)
+                        .background(SmapSurface, RoundedCornerShape(percent = 50))
+                        .border(1.dp, SmapBorder, RoundedCornerShape(percent = 50))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                ) {
+                    Icon(Icons.Filled.SwapHoriz, contentDescription = null, tint = SmapText, modifier = Modifier.size(16.dp))
+                    Text(stringResource(R.string.action_switch_profile), style = SmapCaptionStyle, color = SmapText)
+                }
             }
+        }
+
+        Spacer(Modifier.size(16.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .clickable(onClick = onCreateBook)
+                .background(SmapPrimary, RoundedCornerShape(percent = 50))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null, tint = androidx.compose.ui.graphics.Color.White)
+            Text("새 동화 만들기", style = SmapBodyEmphasisStyle, color = androidx.compose.ui.graphics.Color.White)
         }
 
         Spacer(Modifier.size(16.dp))

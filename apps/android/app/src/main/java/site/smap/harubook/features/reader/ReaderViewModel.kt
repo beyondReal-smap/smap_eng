@@ -28,6 +28,7 @@ data class ReaderUiState(
     val error: String? = null,
     val readingLogId: Int? = null,
     val synthesizingPassageId: Int? = null,
+    val generatingScenePassageId: Int? = null,
 )
 
 class ReaderViewModel(
@@ -99,6 +100,34 @@ class ReaderViewModel(
         AudioPlayer.stop()
     }
 
+    /** 장면 이미지 생성 (`POST /api/image/passage/[id]`). 멱등. */
+    fun requestSceneImage(passageIndex: Int) {
+        val passage = _state.value.passages.getOrNull(passageIndex) ?: return
+        if (!passage.sceneImagePath.isNullOrEmpty()) return
+
+        viewModelScope.launch {
+            _state.update { it.copy(generatingScenePassageId = passage.id) }
+            try {
+                val response: SceneImageResponse = ApiClient.post("/api/image/passage/${passage.id}")
+                _state.update { s ->
+                    s.copy(
+                        passages = s.passages.map { p ->
+                            if (p.id == passage.id) p.copy(sceneImagePath = response.sceneImagePath) else p
+                        },
+                        generatingScenePassageId = null,
+                    )
+                }
+            } catch (e: Throwable) {
+                _state.update {
+                    it.copy(
+                        generatingScenePassageId = null,
+                        error = "삽화 생성 실패: ${e.message ?: e::class.java.simpleName}",
+                    )
+                }
+            }
+        }
+    }
+
     private fun loadDetail() {
         viewModelScope.launch {
             try {
@@ -163,4 +192,10 @@ private data class TtsResponse(
     val audioPath: String,
     val cached: Boolean? = null,
     val bytes: Long? = null,
+)
+
+@Serializable
+private data class SceneImageResponse(
+    val passageId: Int? = null,
+    val sceneImagePath: String,
 )

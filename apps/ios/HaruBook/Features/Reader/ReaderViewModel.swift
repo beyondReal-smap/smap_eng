@@ -19,6 +19,9 @@ final class ReaderViewModel {
     /// 마지막으로 TTS 합성이 진행 중인 passage id. UI 인디케이터용.
     private(set) var synthesizingPassageId: Int?
 
+    /// 장면 이미지 생성이 진행 중인 passage id. UI 인디케이터용.
+    private(set) var generatingScenePassageId: Int?
+
     private var hasReportedFinish: Bool = false
 
     init(book: Book, profileId: Int) {
@@ -82,6 +85,34 @@ final class ReaderViewModel {
             AudioPlayer.shared.toggle(passageId: passage.id, audioPath: response.audioPath)
         } catch {
             self.error = "오디오 준비 실패: \(error.localizedDescription)"
+        }
+    }
+
+    /// 장면 이미지를 합성한다(`POST /api/image/passage/[id]`). 멱등.
+    func requestSceneImage(for passageIndex: Int) async {
+        guard passages.indices.contains(passageIndex) else { return }
+        let passage = passages[passageIndex]
+        if passage.sceneImagePath?.isEmpty == false { return }
+
+        generatingScenePassageId = passage.id
+        defer { generatingScenePassageId = nil }
+        do {
+            let response: SceneImageResponse = try await APIClient.shared.send(
+                Endpoint(path: "/api/image/passage/\(passage.id)", method: .post)
+            )
+            if let idx = passages.firstIndex(where: { $0.id == passage.id }) {
+                passages[idx] = Passage(
+                    id: passage.id,
+                    bookId: passage.bookId,
+                    orderIndex: passage.orderIndex,
+                    textEn: passage.textEn,
+                    textKo: passage.textKo,
+                    audioPath: passage.audioPath,
+                    sceneImagePath: response.sceneImagePath
+                )
+            }
+        } catch {
+            self.error = "삽화 생성 실패: \(error.localizedDescription)"
         }
     }
 
@@ -153,4 +184,9 @@ private struct TtsResponse: Decodable {
     let audioPath: String
     let cached: Bool?
     let bytes: Int?
+}
+
+private struct SceneImageResponse: Decodable {
+    let passageId: Int?
+    let sceneImagePath: String
 }

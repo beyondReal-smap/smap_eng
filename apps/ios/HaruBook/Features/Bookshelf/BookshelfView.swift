@@ -25,19 +25,37 @@ struct BookshelfView: View {
                                 .foregroundStyle(Color.smapMuted)
                         }
                         Spacer()
-                        Button {
-                            onSwitchProfile()
-                        } label: {
-                            Label("프로필 전환", systemImage: "arrow.triangle.2.circlepath")
-                                .font(.smapCaption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.smapSurface)
-                                .foregroundStyle(Color.smapText)
-                                .clipShape(Capsule())
-                                .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
+                        VStack(alignment: .trailing, spacing: 8) {
+                            CreditBadge(balance: viewModel.credits?.balance)
+                            Button {
+                                onSwitchProfile()
+                            } label: {
+                                Label("프로필 전환", systemImage: "arrow.triangle.2.circlepath")
+                                    .font(.smapCaption)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color.smapSurface)
+                                    .foregroundStyle(Color.smapText)
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        NavigationLink(value: CreateBookDestination(profileId: viewModel.profileId)) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                Text("새 동화 만들기").font(.smapBodyEmphasis)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(Color.smapPrimary, in: Capsule())
+                            .foregroundStyle(.white)
                         }
                         .buttonStyle(.plain)
+                        Spacer()
                     }
 
                     LevelFilterView(
@@ -59,8 +77,16 @@ struct BookshelfView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .task { await viewModel.load() }
-        .refreshable { await viewModel.load() }
+        .task {
+            async let books: Void = viewModel.load()
+            async let credits: Void = viewModel.fetchCredits()
+            _ = await (books, credits)
+        }
+        .refreshable {
+            async let books: Void = viewModel.load()
+            async let credits: Void = viewModel.fetchCredits()
+            _ = await (books, credits)
+        }
     }
 
     @ViewBuilder
@@ -93,7 +119,7 @@ struct BookshelfView: View {
                 Text("아직 책이 없어요.")
                     .font(.smapBodyEmphasis)
                     .foregroundStyle(Color.smapText)
-                Text("웹에서 새 동화를 만들면 여기서 만나볼 수 있어요.")
+                Text("위의 \"새 동화 만들기\"를 눌러 첫 책을 만들어 보세요.")
                     .font(.smapCaption)
                     .foregroundStyle(Color.smapMuted)
                     .multilineTextAlignment(.center)
@@ -111,4 +137,9 @@ struct BookshelfView: View {
             }
         }
     }
+}
+
+/// CreateBookFlow destination — NavigationStack value.
+struct CreateBookDestination: Hashable {
+    let profileId: Int
 }

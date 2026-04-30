@@ -15,6 +15,7 @@ import androidx.navigation.navArgument
 import java.net.URLDecoder
 import java.net.URLEncoder
 import site.smap.harubook.features.bookshelf.BookshelfScreen
+import site.smap.harubook.features.createbook.CreateBookFlow
 import site.smap.harubook.features.profiles.ProfilePickerScreen
 import site.smap.harubook.features.quiz.QuizScreen
 import site.smap.harubook.features.reader.ReaderScreen
@@ -23,6 +24,7 @@ private const val PROFILE_PICKER_ROUTE = "profilePicker"
 private const val BOOKSHELF_ROUTE = "bookshelf"
 private const val READER_ROUTE = "reader/{bookId}"
 private const val QUIZ_ROUTE = "quiz/{bookId}/{title}/{logId}"
+private const val CREATE_BOOK_ROUTE = "createBook"
 
 @Composable
 fun HomeRouter() {
@@ -60,6 +62,23 @@ fun HomeRouter() {
                 onOpenBook = { bookId ->
                     nav.navigate("reader/$bookId")
                 },
+                onCreateBook = {
+                    nav.navigate(CREATE_BOOK_ROUTE)
+                },
+            )
+        }
+
+        composable(CREATE_BOOK_ROUTE) {
+            val pid = selectedProfileId ?: return@composable
+            CreateBookFlow(
+                profileId = pid,
+                onCreated = { book ->
+                    nav.navigate("reader/${book.id}") {
+                        popUpTo(BOOKSHELF_ROUTE) { inclusive = false }
+                        launchSingleTop = true
+                    }
+                },
+                onCancel = { nav.popBackStack() },
             )
         }
 

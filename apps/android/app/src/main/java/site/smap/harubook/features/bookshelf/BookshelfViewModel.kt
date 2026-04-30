@@ -10,6 +10,8 @@ import kotlinx.coroutines.launch
 import site.smap.harubook.core.models.Book
 import site.smap.harubook.core.models.BooksResponse
 import site.smap.harubook.core.models.CefrLevel
+import site.smap.harubook.core.models.CreditBalance
+import site.smap.harubook.core.models.CreditsResponse
 import site.smap.harubook.core.networking.ApiClient
 
 data class BookshelfUiState(
@@ -18,6 +20,7 @@ data class BookshelfUiState(
     val cefrFilter: CefrLevel? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
+    val credits: CreditBalance? = null,
 )
 
 class BookshelfViewModel(val profileId: Int) : ViewModel() {
@@ -57,5 +60,16 @@ class BookshelfViewModel(val profileId: Int) : ViewModel() {
     fun resetFilters() {
         _state.update { it.copy(ageFilter = null, cefrFilter = null) }
         load()
+    }
+
+    fun fetchCredits() {
+        viewModelScope.launch {
+            try {
+                val response: CreditsResponse = ApiClient.get("/api/billing/credits")
+                _state.update { it.copy(credits = response.credits) }
+            } catch (_: Throwable) {
+                // 별 잔액은 보조 정보 — 소프트 페일.
+            }
+        }
     }
 }
