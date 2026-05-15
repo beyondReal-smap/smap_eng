@@ -1,6 +1,8 @@
 import SwiftUI
+import UserNotifications
+import UIKit
 
-/// 설정 화면. 계정 / 약관 / 앱 정보 / 위험 영역 4개 섹션으로 구성한다.
+/// 설정 화면. 계정 / 별 충전 / 보호자 / 알림 / 약관 / 앱 정보 / 위험 영역 섹션으로 구성한다.
 struct SettingsView: View {
     @Environment(AuthState.self) private var auth
     @Environment(\.dismiss) private var dismiss
@@ -10,16 +12,19 @@ struct SettingsView: View {
     var onSignOut: () -> Void
 
     @State private var showDeleteSheet: Bool = false
+    @State private var pushManager = PushManager.shared
 
     var body: some View {
         List {
             accountSection
             storeSection
+            notificationSection
             parentsSection
             legalSection
             appInfoSection
             dangerSection
         }
+        .task { await pushManager.refreshAuthorizationStatus() }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Color.smapBackground.ignoresSafeArea())
@@ -48,11 +53,55 @@ struct SettingsView: View {
             }
 
             Button(role: .destructive) {
-                auth.signOut()
-                onSignOut()
+                Task {
+                    // 로그아웃 전에 푸시 등록을 백엔드에서 해제. 실패해도 로그아웃은 진행.
+                    await pushManager.unregister()
+                    auth.signOut()
+                    onSignOut()
+                }
             } label: {
                 Label("로그아웃", systemImage: "rectangle.portrait.and.arrow.right")
             }
+        }
+    }
+
+    // MARK: - 알림
+
+    private var notificationSection: some View {
+        Section {
+            switch pushManager.authorizationStatus {
+            case .notDetermined:
+                Button {
+                    Task { await pushManager.requestAuthorization() }
+                } label: {
+                    Label("푸시 알림 받기", systemImage: "bell.badge")
+                        .foregroundStyle(Color.smapText)
+                }
+            case .denied:
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    Label("푸시 알림 허용하기", systemImage: "bell.slash")
+                        .foregroundStyle(Color.smapText)
+                }
+            case .authorized, .provisional, .ephemeral:
+                HStack {
+                    Label("푸시 알림", systemImage: "bell.fill")
+                        .foregroundStyle(Color.smapText)
+                    Spacer()
+                    Text("켜짐")
+                        .font(.smapCaption)
+                        .foregroundStyle(Color.smapPrimary)
+                }
+            @unknown default:
+                EmptyView()
+            }
+        } footer: {
+            Text("새 동화가 완성되거나 보호자 리포트가 준비되면 알려드릴게요.")
+                .font(.smapCaption)
+                .foregroundStyle(Color.smapMuted)
         }
     }
 

@@ -412,6 +412,28 @@ export const iapTransactions = mysqlTable(
   (t) => [index('iap_tx_user_idx').on(t.userId, t.createdAt)],
 );
 
+// APNs device token — iOS 푸시 발송 대상.
+export const PUSH_ENVIRONMENTS = ['production', 'sandbox'] as const;
+export type PushEnvironment = (typeof PUSH_ENVIRONMENTS)[number];
+
+export const pushTokens = mysqlTable(
+  'push_tokens',
+  {
+    id: int('id').autoincrement().primaryKey(),
+    userId: varchar('user_id', { length: 255 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** APNs device token (hex). 같은 기기 1행만. */
+    deviceToken: varchar('device_token', { length: 200 }).notNull().unique(),
+    environment: varchar('environment', { length: 16, enum: PUSH_ENVIRONMENTS })
+      .notNull()
+      .default('production'),
+    lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('push_token_user_idx').on(t.userId)],
+);
+
 // 가족(user) 단위 구독 레코드 — 결제 이력/가입 통계용으로 보존.
 // (책 생성 한도는 별 크레딧으로 단일화되어 cycleAnchorDay는 더 이상 차감 게이트에 쓰이지 않음.)
 export const subscriptions = mysqlTable('subscriptions', {
@@ -451,3 +473,5 @@ export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type IapTransaction = typeof iapTransactions.$inferSelect;
 export type NewIapTransaction = typeof iapTransactions.$inferInsert;
+export type PushToken = typeof pushTokens.$inferSelect;
+export type NewPushToken = typeof pushTokens.$inferInsert;
