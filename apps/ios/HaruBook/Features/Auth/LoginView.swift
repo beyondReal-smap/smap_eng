@@ -67,22 +67,31 @@ struct LoginView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .disabled(inFlightProvider != nil || appleSignInBusy)
 
+                    // Google 공식 sign-in 가이드: 흰 배경 + 연한 회색 외곽선 + 검정 텍스트.
+                    // 4색 G 자산이 없어 SF Symbol을 Google 블루(#4285F4) 단색으로 처리.
                     PrimaryButton(
                         title: "Google로 계속하기",
                         icon: Image(systemName: "g.circle.fill"),
                         variant: .filled,
                         isLoading: inFlightProvider == "google",
                         isEnabled: inFlightProvider == nil && !appleSignInBusy,
+                        backgroundOverride: Color.white,
+                        foregroundOverride: Color(hex: 0x1F1F1F),
+                        borderOverride: Color(hex: 0xDADCE0),
+                        iconColorOverride: Color(hex: 0x4285F4),
                     ) {
                         Task { await signIn(provider: "google") }
                     }
 
+                    // 카카오 브랜드 가이드: 노란색(#FEE500) 배경 + 검정(#191600) 텍스트/말풍선.
                     PrimaryButton(
                         title: "카카오로 계속하기",
                         icon: Image(systemName: "bubble.left.fill"),
-                        variant: .tonal,
+                        variant: .filled,
                         isLoading: inFlightProvider == "kakao",
                         isEnabled: inFlightProvider == nil && !appleSignInBusy,
+                        backgroundOverride: Color(hex: 0xFEE500),
+                        foregroundOverride: Color(hex: 0x191600),
                     ) {
                         Task { await signIn(provider: "kakao") }
                     }
