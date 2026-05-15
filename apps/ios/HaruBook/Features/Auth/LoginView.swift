@@ -116,7 +116,7 @@ struct LoginView: View {
 
                 if let error = auth.lastError {
                     Text(error)
-                        .font(.smapCaption)
+                        .font(Font.atozRegular(13))
                         .foregroundStyle(Color.smapDanger)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 12)
@@ -128,7 +128,7 @@ struct LoginView: View {
                 Text(
                     "로그인하면 [이용약관](smap://legal/terms)과 [개인정보처리방침](smap://legal/privacy)에 동의한 것으로 간주합니다.",
                 )
-                .font(.smapCaption)
+                .font(Font.atozRegular(13))
                 .foregroundStyle(Color.smapMuted)
                 .tint(.smapPrimary)
                 .multilineTextAlignment(.center)
