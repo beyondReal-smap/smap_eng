@@ -46,17 +46,56 @@ final class HaruBookAppDelegate: NSObject, UIApplicationDelegate {
 
 struct RootView: View {
     @Environment(AuthState.self) private var auth
+    @State private var splashFinished = false
+
+    /// SplashView 최소 노출 시간 — Keychain bootstrap이 거의 즉시 끝나면 깜빡임이
+    /// 일어나 사용자가 스플래시를 인지 못 한다. 페이드아웃 0.35s 와 합쳐 ~1.55s 노출.
+    private static let minimumSplashSeconds: Double = 1.2
 
     var body: some View {
+        ZStack {
+            content
+                .opacity(splashFinished ? 1 : 0)
+
+            if !splashFinished {
+                SplashView()
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+        }
+        .task {
+            // bootstrap과 최소 노출 시간을 동시에 진행. 둘 다 끝나야 스플래시 종료.
+            async let bootstrap: Void = runBootstrapIfNeeded()
+            async let delay: Void = sleep(seconds: Self.minimumSplashSeconds)
+            _ = await (bootstrap, delay)
+            withAnimation(.easeOut(duration: 0.35)) {
+                splashFinished = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         switch auth.phase {
         case .loading:
-            SplashView()
-                .task { await auth.bootstrap() }
+            // bootstrap이 끝나기 전엔 어차피 SplashView가 가리지만,
+            // splashFinished가 true가 될 때 phase가 .loading이면 잠시 빈 화면 → 곧 갱신.
+            Color.clear
         case .signedOut:
             LoginView()
         case .signedIn:
             HomeRouter()
         }
+    }
+
+    private func runBootstrapIfNeeded() async {
+        if auth.phase == .loading {
+            await auth.bootstrap()
+        }
+    }
+
+    private func sleep(seconds: Double) async {
+        try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
     }
 }
 
