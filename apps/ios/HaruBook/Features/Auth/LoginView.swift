@@ -17,19 +17,21 @@ struct LoginView: View {
             VStack(spacing: 28) {
                 Spacer()
 
-                VStack(spacing: 16) {
+                VStack(spacing: 14) {
                     Image("LoginIcon")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 132, height: 132)
+                        .frame(width: 84, height: 84)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .accessibilityHidden(true)
 
+                    // 웹 랜딩/메인과 동일한 손글씨 폰트 A2Z 9 Black.
                     Text("하루책")
-                        .font(.smapDisplay)
+                        .font(.atozBlack(40))
                         .foregroundStyle(Color.smapText)
 
                     Text("매일 한 권, 우리 아이의 영어 동화책")
-                        .font(.smapBody)
+                        .font(.atozRegular(15))
                         .foregroundStyle(Color.smapMuted)
                         .multilineTextAlignment(.center)
                 }

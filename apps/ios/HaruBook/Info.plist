@@ -42,6 +42,12 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>AtoZ-4Regular.ttf</string>
+		<string>AtoZ-7Bold.ttf</string>
+		<string>AtoZ-9Black.ttf</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

@@ -65,6 +65,11 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
         ITSAppUsesNonExemptEncryption: false
+        # 웹 랜딩/메인과 동일한 손글씨 폰트(A2Z). 9 웨이트 중 핵심 3개만 번들.
+        UIAppFonts:
+          - AtoZ-4Regular.ttf
+          - AtoZ-7Bold.ttf
+          - AtoZ-9Black.ttf
         LSApplicationCategoryType: public.app-category.education
 
   HaruBookTests:
