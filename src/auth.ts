@@ -238,6 +238,22 @@ async function insertMobileToken(
   return { raw, expiresAt };
 }
 
+/**
+ * 운영 환경에서는 nginx → 랜딩 프록시(:5027) → Next.js 메인 앱(:5029)을 경유한다.
+ * Next.js는 `req.url`을 내부 origin(`http://localhost:5029`)으로 보기 때문에,
+ * 외부 사용자에게 노출할 URL은 `x-forwarded-host` + `x-forwarded-proto`로 복원해야 한다.
+ * 누락 시 reqUrl의 host/proto로 폴백.
+ */
+function getPublicOrigin(req: Request, reqUrl: URL): string {
+  const forwardedHost = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  const host = forwardedHost && forwardedHost.length > 0 ? forwardedHost : reqUrl.host;
+  const proto = forwardedProto && forwardedProto.length > 0
+    ? forwardedProto
+    : reqUrl.protocol.replace(':', '');
+  return `${proto}://${host}`;
+}
+
 async function handleMobileStart(req: Request): Promise<Response> {
   const reqUrl = new URL(req.url);
   const redirect = parseMobileRedirect(reqUrl.searchParams.get('redirect'));
@@ -264,7 +280,10 @@ async function handleMobileStart(req: Request): Promise<Response> {
   if (!session?.user?.id) {
     if (!provider) return renderMobileProviderPicker(reqUrl, redirect);
 
-    const callbackUrl = new URL('/api/auth/mobile/start', reqUrl.origin);
+    // 외부 도메인(예: https://eng.smap.site)으로 복원. 내부 origin(localhost:5029)이면
+    // OAuth callback 후 사용자가 도달 못 한다.
+    const publicOrigin = getPublicOrigin(req, reqUrl);
+    const callbackUrl = new URL('/api/auth/mobile/start', publicOrigin);
     callbackUrl.searchParams.set('redirect', redirect.toString());
     if (codeChallenge) {
       callbackUrl.searchParams.set('code_challenge', codeChallenge);
@@ -277,13 +296,10 @@ async function handleMobileStart(req: Request): Promise<Response> {
     });
 
     // Auth.js v5의 `redirectTo`가 OAuth callback 후 `callback-url` 쿠키와 동기화되지
-    // 않아 root(`https://eng.smap.site/`)로 fallback 되는 사례가 관찰됨
-    // (`Set-Cookie: __Secure-authjs.callback-url=https%3A%2F%2Feng.smap.site`).
-    // 결과: ASWebAuthenticationSession 콜백 스킴(`smapeng://`)으로 redirect되지
-    // 않아 시트가 닫히지 않고 그 안에서 메인 페이지가 로드됨.
-    // → 응답 헤더에 `callback-url` 쿠키를 명시적으로 mobile/start URL로 덮어쓴다.
+    // 않아 root로 fallback 되는 사례가 있어 명시적으로 mobile/start URL을 set.
+    // HTTPS는 forwarded proto 기준 — 운영은 nginx가 https로 받아 내부에 http로 프록시.
     const response = NextResponse.redirect(authRedirect);
-    const isHttps = reqUrl.protocol === 'https:';
+    const isHttps = publicOrigin.startsWith('https://');
     response.cookies.set({
       name: isHttps ? '__Secure-authjs.callback-url' : 'authjs.callback-url',
       value: callbackUrl.toString(),
