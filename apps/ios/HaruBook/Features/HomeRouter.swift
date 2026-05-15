@@ -34,6 +34,12 @@ struct HomeRouter: View {
                             onCancel: { path = NavigationPath() }
                         )
                     }
+                    .navigationDestination(for: StatsDestination.self) { dest in
+                        StatsDashboardView(profileId: dest.profileId)
+                    }
+                    .navigationDestination(for: VocabDestination.self) { dest in
+                        VocabDeckView(profileId: dest.profileId)
+                    }
                 } else {
                     ProfilePickerView { profile in
                         selectedProfileId = profile.id
@@ -42,6 +48,22 @@ struct HomeRouter: View {
                 }
             }
             .toolbar {
+                if let profileId = selectedProfileId {
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavigationLink(value: StatsDestination(profileId: profileId)) {
+                            Image(systemName: "chart.bar.xaxis")
+                                .font(.title2)
+                                .foregroundStyle(Color.smapText)
+                        }
+                    }
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavigationLink(value: VocabDestination(profileId: profileId)) {
+                            Image(systemName: "character.book.closed")
+                                .font(.title2)
+                                .foregroundStyle(Color.smapText)
+                        }
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         SettingsView(
