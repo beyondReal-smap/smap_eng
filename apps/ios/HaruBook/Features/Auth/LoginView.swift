@@ -9,6 +9,9 @@ struct LoginView: View {
     @State private var showEmailFlow: Bool = false
     @State private var appleNonce: AppleSignInNonce?
     @State private var appleSignInBusy: Bool = false
+    /// ASAuthorizationController는 강한 참조를 보관하지 않으므로 View가 coordinator를
+    /// 보관해야 한다. SwiftUI @State 로 lifecycle 묶음.
+    @State private var appleCoordinator = AppleSignInCoordinator()
 
     var body: some View {
         ZStack {
@@ -42,34 +45,22 @@ struct LoginView: View {
 
                 VStack(spacing: 12) {
                     // App Store Review Guideline 4.8 — Sign in with Apple은 다른 소셜 옵션과
-                    // 동등하거나 위에 배치해야 한다. 가장 위에 둔다.
-                    SignInWithAppleButton(.continue) { request in
-                        let nonce = AppleSignInNonce.make()
-                        appleNonce = nonce
-                        request.requestedScopes = [.fullName, .email]
-                        request.nonce = nonce.hashed
-                    } onCompletion: { result in
-                        appleSignInBusy = true
-                        Task {
-                            defer { appleSignInBusy = false }
-                            switch result {
-                            case .success(let authorization):
-                                guard let nonce = appleNonce else { return }
-                                await auth.signInWithApple(
-                                    authorization: authorization,
-                                    rawNonce: nonce.raw,
-                                )
-                                appleNonce = nil
-                            case .failure(let error):
-                                auth.handleAppleError(error)
-                                appleNonce = nil
-                            }
-                        }
+                    // 동등하거나 위에 배치한다. 가장 위.
+                    // 커스텀 PrimaryButton + ASAuthorizationController 직접 호출 — 다른 버튼과
+                    // 동일한 폰트/모양/스타일을 유지하기 위함. 검정 배경/흰 텍스트/applelogo
+                    // SF Symbol 조합은 Apple HIG의 SiwA 가이드를 준수한다.
+                    PrimaryButton(
+                        title: "Apple로 계속하기",
+                        icon: Image(systemName: "applelogo"),
+                        variant: .filled,
+                        isLoading: appleSignInBusy,
+                        isEnabled: inFlightProvider == nil && !appleSignInBusy,
+                        backgroundOverride: Color.black,
+                        foregroundOverride: Color.white,
+                        fontOverride: Font.atozBold(17),
+                    ) {
+                        startAppleSignIn()
                     }
-                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                    .frame(height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .disabled(inFlightProvider != nil || appleSignInBusy)
 
                     // Google 공식 sign-in 가이드: 흰 배경 + 연한 회색 외곽선 + 검정 텍스트.
                     // GoogleG 자산은 4색(빨강/파랑/노랑/초록) SVG. .renderingMode(.original)로
@@ -173,6 +164,33 @@ struct LoginView: View {
         inFlightProvider = provider
         defer { inFlightProvider = nil }
         await auth.signIn(provider: provider)
+    }
+
+    /// Apple 인증 시작 — nonce 생성, coordinator로 ASAuthorizationController 호출,
+    /// 결과를 받아 백엔드로 전달.
+    private func startAppleSignIn() {
+        let nonce = AppleSignInNonce.make()
+        appleNonce = nonce
+        appleSignInBusy = true
+
+        appleCoordinator.onCompletion = { result in
+            Task { @MainActor in
+                defer {
+                    appleSignInBusy = false
+                    appleNonce = nil
+                }
+                switch result {
+                case .success(let authorization):
+                    await auth.signInWithApple(
+                        authorization: authorization,
+                        rawNonce: nonce.raw,
+                    )
+                case .failure(let error):
+                    auth.handleAppleError(error)
+                }
+            }
+        }
+        appleCoordinator.start(nonceHashed: nonce.hashed)
     }
 }
 
