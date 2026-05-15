@@ -14,6 +14,7 @@ struct SettingsView: View {
     var body: some View {
         List {
             accountSection
+            parentsSection
             legalSection
             appInfoSection
             dangerSection
@@ -51,6 +52,23 @@ struct SettingsView: View {
             } label: {
                 Label("로그아웃", systemImage: "rectangle.portrait.and.arrow.right")
             }
+        }
+    }
+
+    // MARK: - 보호자 모드
+
+    private var parentsSection: some View {
+        Section {
+            NavigationLink {
+                ParentalPinGateView()
+            } label: {
+                Label("보호자 모드 · 주간 리포트", systemImage: "person.2.fill")
+                    .foregroundStyle(Color.smapText)
+            }
+        } footer: {
+            Text("PIN으로 잠긴 보호자 전용 영역입니다. 30분 후 자동 잠금됩니다.")
+                .font(.smapCaption)
+                .foregroundStyle(Color.smapMuted)
         }
     }
 
