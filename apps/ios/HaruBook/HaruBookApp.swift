@@ -153,11 +153,12 @@ private struct SplashView: View {
                     .accessibilityHidden(true)
 
                 VStack(spacing: 6) {
+                    // LoginView 와 동일한 손글씨 폰트 A2Z로 통일.
                     Text("하루책")
-                        .font(.system(size: 30, weight: .heavy, design: .rounded))
+                        .font(Font.atozBlack(34))
                         .foregroundStyle(Self.charcoal)
                     Text("매일 한 권, 우리 아이의 영어 동화책")
-                        .font(.system(size: 14, weight: .regular))
+                        .font(Font.atozRegular(14))
                         .foregroundStyle(Self.graphite)
                         .multilineTextAlignment(.center)
                 }
