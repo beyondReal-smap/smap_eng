@@ -26,12 +26,14 @@ struct LoginView: View {
                         .accessibilityHidden(true)
 
                     // 웹 랜딩/메인과 동일한 손글씨 폰트 A2Z 9 Black.
+                    // `.font(_:)` modifier가 `Font?` 를 받아 leading-dot 멤버 추론이
+                    // 실패하므로 `Font.` 를 명시한다.
                     Text("하루책")
-                        .font(.atozBlack(40))
+                        .font(Font.atozBlack(40))
                         .foregroundStyle(Color.smapText)
 
                     Text("매일 한 권, 우리 아이의 영어 동화책")
-                        .font(.atozRegular(15))
+                        .font(Font.atozRegular(15))
                         .foregroundStyle(Color.smapMuted)
                         .multilineTextAlignment(.center)
                 }

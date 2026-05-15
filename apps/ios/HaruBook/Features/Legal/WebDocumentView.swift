@@ -39,10 +39,13 @@ struct WebDocumentView: UIViewRepresentable {
             self.allowedHost = allowedHost
         }
 
+        // iOS 16+/Xcode 14+ 에서 WKNavigationDelegate optional 요구사항의 decisionHandler가
+        // `@MainActor` isolation으로 선언되어, 일반 closure 시그니처와 "거의 일치"하지만
+        // 정확히 일치하지 않는다는 경고가 나온다. 동일하게 @MainActor 어노테이션 추가.
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void,
+            decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void,
         ) {
             // 같은 호스트의 페이지만 인앱에서 표시. 외부 URL은 차단(Safari로 분기시키지도 않음 —
             // App Store 정책상 약관 페이지에서 외부 결제/충전 페이지로 점프하지 않도록 보수적 처리).
