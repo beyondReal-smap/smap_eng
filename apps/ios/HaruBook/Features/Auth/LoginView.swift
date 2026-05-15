@@ -83,6 +83,7 @@ struct LoginView: View {
                         backgroundOverride: Color.white,
                         foregroundOverride: Color(hex: 0x1F1F1F),
                         borderOverride: Color(hex: 0xDADCE0),
+                        fontOverride: Font.atozBold(17),
                     ) {
                         Task { await signIn(provider: "google") }
                     }
@@ -96,6 +97,7 @@ struct LoginView: View {
                         isEnabled: inFlightProvider == nil && !appleSignInBusy,
                         backgroundOverride: Color(hex: 0xFEE500),
                         foregroundOverride: Color(hex: 0x191600),
+                        fontOverride: Font.atozBold(17),
                     ) {
                         Task { await signIn(provider: "kakao") }
                     }
@@ -106,6 +108,7 @@ struct LoginView: View {
                         variant: .outline,
                         isLoading: false,
                         isEnabled: inFlightProvider == nil && !appleSignInBusy,
+                        fontOverride: Font.atozBold(17),
                     ) {
                         showEmailFlow = true
                     }

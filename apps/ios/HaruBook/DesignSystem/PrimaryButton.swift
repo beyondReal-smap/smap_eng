@@ -20,6 +20,8 @@ struct PrimaryButton: View {
     var borderOverride: Color?
     /// 명시되면 icon만 다른 색으로 렌더 (예: 구글 G를 Google 블루로).
     var iconColorOverride: Color?
+    /// 명시되면 라벨 폰트를 변경 (예: 로그인 버튼 A2Z 손글씨).
+    var fontOverride: Font?
     let action: () -> Void
 
     var body: some View {
@@ -38,7 +40,7 @@ struct PrimaryButton: View {
                         .tint(foreground)
                 }
                 Text(title)
-                    .font(.smapBodyEmphasis)
+                    .font(fontOverride ?? Font.smapBodyEmphasis)
             }
             .frame(maxWidth: .infinity, minHeight: 52)
             .padding(.horizontal, 18)
