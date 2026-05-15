@@ -1,14 +1,22 @@
-// 5-10세 영어 동화 주제 풀 — 8개 카테고리 × 50개 = 400개.
+// 5-10세 영어 책 주제 풀 — 픽션 8개(각 50개) + 논픽션 전용 4개(각 30개) = 12 카테고리.
 // 매 호출마다 카테고리/내부 항목을 셔플하여 12개를 골고루 추출하고,
 // 노출 ID는 localStorage에 저장해 다음 호출과 겹치지 않게 한다.
+//
+// 각 카테고리는 `genres` 메타로 어느 장르(픽션/논픽션)에 어울리는지 표시한다.
+// `pickTopics(count, exclude, genre)` 호출 시 해당 장르를 지원하는 카테고리만 추출 대상이 된다.
+// genre 미지정(undefined)이면 전체 풀 사용 — 레거시 호환.
 //
 // ID 형식: `${category.id}:${index}`
 // — 카테고리 추가/삭제 시 다른 카테고리의 ID는 보존되도록 prefix를 둔다.
 // — 카테고리 내 순서를 함부로 바꾸면 히스토리가 무효가 되므로 새 항목은 끝에만 추가.
 
+import type { BookGenre } from '@/lib/db/schema';
+
 export interface TopicCategory {
   id: string;
   label: string;
+  /** 이 카테고리가 어울리는 장르 1~2개. 비어 있을 수 없다. */
+  genres: readonly BookGenre[];
   items: readonly string[];
 }
 
@@ -22,6 +30,8 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
   {
     id: 'animals',
     label: '동물 친구',
+    // 의인화·우화·사실 동물이 섞여 있어 양 장르 모두에서 활용 가능.
+    genres: ['fiction', 'non_fiction'],
     items: [
       '숲속 친구들', '용감한 강아지', '똑똑한 고양이', '작은 토끼의 모험', '거북이와 토끼',
       '사자왕의 하루', '곰돌이의 꿀단지', '아기 코끼리', '펭귄 가족', '다람쥐의 도토리',
@@ -38,6 +48,8 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
   {
     id: 'adventure',
     label: '모험·탐험',
+    // 서사·상상 중심. 논픽션은 space/science 카테고리로 분리.
+    genres: ['fiction'],
     items: [
       '우주 모험', '바다 속 탐험', '사막의 보물', '정글 탐험', '북극 여행',
       '산속 모험', '동굴 탐험', '화산섬', '무인도 표류', '잠수함 여행',
@@ -54,6 +66,7 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
   {
     id: 'fantasy',
     label: '판타지·마법',
+    genres: ['fiction'],
     items: [
       '마법 학교', '작은 마법사', '마녀의 빗자루', '마법의 모자', '요정의 숲',
       '꽃의 요정', '인어 공주', '용과 친구', '작은 용', '페가수스',
@@ -70,6 +83,7 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
   {
     id: 'daily',
     label: '일상·우정',
+    genres: ['fiction'],
     items: [
       '새 친구 사귀기', '가장 친한 친구', '친구와 다툰 날', '친구를 도와줘', '비밀을 지키기',
       '함께 노는 시간', '운동회 날', '학예회 무대', '소풍 가는 날', '짝꿍 이야기',
@@ -86,6 +100,7 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
   {
     id: 'nature',
     label: '자연·계절',
+    genres: ['fiction', 'non_fiction'],
     items: [
       '봄의 새싹', '벚꽃 구경', '진달래 산', '개나리 길', '봄비 내리는 날',
       '봄나들이', '여름 바다', '시원한 계곡', '여름 숲', '매미 소리',
@@ -102,6 +117,7 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
   {
     id: 'jobs',
     label: '직업·꿈',
+    genres: ['fiction', 'non_fiction'],
     items: [
       '용감한 소방관', '친절한 의사 선생님', '마음씨 고운 간호사', '우리 동네 경찰', '구급대원',
       '학교 선생님', '도서관 사서', '박물관 안내원', '빵집 아저씨', '떡집 할머니',
@@ -118,6 +134,7 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
   {
     id: 'food',
     label: '음식·요리',
+    genres: ['fiction', 'non_fiction'],
     items: [
       '요리사 곰', '김밥 만들기', '떡볶이 가게', '라면 끓이기', '짜장면',
       '피자 만들기', '햄버거', '핫도그', '통닭', '치킨 가게',
@@ -134,6 +151,7 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
   {
     id: 'family',
     label: '가족·사랑',
+    genres: ['fiction'],
     items: [
       '엄마와 함께', '아빠의 어깨', '할머니의 옛날 이야기', '할아버지와 산책', '동생이 생긴 날',
       '형과 누나', '언니의 머리띠', '오빠의 비밀', '사촌과 노는 날', '외할머니 댁',
@@ -145,6 +163,59 @@ export const TOPIC_CATEGORIES: readonly TopicCategory[] = [
       '고맙다는 말', '미안하다는 말', '따뜻한 포옹', '손잡고 걷기', '어깨 위 무등',
       '자장가', '동화책 읽어주기', '옛이야기', '잘 자 인사', '좋은 꿈',
       '깨어난 아침', '새해 다짐', '행복한 하루', '아빠와 캐치볼', '엄마와 시장가기',
+    ],
+  },
+  // ---------- 논픽션 전용 (각 30개) ----------
+  {
+    id: 'space',
+    label: '우주·천문',
+    genres: ['non_fiction'],
+    items: [
+      '태양과 지구', '달의 모양 변화', '별자리 이야기', '은하수', '블랙홀',
+      '혜성과 유성', '화성 탐사', '목성의 줄무늬', '토성의 고리', '천왕성과 해왕성',
+      '우주 정거장', '인공위성', '우주 비행사의 하루', '무중력', '지구의 자전',
+      '지구의 공전', '아폴로 달 착륙', '망원경의 발명', '일식과 월식', '오로라의 빛',
+      '운석과 별똥별', '태양계의 행성', '작은 별과 큰 별', '별이 빛나는 이유', '태양의 노을',
+      '빛이 도착하는 시간', '태양풍', '우주의 나이', '화성의 모래폭풍', '달의 뒷면',
+    ],
+  },
+  {
+    id: 'science',
+    label: '과학·원리',
+    genres: ['non_fiction'],
+    items: [
+      '자석의 힘', '무지개의 빛깔', '빛의 색', '소리의 진동', '메아리의 비밀',
+      '왜 배가 물에 뜰까', '물의 세 가지 모습', '증발과 응결', '비가 내리는 까닭', '눈송이의 모양',
+      '식물의 광합성', '씨앗이 자라는 길', '뿌리와 줄기와 잎', '꽃가루받이', '곤충의 변태',
+      '거미줄의 비밀', '공룡 화석', '화산이 터지는 까닭', '지진의 원리', '토네이도의 회오리',
+      '번개와 천둥', '무게중심', '도르래와 지렛대', '마찰력', '정전기',
+      '자전거 바퀴의 원리', '거울 속 좌우', '색의 삼원색', '그림자의 길이', '공기의 무게',
+    ],
+  },
+  {
+    id: 'body',
+    label: '우리 몸',
+    genres: ['non_fiction'],
+    items: [
+      '우리 몸의 뼈', '뛰는 심장', '숨 쉬는 폐', '음식의 여행', '똑똑한 뇌',
+      '다섯 가지 감각', '눈의 비밀', '귀는 어떻게 들을까', '코와 냄새', '혀와 맛',
+      '손가락 지문', '머리카락이 자라는 이유', '손톱과 발톱', '이가 빠지는 까닭', '침의 역할',
+      '근육의 힘', '관절의 움직임', '피의 색', '백혈구와 적혈구', '면역력',
+      '잠을 자야 하는 이유', '꿈을 꾸는 까닭', '눈물의 역할', '땀이 나는 이유', '딸꾹질',
+      '재채기', '키가 자라는 시간', '좋은 영양소', '운동과 건강', '손 씻기의 힘',
+    ],
+  },
+  {
+    id: 'history',
+    label: '역사·문화',
+    genres: ['non_fiction'],
+    items: [
+      '한글을 만든 세종대왕', '거북선과 이순신', '첨성대 이야기', '측우기', '해시계',
+      '김홍도의 풍속화', '신사임당', '윤동주의 시', '광개토대왕', '삼국시대 이야기',
+      '고려청자', '조선의 궁궐', '수원 화성', '경복궁', '불국사와 석굴암',
+      '김치의 역사', '한복의 변화', '우리 동요 이야기', '윷·연·제기 풍속놀이', '옛 시장',
+      '옛날 우체부', '한지의 비밀', '옛 학교 서당', '옛 농기구', '뗏목과 황포돛배',
+      '옛 시계', '우리나라 국기', '무궁화 이야기', '우리 옛 노래', '옛 떡과 잔치',
     ],
   },
 ] as const;
@@ -163,8 +234,8 @@ function shuffle<T>(arr: readonly T[]): T[] {
   return a;
 }
 
-function flattenAllTopics(): PickedTopic[] {
-  return TOPIC_CATEGORIES.flatMap((cat) =>
+function flattenTopics(cats: readonly TopicCategory[]): PickedTopic[] {
+  return cats.flatMap((cat) =>
     cat.items.map<PickedTopic>((label, index) => ({
       id: `${cat.id}:${index}`,
       label,
@@ -180,19 +251,30 @@ function flattenAllTopics(): PickedTopic[] {
  *  - 8 카테고리 × 12개 = base 1, extra 4 → 4 카테고리는 2개씩, 4 카테고리는 1개씩.
  *  - 카테고리 순서를 매번 셔플하므로 어느 카테고리가 추가 1개를 받을지 매 호출 다름.
  *
+ * `genre`가 지정되면 해당 장르를 포함하는 카테고리만 추출 대상.
+ *  - 'fiction' → 8개 (fantasy/adventure/daily/family + animals/nature/jobs/food)
+ *  - 'non_fiction' → 8개 (space/science/body/history + animals/nature/jobs/food)
+ *  - undefined → 12개 전체 (테스트/관리자용)
+ *
  * `exclude`(직전 노출 ID)는 우선 회피. 한 카테고리에서 회피 후 후보가 부족하면
  * 다른 카테고리의 잔여 후보로 보충해 항상 `count`개를 보장한다.
  */
 export function pickTopics(
   count: number,
   exclude: ReadonlySet<string>,
+  genre?: BookGenre,
 ): PickedTopic[] {
   if (count <= 0) return [];
-  const totalCats = TOPIC_CATEGORIES.length;
+  const eligible = genre
+    ? TOPIC_CATEGORIES.filter((c) => c.genres.includes(genre))
+    : TOPIC_CATEGORIES;
+  if (eligible.length === 0) return [];
+
+  const totalCats = eligible.length;
   const baseEach = Math.floor(count / totalCats);
   const extra = count % totalCats;
 
-  const shuffledCats = shuffle(TOPIC_CATEGORIES);
+  const shuffledCats = shuffle(eligible);
   const picked: PickedTopic[] = [];
   const usedIds = new Set<string>();
 
@@ -211,10 +293,10 @@ export function pickTopics(
     picked.push(...slice);
   });
 
-  // 카테고리당 후보 부족 시 풀 단위로 보충(항상 count개 채움).
+  // 카테고리당 후보 부족 시 적격 풀 단위로 보충(항상 count개 채움).
   if (picked.length < count) {
     const need = count - picked.length;
-    const fallback = flattenAllTopics().filter(
+    const fallback = flattenTopics(eligible).filter(
       (t) => !exclude.has(t.id) && !usedIds.has(t.id),
     );
     picked.push(...shuffle(fallback).slice(0, need));

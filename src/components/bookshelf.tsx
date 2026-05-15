@@ -59,14 +59,31 @@ const BOOKSHELF_PROMPTS = [
   '새로운 친구가 기다리고 있어.',
 ];
 
-export function Bookshelf() {
+/**
+ * SSR 단계의 (app)/page.tsx가 active profile 기준으로 미리 페치한 책 목록·진도
+ * stats를 prop으로 받는다. 클라이언트는 zustand의 currentProfileId가 server가
+ * 활성으로 본 프로필과 다를 때만 재페치하고, 같으면 initial props 그대로 사용해
+ * 첫 paint부터 layout shift 없이 그려진다.
+ *
+ * prop 없이도(다른 페이지에서 단독 사용 등) 종래대로 useEffect fetch에 fallback.
+ */
+export function Bookshelf({
+  initialProfileId = null,
+  initialBooks = [],
+  initialStats = {},
+}: {
+  initialProfileId?: number | null;
+  initialBooks?: Book[];
+  initialStats?: Record<number, BookProgressStat>;
+} = {}) {
   const hasHydrated = useProfileStore((s) => s.hasHydrated);
   const profileId = useProfileStore((s) => s.currentProfileId);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [stats, setStats] = useState<Record<number, BookProgressStat>>({});
-  // 초기값 true: zustand persist hydration 전이라도 SkeletonGrid를 노출해
-  // 빈 박스 → 데이터로 변하는 점프를 차단한다.
-  const [loading, setLoading] = useState(true);
+  const [books, setBooks] = useState<Book[]>(initialBooks);
+  const [stats, setStats] =
+    useState<Record<number, BookProgressStat>>(initialStats);
+  // initial 데이터가 들어왔으면 loading=false로 시작 — SkeletonGrid가 잠시 깜빡이는
+  // 회귀(2026-05-14 피드백)를 막는다. prop 없는 단독 사용 시에는 종래대로 true.
+  const [loading, setLoading] = useState(initialBooks.length === 0);
   const [cefrFilter, setCefrFilter] = useState<string>('');
   const [query, setQuery] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
@@ -121,6 +138,22 @@ export function Bookshelf() {
       setLoading(false);
       return;
     }
+    // SSR이 prop으로 넘긴 초기 데이터가 현재 활성 프로필과 일치하고 필터/검색이
+    // 기본값이며 refresh가 트리거되지 않은 첫 진입이라면, 동일한 응답을 다시
+    // 받으려고 fetch하지 않는다(= 첫 paint 직후 setBooks가 다시 호출돼 일어나는
+    // 무의미한 리렌더·layout shift 방지). 한 번이라도 필터·refreshKey가 바뀌면
+    // 그때부터는 평소대로 fetch.
+    const matchesInitial =
+      refreshKey === 0 &&
+      cefrFilter === '' &&
+      debouncedQ === '' &&
+      initialProfileId !== null &&
+      initialProfileId === profileId &&
+      initialBooks.length > 0;
+    if (matchesInitial) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const params = new URLSearchParams({ profileId: profileId.toString() });
     if (cefrFilter) params.set('cefr', cefrFilter);
@@ -135,7 +168,15 @@ export function Bookshelf() {
       })
       .catch((err) => toast.error(`책장 로드 실패: ${err.message}`))
       .finally(() => setLoading(false));
-  }, [hasHydrated, profileId, cefrFilter, debouncedQ, refreshKey]);
+  }, [
+    hasHydrated,
+    profileId,
+    cefrFilter,
+    debouncedQ,
+    refreshKey,
+    initialProfileId,
+    initialBooks.length,
+  ]);
 
   // 최신순 고정 — 정렬 드롭다운 제거(프로필별로 연령 고정이라 정렬이 큰 의미 없음)
   const sortedBooks = useMemo(() => {

@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { loginAction } from "@/lib/auth/actions";
 import type { LoginFormState } from "@/lib/auth/schemas";
 import { APP_HOME } from "@/lib/paths";
-import { useSessionStore } from "@/stores/session";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,7 +21,6 @@ import { cn } from "@/lib/utils";
  */
 export function EmailLoginForm() {
   const router = useRouter();
-  const setUser = useSessionStore((s) => s.setUser);
   const [state, formAction, pending] = useActionState<LoginFormState, FormData>(
     loginAction,
     undefined,
@@ -32,7 +30,6 @@ export function EmailLoginForm() {
 
   useEffect(() => {
     if (!(state && "ok" in state && state.ok)) return;
-    setUser({ email: state.email, provider: "email" });
     toast.success("로그인되었습니다");
     // 2026-04-26 nginx 통합 이후 `/`는 page.tsx가 인증 여부 기반으로 LandingPage /
     // 책장을 분기 SSR하므로 APP_HOME='/'로 충분. callbackUrl 쿼리가 있으면 우선.
@@ -48,7 +45,7 @@ export function EmailLoginForm() {
     // 최소 1주기 노출 후 라우팅. unmount 시 timer 정리.
     const timer = setTimeout(() => router.push(target), SPLASH_MIN_DURATION_MS);
     return () => clearTimeout(timer);
-  }, [state, router, setUser]);
+  }, [state, router]);
 
   if (redirecting) {
     return <AppSplash message="책장 여는 중…" />;
@@ -76,7 +73,7 @@ export function EmailLoginForm() {
           placeholder="parent@example.com"
           aria-invalid={Boolean(errors?.email)}
           aria-describedby={errors?.email ? "email-error" : undefined}
-          className="h-11 text-base"
+          className="h-12 text-base"
           required
         />
         {errors?.email?.[0] && (
@@ -87,7 +84,9 @@ export function EmailLoginForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-baseline justify-between">
+        {/* 모바일에서 좁은 폭에 비밀번호 라벨과 '비밀번호 잊으셨나요?'가 한 줄에 끼이면
+            서로 잘리거나 줄바꿈이 어색해진다. flex-wrap으로 자연 줄바꿈 허용. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <Label htmlFor="password">비밀번호</Label>
           {/* TODO(auth-backend): /forgot-password 라우트 구현 후 연결. 현재는 toast 안내 stub. */}
           <button
@@ -98,7 +97,7 @@ export function EmailLoginForm() {
                   "당분간은 고객지원(support@harubook.kr)으로 문의해 주세요.",
               })
             }
-            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="min-h-9 rounded-md px-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             비밀번호를 잊으셨나요?
           </button>
@@ -112,7 +111,7 @@ export function EmailLoginForm() {
             placeholder="••••••••"
             aria-invalid={Boolean(errors?.password)}
             aria-describedby={errors?.password ? "password-error" : undefined}
-            className="h-11 pr-10 text-base"
+            className="h-12 pr-12 text-base"
             required
           />
           <button
@@ -120,15 +119,15 @@ export function EmailLoginForm() {
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 표시"}
             className={cn(
-              "absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md",
+              "absolute right-1 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md",
               "text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
           >
             {showPassword ? (
-              <EyeOff className="size-4" />
+              <EyeOff className="size-5" />
             ) : (
-              <Eye className="size-4" />
+              <Eye className="size-5" />
             )}
           </button>
         </div>

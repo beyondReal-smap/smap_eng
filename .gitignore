@@ -46,6 +46,9 @@ next-env.d.ts
 /public/audio/
 /public/audio.24khz.bak/
 /public/images/
+!/public/images/
+!/public/images/landing/
+!/public/images/landing/*.png
 /public/mobile/
 
 # 모노레포 백업/실험 디렉토리
@@ -66,6 +69,7 @@ services/*/*/__pycache__/
 /logs/
 
 # 작업 도구 / IDE 설정
+/.archive/
 /.claude/
 /.codex
 /.codex-write-test

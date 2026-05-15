@@ -101,12 +101,13 @@ export function CreateBookDialog({ profileId, onCreated }: Props) {
     return genre === 'non_fiction' ? '새 지식책 만들기' : '새 동화 만들기';
   }, [loading, genre]);
 
-  // 다이얼로그 열릴 때마다 12개 추출 + 직전 노출 ID는 회피.
+  // 다이얼로그 열릴 때/장르 바뀔 때마다 12개 추출 + 직전 노출 ID는 회피.
+  // genre를 deps에 넣어 1단계에서 장르 토글하면 step 4 칩 풀이 즉시 재계산되도록.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     const history = loadTopicHistory();
-    const picked = pickTopics(TOPIC_SUGGESTION_COUNT, history);
+    const picked = pickTopics(TOPIC_SUGGESTION_COUNT, history, genre);
     pushTopicHistory(picked.map((t) => t.id));
     window.requestAnimationFrame(() => {
       if (!cancelled) setSuggestions(picked);
@@ -114,11 +115,11 @@ export function CreateBookDialog({ profileId, onCreated }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, genre]);
 
   function reshuffleSuggestions() {
     const history = loadTopicHistory();
-    const picked = pickTopics(TOPIC_SUGGESTION_COUNT, history);
+    const picked = pickTopics(TOPIC_SUGGESTION_COUNT, history, genre);
     setSuggestions(picked);
     pushTopicHistory(picked.map((t) => t.id));
   }
@@ -644,7 +645,7 @@ function StepIntake({
             onChange={(e) => onChange(q.id, e.target.value)}
             placeholder={q.placeholder ?? '한두 문장으로 적어 주세요'}
             maxLength={500}
-            className="h-11 rounded-xl"
+            className="h-11 rounded-xl focus:border-ring focus:ring-3 focus:ring-ring/50 focus:placeholder:text-muted-foreground/35"
           />
           {q.suggestionChips && q.suggestionChips.length > 0 ? (
             <div className="flex flex-wrap gap-1.5 pt-1">
@@ -705,7 +706,7 @@ function StepTopic({
             : '예: 숲속 친구들, 우주 모험'
         }
         maxLength={80}
-        className="h-11 rounded-xl"
+        className="h-11 rounded-xl focus:border-ring focus:ring-3 focus:ring-ring/50 focus:placeholder:text-muted-foreground/35"
       />
       <div className="flex flex-wrap gap-1.5 pt-1">
         {suggestions.map((s) => (

@@ -1,8 +1,9 @@
 // 책 단위 TTS 일괄 생성 — 동화 생성 직후 after()로 킥오프된다.
 // Kokoro는 CPU/GPU 바운드라 동시성을 올려도 이득이 적어 동시성 1로 순차 처리.
 // 한 passage가 실패해도 나머지는 계속 — Reader가 on-demand로 재시도할 수 있다.
-import { listPassagesByBook } from '@/lib/db/queries';
+import { getBookById, listPassagesByBook } from '@/lib/db/queries';
 import { synthesizePassage } from './persist';
+import { synthesizeBookEndings } from './ending';
 
 // 프로세스 메모리 dedupe. 같은 bookId로 배치가 이미 돌고 있으면 재진입 차단.
 // self-hosted Node.js 단일 프로세스 기준 — 수평 확장 시에는 Redis lock으로 교체.
@@ -32,6 +33,18 @@ async function runBatch(bookId: number): Promise<void> {
           err,
         );
       }
+    }
+
+    // 본문 합성이 끝났으면 결말 분기 passages도 사전 합성. 픽션 + alternateEnding이
+    // 있는 경우에만 실행. endingAudioPathsA/B가 이미 채워져 있으면 synthesizeBranch
+    // 내부에서 디스크 캐시로 멱등 동작한다.
+    try {
+      const book = await getBookById(bookId);
+      if (book?.alternateEnding) {
+        await synthesizeBookEndings(bookId, book.alternateEnding);
+      }
+    } catch (err) {
+      console.error(`[tts:ending] book=${bookId} failed:`, err);
     }
   } catch (err) {
     console.error(`[tts:batch] book=${bookId} fatal:`, err);

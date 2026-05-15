@@ -14,17 +14,19 @@ import {
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { signOut as nextAuthSignOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { ProfileSwitcher } from '@/components/profile-switcher';
+import { AddProfileDialog, ProfileSwitcher } from '@/components/profile-switcher';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { buttonVariants } from '@/components/ui/button';
 import { useCreditBalance } from '@/lib/hooks/use-credit-balance';
 import { formatStars } from '@/lib/billing/terminology';
 import { APP_HOME } from '@/lib/paths';
 import { cn } from '@/lib/utils';
+import { useProfileStore } from '@/stores/profile';
 
 /**
  * 모바일(<640px) 전용 햄버거 메뉴.
@@ -45,7 +47,13 @@ import { cn } from '@/lib/utils';
  */
 export function MobileMenu() {
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const setCurrentProfile = useProfileStore((s) => s.setCurrentProfile);
   const [open, setOpen] = useState(false);
+  // '프로필 추가' 다이얼로그를 MobileMenu Popover 외부에 마운트한다.
+  // ProfileSwitcher 내부에 다이얼로그를 두면 메뉴가 닫히는 순간 React tree에서
+  // 함께 unmount되어 다이얼로그도 사라져 버린다(2026-05-14 버그 수정).
+  const [addProfileOpen, setAddProfileOpen] = useState(false);
   // hooks 규칙: 조건부 호출 금지 → 항상 호출하되 미인증 시 enabled=false로 페치 차단.
   const { credits, loading: creditsLoading } = useCreditBalance({
     enabled: status === 'authenticated',
@@ -99,6 +107,7 @@ export function MobileMenu() {
   }
 
   return (
+    <>
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         aria-label="메뉴 열기"
@@ -168,11 +177,16 @@ export function MobileMenu() {
                 </Link>
               )}
 
-              {/* 2) 프로필 전환 — 모바일에서는 중첩 Popover 대신 패널 안에 직접 표시 */}
+              {/* 2) 프로필 전환 — 모바일에서는 중첩 Popover 대신 패널 안에 직접 표시.
+                  '프로필 추가' 다이얼로그는 메뉴 외부(아래)에 마운트해 메뉴 unmount와 독립시킨다. */}
               <div>
                 <ProfileSwitcher
                   variant="inline"
                   onProfileSelected={() => setOpen(false)}
+                  onAddProfileClick={() => {
+                    setOpen(false);
+                    setAddProfileOpen(true);
+                  }}
                 />
               </div>
 
@@ -245,6 +259,20 @@ export function MobileMenu() {
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
+
+      {/* AddProfileDialog는 의도적으로 Popover.Root 형제 위치에 둔다.
+          Popover 내부에 두면 메뉴가 닫힐 때 React tree unmount로 다이얼로그가 함께 사라진다. */}
+      <AddProfileDialog
+        open={addProfileOpen}
+        onOpenChange={setAddProfileOpen}
+        onCreated={(profile) => {
+          setCurrentProfile(profile.id, profile.age);
+          setAddProfileOpen(false);
+          router.push(APP_HOME);
+          router.refresh();
+        }}
+      />
+    </>
   );
 }
 

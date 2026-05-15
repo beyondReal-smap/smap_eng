@@ -64,6 +64,14 @@ function normalizeBookJsonFields(row: Book): Book {
       'books.alternateEnding',
       row.alternateEnding,
     ),
+    endingAudioPathsA: parseJsonColumn<NonNullable<Book['endingAudioPathsA']>>(
+      'books.endingAudioPathsA',
+      row.endingAudioPathsA,
+    ),
+    endingAudioPathsB: parseJsonColumn<NonNullable<Book['endingAudioPathsB']>>(
+      'books.endingAudioPathsB',
+      row.endingAudioPathsB,
+    ),
     funFacts: parseJsonColumn<NonNullable<Book['funFacts']>>(
       'books.funFacts',
       row.funFacts,
@@ -150,6 +158,23 @@ export async function updateBook(
 ): Promise<Book | undefined> {
   await db.update(books).set(patch).where(eq(books.id, id));
   return getBookById(id);
+}
+
+/**
+ * 결말 분기 passages의 사전 합성된 TTS 경로 배열을 books에 저장.
+ * branch별로 독립 호출 — 한쪽 합성이 끝났을 때 먼저 반영하고 다른 쪽은 이어서.
+ * orderIndex 순으로 정렬된 webPath 문자열 배열 (실패 슬롯은 '').
+ */
+export async function updateBookEndingAudioPaths(
+  id: number,
+  branch: 'A' | 'B',
+  paths: string[],
+): Promise<void> {
+  const patch =
+    branch === 'A'
+      ? { endingAudioPathsA: paths }
+      : { endingAudioPathsB: paths };
+  await db.update(books).set(patch).where(eq(books.id, id));
 }
 
 export async function softDeleteBook(id: number): Promise<Book | undefined> {

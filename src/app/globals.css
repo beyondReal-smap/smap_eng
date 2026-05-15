@@ -200,6 +200,10 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Refero Family Design System — 풀(pill) 형태 CTA용 토큰 */
+  --radius-pill: 9999px;
+  /* 카드 inset 보더 — drop shadow 대신 1px Stone Surface inset (tactile 느낌) */
+  --shadow-stone-inset: inset 0 0 0 1px oklch(0.93 0.006 80);
   /* 레벨 배지용 색 토큰 */
   --color-level-a1: var(--level-a1);
   --color-level-a1-fg: var(--level-a1-fg);
@@ -217,40 +221,45 @@
     기존 코랄/민트/라벤더 삼원색은 "AI 생성 티"가 강하다는 판단으로 교체.)
    ------------------------------------------------------------------ */
 :root {
-  --background: oklch(0.982 0.012 92);          /* warm paper */
-  --foreground: oklch(0.235 0.032 258);         /* ink navy */
-  --card: oklch(0.997 0.004 95);
-  --card-foreground: oklch(0.235 0.032 258);
-  --popover: oklch(0.997 0.004 95);
-  --popover-foreground: oklch(0.235 0.032 258);
-  --primary: oklch(0.74 0.13 82);               /* story gold (주요 행동) */
-  --primary-foreground: oklch(0.21 0.035 258);
-  --secondary: oklch(0.93 0.025 92);            /* paper shade */
-  --secondary-foreground: oklch(0.30 0.04 258);
-  --muted: oklch(0.94 0.012 92);
-  --muted-foreground: oklch(0.48 0.025 258);
-  --accent: oklch(0.62 0.095 205);              /* off-blue ink (보조 행동) */
-  --accent-foreground: oklch(0.98 0.01 95);
+  /* Refero "Family" Design System — Pixar 스토리보드 느낌의 크림 캔버스
+     - background = Warm Canvas #fbfaf9, foreground = Charcoal #343433
+     - primary = Midnight #121212 (다크 필 CTA)
+     - accent  = Ember Orange #ff3e00 (희소성·강조 링크/포커스 링)
+     - secondary/muted/border = Stone Surface #f2f0ed 계열
+     기존 골드 톤은 chart-1·level 배지·랜딩 일러스트 변수에서만 유지. */
+  --background: oklch(0.985 0.005 80);          /* Warm Canvas #fbfaf9 */
+  --foreground: oklch(0.265 0.005 60);          /* Charcoal #343433 */
+  --card: oklch(1 0 0);                          /* white card (Refero feature card) */
+  --card-foreground: oklch(0.265 0.005 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.265 0.005 60);
+  --primary: oklch(0.82 0.10 35);               /* Soft Coral Peach — 파스텔 풀 CTA */
+  --primary-foreground: oklch(0.30 0.06 30);    /* deep coral ink — 파스텔 위 가독성 확보 */
+  --secondary: oklch(0.948 0.005 80);           /* Stone Surface #f2f0ed */
+  --secondary-foreground: oklch(0.265 0.005 60);
+  --muted: oklch(0.948 0.005 80);
+  --muted-foreground: oklch(0.355 0.005 60);    /* Graphite #474645 */
+  --accent: oklch(0.86 0.07 235);               /* Powder Sky — 파스텔 보조 강조 */
+  --accent-foreground: oklch(0.32 0.10 235);    /* deep sky ink */
   --destructive: oklch(0.60 0.22 27);
-  /* 영역별 경계가 뚜렷하게 보이도록 라이트 border를 한 단계 짙게 조정.
-     카드·툴바·헤딩 패널 등 분할 요소가 실제로 "떠 보이게" 하기 위함. */
-  --border: oklch(0.82 0.018 92);
-  --input: oklch(0.86 0.02 92);
-  --ring: oklch(0.74 0.13 82);
-  --chart-1: oklch(0.74 0.13 82);               /* gold */
+  /* 카드/툴바/패널 분리감 — Stone Surface보다 한 단계 진한 라인 */
+  --border: oklch(0.92 0.005 80);
+  --input: oklch(0.92 0.005 80);
+  --ring: oklch(0.78 0.14 30);                  /* focus = Soft Coral (한 단계 더 진하게) */
+  --chart-1: oklch(0.74 0.13 82);               /* gold (level/일러스트 잔존) */
   --chart-2: oklch(0.62 0.095 205);             /* off-blue */
   --chart-3: oklch(0.68 0.15 145);              /* success green */
   --chart-4: oklch(0.80 0.14 75);               /* warning amber */
   --chart-5: oklch(0.58 0.10 252);              /* info blue */
-  --radius: 0.75rem;
-  --sidebar: oklch(0.986 0.010 92);
-  --sidebar-foreground: oklch(0.235 0.032 258);
-  --sidebar-primary: oklch(0.74 0.13 82);
-  --sidebar-primary-foreground: oklch(0.21 0.035 258);
-  --sidebar-accent: oklch(0.93 0.025 92);
-  --sidebar-accent-foreground: oklch(0.30 0.04 258);
-  --sidebar-border: oklch(0.87 0.015 92);
-  --sidebar-ring: oklch(0.74 0.13 82);
+  --radius: 0.625rem;                            /* 10px — Refero feature card */
+  --sidebar: oklch(0.985 0.005 80);
+  --sidebar-foreground: oklch(0.265 0.005 60);
+  --sidebar-primary: oklch(0.82 0.10 35);
+  --sidebar-primary-foreground: oklch(0.30 0.06 30);
+  --sidebar-accent: oklch(0.948 0.005 80);
+  --sidebar-accent-foreground: oklch(0.265 0.005 60);
+  --sidebar-border: oklch(0.92 0.005 80);
+  --sidebar-ring: oklch(0.78 0.14 30);
 
   /* 레벨 배지 — hue 중복 해소(A2 82→220 blue) + 이중 인코딩 전제 */
   --level-a1: oklch(0.90 0.10 145);             /* green  · 1 dot */
@@ -738,18 +747,22 @@
   transform: translateY(-2px);
 }
 
+/* 파스텔 톤 CTA — 어린이 학습 앱 페르소나에 맞춰 Soft Coral Peach로 통일.
+   따뜻한 크림 캔버스 위에 부드러운 살구 풀이 다정한 첫인상을 만든다.
+   foreground는 deep coral ink로 두어 파스텔 위 가독성을 확보. */
 .landing-scope .button-primary {
-  background: linear-gradient(135deg, var(--gold), var(--gold-deep));
-  color: oklch(0.22 0.05 60);
+  background: oklch(0.82 0.10 35);
+  color: oklch(0.30 0.06 30);
   box-shadow:
-    0 3px 0 oklch(0.55 0.16 60),
-    0 14px 32px oklch(0.65 0.18 60 / 0.35);
+    0 3px 0 oklch(0.55 0.14 30 / 0.45),
+    0 14px 32px oklch(0.65 0.16 30 / 0.28);
 }
 
 .landing-scope .button-primary:hover {
+  background: oklch(0.86 0.11 38);
   box-shadow:
-    0 3px 0 oklch(0.55 0.16 60),
-    0 20px 40px oklch(0.65 0.18 60 / 0.45);
+    0 3px 0 oklch(0.55 0.14 30 / 0.5),
+    0 20px 40px oklch(0.65 0.16 30 / 0.35);
 }
 
 .landing-scope .button-ghost {
@@ -976,6 +989,10 @@
   height: 100%;
 }
 
+.landing-scope .hero-scene img {
+  object-fit: cover;
+}
+
 /* ==================== 섹션 공통 ==================== */
 .landing-scope .section {
   padding: clamp(3.5rem, 8vw, 6rem) 0;
@@ -1114,6 +1131,11 @@
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.landing-scope .book-cover img {
+  display: block;
+  object-fit: cover;
 }
 
 .landing-scope .book-meta {

@@ -10,8 +10,10 @@
  * 본문/footer만 이 컴포넌트가 그린다.
  *
  * 원본: apps/landing/src/app/page.tsx (LP 통합 전)
- * 동작 변경 없음 — 마크업/링크/카피 그대로 보존.
+ * 동작 변경 없음 — 링크/카피는 보존하고 시각 자산만 교체.
  */
+import Image from 'next/image';
+
 import { AppHeader } from '@/components/app-header';
 import { SiteFooter } from '@/components/site-footer';
 
@@ -121,221 +123,22 @@ const books = [
   {
     title: 'The Sleepy Moon',
     meta: '나이 5~6세 · Level A1',
-    art: (
-      <svg viewBox="0 0 240 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <linearGradient id="cover1" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="oklch(0.68 0.1 260)" />
-            <stop offset="100%" stopColor="oklch(0.38 0.09 270)" />
-          </linearGradient>
-        </defs>
-        <rect width="240" height="320" fill="url(#cover1)" />
-        <circle cx="90" cy="95" r="42" fill="oklch(0.94 0.11 88)" />
-        <circle cx="80" cy="88" r="12" fill="oklch(0.68 0.1 260)" opacity="0.35" />
-        <circle cx="100" cy="105" r="8" fill="oklch(0.68 0.1 260)" opacity="0.35" />
-        <g fill="oklch(0.96 0.08 88)">
-          <circle cx="40" cy="50" r="2.2" />
-          <circle cx="180" cy="60" r="3" />
-          <circle cx="200" cy="120" r="1.8" />
-          <circle cx="160" cy="180" r="2" />
-          <circle cx="55" cy="190" r="2.5" />
-        </g>
-        <path
-          d="M20 250c60-18 140-18 200 0v70H20Z"
-          fill="oklch(0.55 0.09 275)"
-          opacity="0.85"
-        />
-        <path d="M0 270c50-14 150-14 240 0v50H0Z" fill="oklch(0.48 0.08 275)" />
-      </svg>
-    ),
+    image: '/images/landing/cover-sleepy-moon.png',
+    alt: '잠든 달과 언덕 마을이 담긴 영어 동화 표지',
   },
   {
     title: 'Balloon Over Hills',
     meta: '나이 7~8세 · Level A2',
-    art: (
-      <svg viewBox="0 0 240 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <linearGradient id="cover2" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="oklch(0.92 0.06 82)" />
-            <stop offset="100%" stopColor="oklch(0.85 0.09 40)" />
-          </linearGradient>
-        </defs>
-        <rect width="240" height="320" fill="url(#cover2)" />
-        <g transform="translate(0,6)">
-          <ellipse cx="140" cy="120" rx="48" ry="56" fill="oklch(0.78 0.15 25)" />
-          <path d="M110 120a30 50 0 0 1 60 0Z" fill="oklch(0.88 0.1 85)" opacity="0.6" />
-          <path d="M140 176v18" stroke="oklch(0.35 0.06 40)" strokeWidth="2.2" />
-          <rect
-            x="130"
-            y="194"
-            width="20"
-            height="14"
-            rx="2"
-            fill="oklch(0.55 0.08 60)"
-            stroke="oklch(0.3 0.06 40)"
-            strokeWidth="2"
-          />
-        </g>
-        <g fill="oklch(1 0 0)" opacity="0.85">
-          <ellipse cx="55" cy="80" rx="22" ry="10" />
-          <ellipse cx="75" cy="72" rx="16" ry="8" />
-          <ellipse cx="190" cy="50" rx="18" ry="8" />
-        </g>
-        <path d="M0 230c55-30 100 20 160-5s80 5 80 5v90H0Z" fill="oklch(0.74 0.13 140)" />
-        <path d="M0 260c50-20 100 15 170-5s70 5 70 5v60H0Z" fill="oklch(0.64 0.13 145)" />
-      </svg>
-    ),
+    image: '/images/landing/cover-balloon-hills.png',
+    alt: '푸른 언덕 위 열기구가 떠 있는 영어 동화 표지',
   },
   {
     title: 'Little Fox Castle',
     meta: '나이 6~7세 · Level A1+',
-    art: (
-      <svg viewBox="0 0 240 320" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <linearGradient id="cover3" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="oklch(0.88 0.07 200)" />
-            <stop offset="100%" stopColor="oklch(0.82 0.09 160)" />
-          </linearGradient>
-        </defs>
-        <rect width="240" height="320" fill="url(#cover3)" />
-        <g transform="translate(32,60)">
-          <rect x="20" y="60" width="140" height="120" fill="oklch(0.82 0.05 60)" />
-          <rect x="0" y="40" width="40" height="140" fill="oklch(0.78 0.07 60)" />
-          <rect x="140" y="40" width="40" height="140" fill="oklch(0.78 0.07 60)" />
-          <polygon points="0,40 20,10 40,40" fill="oklch(0.65 0.14 25)" />
-          <polygon points="140,40 160,10 180,40" fill="oklch(0.65 0.14 25)" />
-          <polygon points="50,60 90,20 130,60" fill="oklch(0.62 0.16 25)" />
-          <rect x="78" y="100" width="24" height="40" fill="oklch(0.35 0.06 60)" rx="12" />
-          <rect x="8" y="80" width="18" height="22" fill="oklch(0.35 0.06 60)" rx="4" />
-          <rect x="154" y="80" width="18" height="22" fill="oklch(0.35 0.06 60)" rx="4" />
-        </g>
-        <circle cx="205" cy="62" r="24" fill="oklch(0.94 0.11 88)" opacity="0.9" />
-        <path d="M0 258c60-14 120-14 240 0v62H0Z" fill="oklch(0.7 0.13 150)" />
-      </svg>
-    ),
+    image: '/images/landing/cover-fox-castle.png',
+    alt: '성 앞의 작은 여우가 손짓하는 영어 동화 표지',
   },
 ];
-
-function HeroScene() {
-  return (
-    <svg viewBox="0 0 520 540" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <path
-        d="M20 470h480"
-        stroke="oklch(0.78 0.04 82)"
-        strokeWidth="2"
-        strokeDasharray="2 6"
-        strokeLinecap="round"
-      />
-      <g fill="oklch(0.82 0.06 82)">
-        <circle cx="60" cy="70" r="3.5" />
-        <circle cx="450" cy="100" r="2.5" />
-        <circle cx="80" cy="260" r="2" />
-        <circle cx="490" cy="300" r="3" />
-      </g>
-      <g stroke="oklch(0.62 0.14 60)" strokeWidth="2" strokeLinecap="round">
-        <path d="M100 140l0 14M93 147l14 0" />
-        <path d="M430 210l0 14M423 217l14 0" />
-        <path d="M58 380l0 12M52 386l12 0" />
-      </g>
-      <g fill="oklch(1 0 0)" opacity="0.85">
-        <ellipse cx="100" cy="90" rx="34" ry="14" />
-        <ellipse cx="118" cy="82" rx="22" ry="11" />
-        <ellipse cx="410" cy="70" rx="30" ry="13" />
-      </g>
-      <circle cx="405" cy="140" r="42" fill="oklch(0.95 0.1 88)" />
-      <circle cx="392" cy="132" r="12" fill="oklch(0.82 0.14 85)" opacity="0.45" />
-      <path
-        d="M370 260l6 14 15 1-11 10 3 15-13-8-13 8 3-15-11-10 15-1Z"
-        fill="oklch(0.72 0.18 25)"
-        stroke="oklch(0.42 0.16 25)"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <g transform="translate(70,135)">
-        <ellipse cx="60" cy="70" rx="52" ry="60" fill="oklch(0.78 0.15 25)" />
-        <path d="M28 70a32 54 0 0 1 64 0Z" fill="oklch(0.88 0.1 85)" opacity="0.55" />
-        <path d="M60 130v26" stroke="oklch(0.35 0.1 25)" strokeWidth="2.4" />
-        <rect
-          x="47"
-          y="156"
-          width="26"
-          height="18"
-          rx="3"
-          fill="oklch(0.55 0.08 60)"
-          stroke="oklch(0.3 0.06 40)"
-          strokeWidth="2"
-        />
-      </g>
-      <g transform="translate(130,310)">
-        <path
-          d="M0 20C30 6 110 4 130 20V150C110 136 30 134 0 150V20Z"
-          fill="oklch(0.95 0.06 82)"
-          stroke="oklch(0.32 0.05 260)"
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M130 20C150 6 230 4 260 20V150C230 136 150 134 130 150V20Z"
-          fill="oklch(0.92 0.08 235)"
-          stroke="oklch(0.32 0.05 260)"
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        <path d="M130 20V150" stroke="oklch(0.32 0.05 260)" strokeWidth="3" />
-        <path
-          d="M18 42h90M18 58h80M18 74h90M18 90h70"
-          stroke="oklch(0.55 0.08 60)"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M148 42h90M148 58h80M148 74h90M148 90h70"
-          stroke="oklch(0.4 0.09 238)"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </g>
-      <g transform="translate(310,200)">
-        <path
-          d="M8 14c0-6 4-10 10-10h132c6 0 10 4 10 10v48c0 6-4 10-10 10H60l-18 18 4-18H18c-6 0-10-4-10-10V14Z"
-          fill="oklch(0.98 0.02 82)"
-          stroke="oklch(0.45 0.12 30)"
-          strokeWidth="2.4"
-          strokeLinejoin="round"
-        />
-        <text
-          x="84"
-          y="48"
-          fill="oklch(0.35 0.1 30)"
-          fontFamily="AtoZ, sans-serif"
-          fontWeight="900"
-          fontSize="22"
-          textAnchor="middle"
-        >
-          Hi, friend!
-        </text>
-      </g>
-      <g transform="translate(260,360)">
-        <ellipse cx="60" cy="80" rx="52" ry="48" fill="oklch(0.78 0.14 60)" />
-        <path d="M20 52l-10-24 24 10Z" fill="oklch(0.78 0.14 60)" />
-        <path d="M100 52l10-24-24 10Z" fill="oklch(0.78 0.14 60)" />
-        <ellipse cx="60" cy="92" rx="36" ry="26" fill="oklch(0.95 0.03 82)" />
-        <circle cx="44" cy="76" r="4" fill="oklch(0.22 0.05 60)" />
-        <circle cx="76" cy="76" r="4" fill="oklch(0.22 0.05 60)" />
-        <circle cx="60" cy="94" r="4" fill="oklch(0.22 0.05 60)" />
-        <path
-          d="M52 102c3 4 13 4 16 0"
-          stroke="oklch(0.22 0.05 60)"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <circle cx="30" cy="94" r="5" fill="oklch(0.82 0.12 25)" opacity="0.6" />
-        <circle cx="90" cy="94" r="5" fill="oklch(0.82 0.12 25)" opacity="0.6" />
-      </g>
-    </svg>
-  );
-}
 
 export function LandingPage() {
   return (
@@ -375,7 +178,14 @@ export function LandingPage() {
           </div>
 
           <div className="hero-scene" aria-label="아이가 영어책을 읽는 일러스트">
-            <HeroScene />
+            <Image
+              src="/images/landing/hero-storybook.png"
+              alt=""
+              fill
+              priority
+              sizes="(min-width: 960px) 45vw, min(520px, 100vw)"
+              className="object-cover"
+            />
           </div>
         </section>
 
@@ -407,7 +217,15 @@ export function LandingPage() {
           <div className="books">
             {books.map((book) => (
               <article key={book.title} className="book">
-                <div className="book-cover">{book.art}</div>
+                <div className="book-cover">
+                  <Image
+                    src={book.image}
+                    alt={book.alt}
+                    fill
+                    sizes="(min-width: 960px) 31vw, (min-width: 620px) 45vw, 100vw"
+                    className="object-cover"
+                  />
+                </div>
                 <div className="book-meta">
                   <strong>{book.title}</strong>
                   <span>{book.meta}</span>

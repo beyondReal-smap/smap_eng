@@ -2,18 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { useSession } from "next-auth/react";
 
 import { AppSplash, SPLASH_MIN_DURATION_MS } from "@/components/app-splash";
-import { useIsSignedIn } from "@/stores/session";
 
 /**
  * 로그인 상태에서 /login, /signup 진입 시 목적지로 돌려보내는 클라이언트 가드.
  *
- * 이전 버전은 무조건 `/`(= 랜딩 홈)로 replace했는데, 이 경우 CTA가 가리키는
- * `/login?callbackUrl=%2Fapp` 에서 튕겨져 다시 랜딩으로 돌아가 "CTA를 눌러도
- * 반응이 없는" 루프가 발생했다. 이제는:
+ * 진실 소스는 Auth.js 세션(`useSession()` → `/api/auth/session`)이다.
+ * 과거에는 zustand+localStorage(mock store)를 봤는데, AccountMenu의 로그아웃
+ * (`nextAuthSignOut`)이 mock store를 비우지 않아 "로그아웃했는데도 이미
+ * 로그인되어 있어요 스플래시가 뜨고 / 로 튕긴다"는 모순이 발생했다.
+ * 백엔드 sessions 테이블/쿠키와 일치시키기 위해 useSession으로 일원화.
+ *
  *   1) `callbackUrl` 쿼리가 있으면 그 경로(내부 경로만 허용)로 이동
- *   2) 없으면 기본 앱 홈 `/app`으로 이동
+ *   2) 없으면 `/`로 이동(page.tsx가 인증 여부 기반 분기 SSR)
  *
  * Note: `useSearchParams`는 `/login`·`/signup`이 정적 프리렌더 대상(`○`)이므로
  * Suspense 경계가 필요해 빌드가 깨진다. `useEffect` 내부에서만 동작하는 이 가드의
@@ -21,15 +24,14 @@ import { useIsSignedIn } from "@/stores/session";
  *
  * 시각: signedIn이 true면 곧 라우팅이 일어난다. 이 짧은 사이에 로그인 폼이 그대로
  * 보이면 "왜 또 로그인 화면?" 혼란을 준다. splash로 덮어 의도를 명확히 함.
- *
- * ⚠️ 현재는 mock session (localStorage) 기반이므로 서버 SSR 가드는 불가능하다.
- * 백엔드 전환 시 middleware + cookies()로 서버 레벨 가드로 이동.
  */
 export function AuthRedirectGuard() {
   const router = useRouter();
-  const signedIn = useIsSignedIn();
+  const { status } = useSession();
+  const signedIn = status === "authenticated";
 
   useEffect(() => {
+    // status === "loading" 동안에는 가드를 띄우지 않는다(false-positive 방지).
     if (!signedIn) return;
 
     const raw = new URLSearchParams(window.location.search).get("callbackUrl");

@@ -4,6 +4,7 @@ import { PwaRegister } from '@/components/pwa-register';
 import { ShortcutHelp } from '@/components/shortcut-help';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthSessionProvider } from '@/components/providers/session-provider';
+import { auth } from '@/auth';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -60,11 +61,16 @@ export const viewport: Viewport = {
   themeColor: '#faf6ea',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Auth.js 세션을 SSR 단계에서 미리 읽어 SessionProvider에 주입한다.
+  // 이렇게 해야 AccountMenu 등 useSession() 사용 컴포넌트가 hydration
+  // 즉시 정확한 상태로 그려진다. 누락 시 fetch 응답이 도착하기 전까지
+  // 우상단에 "로그인" 버튼이 잠시(또는 끝까지) 노출되는 회귀가 발생.
+  const session = await auth();
   return (
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <head>
@@ -96,7 +102,7 @@ export default function RootLayout({
         className="min-h-full flex flex-col bg-background text-foreground"
         suppressHydrationWarning
       >
-        <AuthSessionProvider>
+        <AuthSessionProvider session={session}>
           <ThemeProvider>
             {/* ViewTransition 제거(2026-04-26) — children diff(/book → /loading.tsx →
                 /page.tsx) 단계마다 page-out/page-in 슬라이드업이 fire되면서 본문이

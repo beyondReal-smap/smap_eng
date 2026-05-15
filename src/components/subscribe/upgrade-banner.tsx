@@ -3,9 +3,14 @@
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 
 import { formatKrw, getPackage } from "@/lib/billing/packages";
-import { useCreditBalance } from "@/lib/hooks/use-credit-balance";
+import {
+  seedCredits,
+  useCreditBalance,
+  type CreditBalance,
+} from "@/lib/hooks/use-credit-balance";
 import { formatStars } from "@/lib/billing/terminology";
 
 const LOW_CREDIT_THRESHOLD = 3;
@@ -22,10 +27,29 @@ const LOW_CREDIT_THRESHOLD = 3;
  *  - 로그인 + 잔액 1~3개: 재충전 독려 카피로 강화.
  *  - 로그인 + 잔액 0개: 즉시 충전 카피로 강화.
  */
-export function UpgradeBanner() {
+/**
+ * SSR 단계에서 (app)/page.tsx가 `getCreditBalance`로 미리 페치한 잔액을 prop으로
+ * 받아 useCreditBalance의 useState 초기값으로 주입한다. 첫 paint부터 정상 텍스트가
+ * 그려져 hydration 직후 layout shift(2026-05-14)와 text mismatch(#418)를 모두 막는다.
+ *
+ * 모듈 캐시(seedCredits) 시드는 mount 후 useEffect로만 수행 — 서버에서 호출되면
+ * 워커가 사용자 A의 잔액으로 set된 채 사용자 B에게 누출되어 #418/보안 사고가 난다.
+ */
+export function UpgradeBanner({
+  initialCredits,
+}: {
+  initialCredits?: CreditBalance | null;
+} = {}) {
   const { status } = useSession();
+  // mount 후 AccountMenu / MobileMenu와 동일 모듈 캐시를 공유하도록 시드.
+  // `seedCredits` 자체가 서버에서는 no-op이고, 이미 채워진 cached가 있으면 no-op이므로
+  // strict mode 더블 mount에서도 안전.
+  useEffect(() => {
+    if (initialCredits !== undefined) seedCredits(initialCredits);
+  }, [initialCredits]);
   const { credits } = useCreditBalance({
     enabled: status === "authenticated",
+    initial: initialCredits ?? null,
   });
 
   const recommended = getPackage("medium");

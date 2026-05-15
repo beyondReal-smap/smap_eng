@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
     "172.17.0.3",
   ],
 
+  webpack(config, { dev }) {
+    if (!dev && process.env.NEXT_WEBPACK_CACHE_MEMORY === "1" && config.cache) {
+      config.cache = { type: "memory" };
+    }
+
+    return config;
+  },
+
   /**
    * Next.js 16 Turbopack은 빌드 타임에 `public/` 디렉토리의 파일 목록을
    * 스냅샷으로 고정한다. 따라서 빌드 이후 런타임에 생성되는 TTS wav 파일과

@@ -184,6 +184,8 @@ export function VocabDeck() {
       audioRef.current = el;
       el.src = src;
       el.currentTime = 0;
+      // 어린이 학습용 기본 0.75배속. src 재할당 후 reset되는 모바일 브라우저 대비.
+      el.playbackRate = 0.75;
       await el.play().catch(() => void 0);
     } catch (err) {
       toast.error(`듣기 실패: ${(err as Error).message}`);

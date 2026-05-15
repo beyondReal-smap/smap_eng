@@ -16,6 +16,12 @@ interface UseCreditBalanceOptions {
    * 기본값 true.
    */
   enabled?: boolean;
+  /**
+   * SSR에서 미리 페치한 잔액. 클라이언트 첫 렌더에서 useState 초기값으로 사용해
+   * hydration text mismatch(React #418)를 막는다. 서버 모듈 캐시는 워커 간
+   * 요청에서 오염되므로 server-side useState 초기값으로 직접 사용한다.
+   */
+  initial?: CreditBalance | null;
 }
 
 // ─── 모듈 수준 single-flight 캐시 ────────────────────────────────────────
@@ -68,6 +74,22 @@ function invalidate() {
 }
 
 /**
+ * SSR에서 미리 페치한 잔액을 클라이언트 모듈 캐시에 주입한다.
+ * AccountMenu / MobileMenu / UpgradeBanner가 동일 잔액을 공유하도록.
+ *
+ * IMPORTANT: 서버에서는 동작 금지 — Next.js 워커 한 개가 여러 사용자 요청을
+ * 처리하면 모듈 변수가 사용자 A의 잔액으로 set된 채 사용자 B에게 누출돼
+ * (1) 보안 사고 (2) hydration text mismatch (React #418, 2026-05-14 회귀)를
+ * 일으킨다. 서버 useState 초기값은 useCreditBalance의 options.initial로 전달.
+ */
+export function seedCredits(credits: CreditBalance | null): void {
+  if (typeof window === 'undefined') return;
+  if (cached) return;
+  cached = { credits, at: Date.now() };
+  emit({ credits, loading: false });
+}
+
+/**
  * 현재 가족(user)의 별 크레딧 잔액을 조회하고, 탭 포커스/visibility 복귀 시
  * 자동 갱신. 책 생성·구매 직후 동기화는 `refresh()` 수동 호출로 처리.
  *
@@ -80,13 +102,18 @@ function invalidate() {
  *  - `credits !== null`: 정상 응답
  */
 export function useCreditBalance(options: UseCreditBalanceOptions = {}) {
-  const { enabled = true } = options;
-  const [credits, setCredits] = useState<CreditBalance | null>(
-    () => cached?.credits ?? null,
-  );
-  const [loading, setLoading] = useState<boolean>(
-    () => enabled && !cached,
-  );
+  const { enabled = true, initial } = options;
+  // 서버에서는 모듈 캐시(`cached`)가 다른 사용자의 데이터로 오염될 수 있어
+  // initial(=props)만 신뢰한다. 클라이언트에서는 cached가 있으면 우선 사용,
+  // 없으면 initial로 폴백 — 둘 다 첫 렌더에서 SSR HTML과 동일한 텍스트가 나오도록.
+  const [credits, setCredits] = useState<CreditBalance | null>(() => {
+    if (typeof window === 'undefined') return initial ?? null;
+    return cached?.credits ?? initial ?? null;
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return enabled && initial == null;
+    return enabled && !cached && initial == null;
+  });
 
   const refresh = useCallback(() => {
     if (!enabled) return;

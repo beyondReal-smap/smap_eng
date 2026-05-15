@@ -64,12 +64,16 @@ export function OnboardingForm() {
           maxLength={30}
           required
           disabled={pending}
+          className="h-12 text-base"
         />
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label>나이</Label>
-        <div className="flex flex-wrap gap-2">
+        {/* 6개 옵션: 모바일에서 flex-wrap이 들쭉날쭉했다.
+            sm 미만에서는 grid-cols-3(2행 × 3열) 균등 배치 → 좁은 화면에서 정렬 안정.
+            sm 이상에서는 grid-cols-6 한 줄로. */}
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {AGE_OPTIONS.map((n) => (
             <button
               key={n}
@@ -77,9 +81,9 @@ export function OnboardingForm() {
               onClick={() => setAge(n)}
               disabled={pending}
               className={cn(
-                'h-10 min-w-12 rounded-full px-4 text-sm font-medium transition-colors',
+                'flex h-12 items-center justify-center rounded-xl text-sm font-semibold transition-colors',
                 age === n
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'bg-muted text-foreground hover:bg-muted/80',
                 'disabled:opacity-50',
               )}
@@ -91,9 +95,11 @@ export function OnboardingForm() {
         </div>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <Label>아바타</Label>
-        <div className="flex flex-wrap gap-2">
+        {/* 8개 옵션: 모바일 grid-cols-4(2행), sm 이상에서 grid-cols-8 한 줄.
+            각 셀 aspect-square로 정사각 유지, 화면 폭에 맞춰 자연스럽게 커진다. */}
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
           {AVATAR_OPTIONS.map((emoji) => (
             <button
               key={emoji}
@@ -101,7 +107,7 @@ export function OnboardingForm() {
               onClick={() => setAvatar(emoji)}
               disabled={pending}
               className={cn(
-                'flex size-11 items-center justify-center rounded-full text-2xl transition-all',
+                'flex aspect-square items-center justify-center rounded-2xl text-2xl transition-all',
                 avatar === emoji
                   ? 'bg-primary/15 ring-2 ring-primary'
                   : 'bg-muted hover:bg-muted/80',
@@ -116,7 +122,7 @@ export function OnboardingForm() {
         </div>
       </div>
 
-      <Button type="submit" disabled={pending} className="w-full">
+      <Button type="submit" disabled={pending} className="h-12 w-full text-base">
         {pending ? '만드는 중…' : '프로필 만들기'}
       </Button>
     </form>

@@ -64,14 +64,45 @@ const HERO_PROMPTS = [
  *  - 실제 reading_logs 기반 Hero는 P1-1
  *  - 이어 읽기: 서버의 "진행 중" 세션이 있으면 우선, 없으면 localStorage recent:books 첫번째
  */
-export function LearningSummary() {
+/**
+ * SSR 단계의 (app)/page.tsx가 active profile 기준으로 미리 페치한 요약·이름·
+ * 이어 읽기 책 메타를 prop으로 받는다. 첫 paint부터 정상 내용으로 그려져
+ * hydration 후 "오늘 뭐 읽을까?" → "지우야, 오늘 뭐 읽을까?"로 변하며 발생하던
+ * heading 위치/높이 점프가 사라진다.
+ *
+ * 클라이언트 zustand profileId가 server active와 다르면 종래대로 재페치.
+ */
+export function LearningSummary({
+  initialProfileId = null,
+  initialProfileName = null,
+  initialSummary = null,
+  initialContinueBook = null,
+  initialContinueStat = null,
+}: {
+  initialProfileId?: number | null;
+  initialProfileName?: string | null;
+  initialSummary?: Summary | null;
+  initialContinueBook?: Book | null;
+  initialContinueStat?: BookProgressStat | null;
+} = {}) {
   const profileId = useProfileStore((s) => s.currentProfileId);
-  const [name, setName] = useState<string | null>(null);
-  const [summary, setSummary] = useState<Summary | null>(null);
+  // zustand persist는 client hydration 후에야 currentProfileId를 채우므로 SSR HTML과
+  // 첫 CSR render에서는 profileId=null. SSR/CSR mismatch 없이 initial을 즉시 사용하기
+  // 위해 initialProfileId가 있으면 profileId가 무엇이든 initial 값을 첫 useState에 채택.
+  // hydration 후 zustand profileId가 initial과 달라지면 그때 useEffect가 fetch.
+  const useInitial = initialProfileId !== null;
+  const [name, setName] = useState<string | null>(
+    useInitial ? initialProfileName : null,
+  );
+  const [summary, setSummary] = useState<Summary | null>(
+    useInitial ? initialSummary : null,
+  );
   const [recentId, setRecentId] = useState<number | null>(null);
-  const [continueBook, setContinueBook] = useState<Book | null>(null);
+  const [continueBook, setContinueBook] = useState<Book | null>(
+    useInitial ? initialContinueBook : null,
+  );
   const [continueStat, setContinueStat] = useState<BookProgressStat | null>(
-    null,
+    useInitial ? initialContinueStat : null,
   );
   /**
    * visibility 복귀·focus 시 모든 fetch를 한 번 더 돌리기 위한 카운터.
@@ -96,9 +127,10 @@ export function LearningSummary() {
     };
   }, []);
 
-  // 프로필 이름 조회
+  // 프로필 이름 조회 — SSR이 같은 프로필 이름을 이미 넣어 줬으면 fetch 생략.
   useEffect(() => {
     if (!profileId) return;
+    if (profileId === initialProfileId && initialProfileName !== null) return;
     let cancelled = false;
     apiFetch<{ profiles: Profile[] }>('/api/profiles')
       .then((res) => {
@@ -109,11 +141,17 @@ export function LearningSummary() {
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+  }, [profileId, initialProfileId, initialProfileName]);
 
-  // 요약 집계
+  // 요약 집계 — SSR 활성 프로필 + 첫 진입(refreshKey 0)이면 fetch 생략.
   useEffect(() => {
     if (!profileId) return;
+    if (
+      refreshKey === 0 &&
+      profileId === initialProfileId &&
+      initialSummary !== null
+    )
+      return;
     let cancelled = false;
     apiFetch<{ summary: Summary }>(
       `/api/learning-summary?profileId=${profileId}`,
@@ -126,7 +164,7 @@ export function LearningSummary() {
     return () => {
       cancelled = true;
     };
-  }, [profileId, refreshKey]);
+  }, [profileId, refreshKey, initialProfileId, initialSummary]);
 
   // localStorage 기반 "가장 최근에 연 책" — 서버의 continueBookId 보조
   useEffect(() => {
@@ -150,11 +188,15 @@ export function LearningSummary() {
     };
   }, [profileId, refreshKey]);
 
-  const visibleSummary = profileId ? summary : null;
-  const continueId = profileId
+  // zustand persist hydration 전에는 profileId=null이라도, SSR이 활성 프로필을
+  // 보내 줬다면 그걸 fallback으로 사용해 첫 paint부터 정상 내용이 그려지도록 한다.
+  // (없으면 종전대로 null fallback)
+  const effectiveProfileId = profileId ?? initialProfileId;
+  const visibleSummary = effectiveProfileId ? summary : null;
+  const continueId = effectiveProfileId
     ? (visibleSummary?.continueBookId ?? recentId)
     : null;
-  const visibleName = profileId ? name : null;
+  const visibleName = effectiveProfileId ? name : null;
   const visibleContinueBook =
     continueId && continueBook?.id === continueId ? continueBook : null;
   const visibleContinueStat = visibleContinueBook ? continueStat : null;
@@ -168,6 +210,13 @@ export function LearningSummary() {
   // /api/books?profileId=X 응답의 stats에서 continueId 책의 진도를 추출.
   useEffect(() => {
     if (!profileId || !continueId) return;
+    // SSR이 같은 활성 프로필 + 동일 continueId 책을 이미 보내 줬으면 skip.
+    if (
+      refreshKey === 0 &&
+      profileId === initialProfileId &&
+      initialContinueBook?.id === continueId
+    )
+      return;
     let cancelled = false;
     // 책 메타 — 단건 조회
     apiFetch<{ book: Book }>(`/api/books/${continueId}`)
@@ -186,7 +235,13 @@ export function LearningSummary() {
     return () => {
       cancelled = true;
     };
-  }, [profileId, continueId, refreshKey]);
+  }, [
+    profileId,
+    continueId,
+    refreshKey,
+    initialProfileId,
+    initialContinueBook,
+  ]);
 
   return (
     <section className="animate-fade-up relative overflow-hidden rounded-[1.5rem] border-2 border-border bg-card/80 p-5 sticker-shadow-lg sm:p-6">

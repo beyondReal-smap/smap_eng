@@ -199,6 +199,12 @@ export const books = mysqlTable(
     coverImagePath: varchar('cover_image_path', { length: 500 }),
     vocabulary: json('vocabulary').$type<VocabularyEntry[]>(),
     alternateEnding: json('alternate_ending').$type<AlternateEnding>(),
+    // 결말 분기 passages의 사전 합성 TTS 경로. orderIndex 순으로 정렬된
+    // 웹 경로(`/audio/ending-<bookId>-A-<idx>.wav`) 배열. 책 생성 직후
+    // after()로 합성된다. 합성 실패한 슬롯은 ''(빈 문자열)로 보존하여
+    // 인덱스 정렬을 유지한다. 합성 전(혹은 레거시 책)은 NULL.
+    endingAudioPathsA: json('ending_audio_paths_a').$type<string[]>(),
+    endingAudioPathsB: json('ending_audio_paths_b').$type<string[]>(),
     // 논픽션 전용. 픽션은 NULL.
     funFacts: json('fun_facts').$type<FunFact[]>(),
     // 마법사 인테이크 원본 보존(재생성/품질 회귀 분석용).

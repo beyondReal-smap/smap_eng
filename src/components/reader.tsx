@@ -266,7 +266,30 @@ export function Reader({ book, passages }: Props) {
   const isLast = branch
     ? idx >= total - 1
     : !endings && idx >= commonCount - 1;
-  const currentAudio = !isEndingStep && currentCommon ? audioCache[currentCommon.id] : undefined;
+  // 결말 분기 passages의 사전 합성된 TTS 경로(books.endingAudioPathsA/B에 저장).
+  // 책 생성 직후 batch가 만들어 두므로 Reader 진입 시 이미 채워져 있는 게 일반적.
+  // 레거시 책(0011 마이그레이션 이전 생성)은 null이라 결말에 음성이 안 붙는다.
+  const endingAudioPathsA = useMemo(
+    () => parseJsonField<string[]>(book.endingAudioPathsA),
+    [book.endingAudioPathsA],
+  );
+  const endingAudioPathsB = useMemo(
+    () => parseJsonField<string[]>(book.endingAudioPathsB),
+    [book.endingAudioPathsB],
+  );
+  const currentEndingAudio = useMemo(() => {
+    if (!isEndingStep || !branch) return undefined;
+    const list = branch === 'A' ? endingAudioPathsA : endingAudioPathsB;
+    if (!Array.isArray(list)) return undefined;
+    const path = list[endingIdx];
+    return path && path.length > 0 ? path : undefined;
+  }, [isEndingStep, branch, endingIdx, endingAudioPathsA, endingAudioPathsB]);
+
+  const currentAudio = isEndingStep
+    ? currentEndingAudio
+    : currentCommon
+      ? audioCache[currentCommon.id]
+      : undefined;
   const currentScene = !isEndingStep && currentCommon ? sceneCache[currentCommon.id] : undefined;
   const levelClass = LEVEL_CLASS[book.cefr];
   // vocabulary도 동일하게 string으로 도착할 수 있어 정규화한다.
@@ -562,13 +585,26 @@ export function Reader({ book, passages }: Props) {
   }, [fontSize]);
 
   /**
-   * TTS 생성 호출. 엔딩 passage(id 없음)는 대상 아님.
-   * force=true 시 캐시된 currentAudio가 있어도 강제로 서버 POST를 실행.
-   * 파일 404로부터 자동 복구할 때 사용.
+   * TTS 생성 호출. 엔딩 passage는 사전 합성 경로만 사용하므로 서버 재호출 경로가 없다.
+   * - 엔딩 + audio 있음: <audio>를 처음부터 재생.
+   * - 엔딩 + audio 없음(레거시 책): no-op.
+   * - 공통 passage: 기존과 동일 (force=true 시 /api/tts/[id]?force=1 호출).
    */
   const requestTts = useCallback(
     async (force: boolean) => {
-      if (!currentCommon || isEndingStep) return;
+      if (isEndingStep) {
+        // 엔딩은 서버 재합성 라우트가 없다 — 캐시된 audioPath로 그대로 재생만.
+        if (!currentEndingAudio) return;
+        const el = audioRef.current;
+        if (!el) return;
+        try { el.currentTime = 0; } catch { /* readyState=0이면 무시 */ }
+        el.play().catch(() => {
+          try { el.load(); } catch { /* ignore */ }
+          el.play().catch(() => void 0);
+        });
+        return;
+      }
+      if (!currentCommon) return;
       if (!force && currentAudio) {
         // 다시 듣기: 이미 끝까지 재생된 audio라 currentTime이 종료 위치에 있다.
         // 0으로 리셋해 "처음부터 다시" 동작이 명확하도록 한다.
@@ -621,7 +657,7 @@ export function Reader({ book, passages }: Props) {
         setLoadingAudio(false);
       }
     },
-    [currentCommon, isEndingStep, currentAudio],
+    [currentCommon, isEndingStep, currentAudio, currentEndingAudio],
   );
 
   const handlePlay = useCallback(() => requestTts(false), [requestTts]);
@@ -969,34 +1005,37 @@ export function Reader({ book, passages }: Props) {
               {showKo ? '한글 해석 숨기기' : '한글 해석 보기'}
               <kbd className="ml-1.5 hidden rounded bg-muted/70 px-1.5 text-[10px] font-mono sm:inline">K</kbd>
             </Button>
-            {/* TTS·자동재생은 DB 패시지에서만. 엔딩은 텍스트/한글해석만. */}
+            {/* TTS — 본문 passage는 DB 기반, 엔딩은 사전 합성된 path가 있을 때만. */}
+            {!isEndingStep || currentEndingAudio ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePlay}
+                disabled={loadingAudio}
+                className="rounded-full press-scale"
+              >
+                {loadingAudio
+                  ? '준비 중…'
+                  : (isEndingStep
+                      ? '낭독 듣기'
+                      : currentCommon && playedPassages.has(currentCommon.id)
+                        ? '다시 듣기'
+                        : '낭독 듣기')}
+                <kbd className="ml-1.5 hidden rounded bg-muted/70 px-1.5 text-[10px] font-mono sm:inline">Space</kbd>
+              </Button>
+            ) : null}
+            {/* 자동재생 토글은 본문에서만. 엔딩은 길이가 짧아 사용자가 직접 넘기는 편이 자연스러움. */}
             {!isEndingStep ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePlay}
-                  disabled={loadingAudio}
-                  className="rounded-full press-scale"
-                >
-                  {loadingAudio
-                    ? '준비 중…'
-                    : currentCommon && playedPassages.has(currentCommon.id)
-                      ? '다시 듣기'
-                      : '낭독 듣기'}
-                  <kbd className="ml-1.5 hidden rounded bg-muted/70 px-1.5 text-[10px] font-mono sm:inline">Space</kbd>
-                </Button>
-                <Button
-                  variant={autoplay ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setAutoplay((v) => !v)}
-                  aria-pressed={autoplay}
-                  className="rounded-full press-scale"
-                  title="한 문장 낭독이 끝나면 자동으로 다음 문장으로 넘어가요"
-                >
-                  {autoplay ? '자동재생 ON' : '자동재생 OFF'}
-                </Button>
-              </>
+              <Button
+                variant={autoplay ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAutoplay((v) => !v)}
+                aria-pressed={autoplay}
+                className="rounded-full press-scale"
+                title="한 문장 낭독이 끝나면 자동으로 다음 문장으로 넘어가요"
+              >
+                {autoplay ? '자동재생 ON' : '자동재생 OFF'}
+              </Button>
             ) : null}
             {isEndingStep && branch ? (
               <Button
@@ -1009,17 +1048,23 @@ export function Reader({ book, passages }: Props) {
               </Button>
             ) : null}
           </div>
-          {!isEndingStep && currentAudio ? (
+          {currentAudio ? (
             <audio
               ref={audioRef}
               src={currentAudio}
               controls
               preload="auto"
               className="mt-4 w-full rounded-full"
-              onError={handleAudioError}
+              onError={isEndingStep ? undefined : handleAudioError}
+              onLoadedMetadata={(e) => {
+                // 어린이 학습용 기본 속도. src가 바뀔 때마다 재적용해 일부 모바일
+                // 브라우저(Safari)에서 load 후 1.0으로 reset되는 케이스를 흡수.
+                e.currentTarget.playbackRate = 0.75;
+              }}
               onPlay={() => {
-                // 수동 클릭·자동재생·force 재시도 모든 경로의 단일 캡처 지점.
-                if (!currentCommon) return;
+                // 본문 passage만 playedPassages에 기록(다시듣기 라벨 토글용).
+                // 엔딩은 id가 없고 짧아서 기록 대상 아님.
+                if (isEndingStep || !currentCommon) return;
                 const id = currentCommon.id;
                 setPlayedPassages((prev) => {
                   if (prev.has(id)) return prev;

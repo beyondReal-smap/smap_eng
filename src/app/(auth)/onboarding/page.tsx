@@ -26,9 +26,9 @@ export default async function OnboardingPage() {
   if (existing.length > 0) redirect('/');
 
   return (
-    <Card className="animate-fade-up rounded-3xl border border-border bg-card/80 p-6 shadow-sm sm:p-8">
-      <div className="space-y-2">
-        <h2 className="font-heading text-2xl font-bold tracking-tight">
+    <Card className="animate-fade-up rounded-3xl border border-border bg-card/80 p-5 shadow-sm sm:p-8">
+      <div className="space-y-1.5 sm:space-y-2">
+        <h2 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
           아이의 첫 프로필을 만들어주세요
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -37,7 +37,7 @@ export default async function OnboardingPage() {
         </p>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-5 sm:mt-6">
         <OnboardingForm />
       </div>
     </Card>
