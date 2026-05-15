@@ -46,8 +46,12 @@ targets:
         CFBundleDisplayName: 하루책
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # 첫 화면 = 시스템 launch screen. 본문 cream(#FFF7E8) 배경에 LoginIcon(132pt)을
+        # 중앙 정렬해 SwiftUI SplashView로 자연스럽게 이어진다.
         UILaunchScreen:
-          UIColorName: AccentColor
+          UIColorName: LaunchBackground
+          UIImageName: LoginIcon
+          UIImageRespectsSafeAreaInsets: true
         UIRequiredDeviceCapabilities:
           - arm64
         UISupportedInterfaceOrientations:

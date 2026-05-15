@@ -60,15 +60,44 @@ struct RootView: View {
     }
 }
 
+/// 시스템 launch screen과 동일한 배경/로고 구성으로 시작해, 부드러운 fade-in으로
+/// 텍스트·진행 표시기만 덧붙인다. launch → SwiftUI 전환 시 깜빡임을 최소화한다.
 private struct SplashView: View {
+    @State private var appeared = false
+
     var body: some View {
         ZStack {
             Color.smapBackground.ignoresSafeArea()
-            VStack(spacing: 16) {
+
+            VStack(spacing: 20) {
+                Image("LoginIcon")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 132, height: 132)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 6) {
+                    Text("하루책")
+                        .font(.smapDisplay)
+                        .foregroundStyle(Color.smapText)
+                    Text("매일 한 권, 우리 아이의 영어 동화책")
+                        .font(.smapBody)
+                        .foregroundStyle(Color.smapMuted)
+                        .multilineTextAlignment(.center)
+                }
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 8)
+
                 ProgressView()
-                Text("하루책")
-                    .font(.smapTitle)
-                    .foregroundStyle(Color.smapText)
+                    .tint(Color.smapPrimary)
+                    .opacity(appeared ? 1 : 0)
+                    .padding(.top, 12)
+            }
+            .padding(.horizontal, 24)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.45).delay(0.05)) {
+                appeared = true
             }
         }
     }
