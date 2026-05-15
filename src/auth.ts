@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import {
   createHash,
   randomBytes,
+  randomUUID,
   scrypt as nodeScrypt,
   timingSafeEqual,
 } from 'node:crypto';
@@ -12,12 +13,13 @@ import { db } from '@/lib/db';
 import {
   accounts,
   mobileAuthTokens,
+  profiles,
   sessions,
   users,
   verificationTokens,
 } from '@/lib/db/schema';
 import { isAdminEmail } from '@/lib/auth/admin-emails';
-import { LoginSchema } from '@/lib/auth/schemas';
+import { LoginSchema, SignupSchema } from '@/lib/auth/schemas';
 import authConfig from './auth.config';
 
 const MOBILE_AUTH_PROVIDERS = ['google', 'kakao'] as const;
@@ -119,6 +121,17 @@ function scryptAsync(
       resolve(derivedKey);
     });
   });
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('base64url');
+  const key = await scryptAsync(
+    password,
+    salt,
+    PASSWORD_KEY_LENGTH,
+    passwordOptions(16384, 8, 1),
+  );
+  return ['scrypt', '16384', '8', '1', salt, key.toString('base64url')].join('$');
 }
 
 async function verifyPassword(
@@ -346,6 +359,121 @@ async function handleMobilePassword(req: Request): Promise<Response> {
   );
 }
 
+/**
+ * 모바일 회원가입 — 웹 `signupAction`의 트랜잭션 로직을 REST로 노출.
+ *
+ * 입력: `SignupSchema` JSON ({ childName, email, password, agreeAge, agreeTerms, agreePrivacy }).
+ * 동의 필드는 모바일에서 boolean true로 전송 (SignupSchema가 boolean true도 허용).
+ *
+ * 성공: access_token 직접 발급 (exchange 절차 생략). 응답 형태는
+ * `handleMobilePassword`와 동일하여 iOS `MobileExchangeResponse`로 디코딩 가능.
+ * 가입 직후 별도 로그인 단계가 없도록 가입+로그인을 한 번에 처리한다.
+ *
+ * 충돌: 이미 동일 이메일로 비밀번호 가입된 경우 409 + duplicate_email.
+ */
+async function handleMobileSignup(req: Request): Promise<Response> {
+  const body = await parseJsonBody(req);
+  const parsed = SignupSchema.safeParse(body);
+  if (!parsed.success) {
+    return appendNoStore(
+      NextResponse.json(
+        {
+          error: 'invalid_signup_payload',
+          message: '입력값을 확인해 주세요.',
+          fields: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      ),
+    );
+  }
+
+  const email = normalizeEmail(parsed.data.email);
+  const passwordHash = await hashPassword(parsed.data.password);
+  let userId = '';
+  let duplicateEmail = false;
+
+  await db.transaction(async (tx) => {
+    const existingUsers = await tx
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        passwordHash: users.passwordHash,
+      })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(10);
+
+    if (existingUsers.some((row) => row.passwordHash)) {
+      duplicateEmail = true;
+      return;
+    }
+
+    const linkedUser = existingUsers[0];
+    userId = linkedUser?.id ?? randomUUID();
+    const displayName = linkedUser?.name ?? `${parsed.data.childName} 보호자`;
+
+    if (linkedUser) {
+      await tx
+        .update(users)
+        .set({ name: displayName, passwordHash })
+        .where(eq(users.id, userId));
+    } else {
+      await tx.insert(users).values({
+        id: userId,
+        name: displayName,
+        email,
+        passwordHash,
+      });
+    }
+
+    const existingProfiles = await tx
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1);
+
+    if (existingProfiles.length === 0) {
+      await tx.insert(profiles).values({
+        userId,
+        name: parsed.data.childName,
+        age: 7,
+        avatar: '⭐',
+      });
+    }
+  });
+
+  if (duplicateEmail) {
+    return appendNoStore(
+      NextResponse.json(
+        {
+          error: 'duplicate_email',
+          message: '이미 가입된 이메일입니다.',
+        },
+        { status: 409 },
+      ),
+    );
+  }
+
+  if (!userId) {
+    return jsonError('signup_failed', 500);
+  }
+
+  const token = await insertMobileToken(
+    userId,
+    'access_token',
+    MOBILE_ACCESS_TOKEN_TTL_MS,
+  );
+  const now = new Date();
+  return appendNoStore(
+    NextResponse.json({
+      accessToken: token.raw,
+      expiresAtUnix: toUnixSeconds(token.expiresAt),
+      issuedAtUnix: toUnixSeconds(now),
+    }),
+  );
+}
+
 async function handleMobileExchange(req: Request): Promise<Response> {
   const body = await parseJsonBody(req);
   const code =
@@ -483,6 +611,7 @@ export const handlers = {
   },
   async POST(req: NextRequest) {
     if (isMobileAuthPath(req, 'password')) return handleMobilePassword(req);
+    if (isMobileAuthPath(req, 'signup')) return handleMobileSignup(req);
     if (isMobileAuthPath(req, 'exchange')) return handleMobileExchange(req);
     return baseHandlers.POST(req);
   },

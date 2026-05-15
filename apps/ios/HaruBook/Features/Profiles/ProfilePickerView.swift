@@ -4,6 +4,7 @@ struct ProfilePickerView: View {
     @State private var viewModel = ProfileViewModel()
     @State private var newName: String = ""
     @State private var isCreating: Bool = false
+    @State private var showOnboarding: Bool = false
     let onSelect: (Profile) -> Void
 
     var body: some View {
@@ -63,9 +64,26 @@ struct ProfilePickerView: View {
                 }
             }
         }
-        .task { await viewModel.load() }
+        .task {
+            await viewModel.load()
+            // 신규 가입자(예: OAuth 첫 로그인)는 프로필이 0개. 첫 프로필 생성을 강제 유도한다.
+            // 이메일 가입은 서버가 ⭐ 프로필을 자동 생성하므로 이 분기를 타지 않는다.
+            if viewModel.error == nil && viewModel.profiles.isEmpty {
+                showOnboarding = true
+            }
+        }
         .sheet(isPresented: $isCreating) {
             CreateProfileSheet(viewModel: viewModel, isPresented: $isCreating)
+        }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            NavigationStack {
+                OnboardingView { newProfile in
+                    viewModel.profiles.append(newProfile)
+                    showOnboarding = false
+                    // 첫 프로필 생성 직후 그 프로필로 자동 진입.
+                    onSelect(newProfile)
+                }
+            }
         }
     }
 }

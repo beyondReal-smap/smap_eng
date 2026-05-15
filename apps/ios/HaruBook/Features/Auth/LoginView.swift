@@ -4,6 +4,7 @@ struct LoginView: View {
     @Environment(AuthState.self) private var auth
     @State private var inFlightProvider: String?
     @State private var legalSheet: LegalDocument?
+    @State private var showEmailFlow: Bool = false
 
     var body: some View {
         ZStack {
@@ -51,6 +52,16 @@ struct LoginView: View {
                     ) {
                         Task { await signIn(provider: "kakao") }
                     }
+
+                    PrimaryButton(
+                        title: "이메일로 시작하기",
+                        icon: Image(systemName: "envelope.fill"),
+                        variant: .outline,
+                        isLoading: false,
+                        isEnabled: inFlightProvider == nil,
+                    ) {
+                        showEmailFlow = true
+                    }
                 }
 
                 if let error = auth.lastError {
@@ -92,6 +103,16 @@ struct LoginView: View {
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
                             Button("닫기") { legalSheet = nil }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showEmailFlow) {
+            NavigationStack {
+                EmailLoginView()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("닫기") { showEmailFlow = false }
                         }
                     }
             }
