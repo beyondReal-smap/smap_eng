@@ -68,17 +68,17 @@ struct LoginView: View {
                     .disabled(inFlightProvider != nil || appleSignInBusy)
 
                     // Google 공식 sign-in 가이드: 흰 배경 + 연한 회색 외곽선 + 검정 텍스트.
-                    // 4색 G 자산이 없어 SF Symbol을 Google 블루(#4285F4) 단색으로 처리.
+                    // GoogleG 자산은 4색(빨강/파랑/노랑/초록) SVG. .renderingMode(.original)로
+                    // PrimaryButton 내부 foregroundStyle 영향을 받지 않고 원본 색 유지.
                     PrimaryButton(
                         title: "Google로 계속하기",
-                        icon: Image(systemName: "g.circle.fill"),
+                        icon: Image("GoogleG").renderingMode(.original),
                         variant: .filled,
                         isLoading: inFlightProvider == "google",
                         isEnabled: inFlightProvider == nil && !appleSignInBusy,
                         backgroundOverride: Color.white,
                         foregroundOverride: Color(hex: 0x1F1F1F),
                         borderOverride: Color(hex: 0xDADCE0),
-                        iconColorOverride: Color(hex: 0x4285F4),
                     ) {
                         Task { await signIn(provider: "google") }
                     }

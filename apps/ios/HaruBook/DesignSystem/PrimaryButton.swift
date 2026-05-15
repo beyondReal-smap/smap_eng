@@ -26,7 +26,11 @@ struct PrimaryButton: View {
         Button(action: action) {
             HStack(spacing: 10) {
                 if let icon, !isLoading {
-                    icon.foregroundStyle(iconColorOverride ?? foreground)
+                    icon
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
+                        .foregroundStyle(iconColorOverride ?? foreground)
                 }
                 if isLoading {
                     ProgressView()
