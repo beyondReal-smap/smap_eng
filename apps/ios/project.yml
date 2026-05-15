@@ -31,6 +31,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: site.smap.harubook.ios
         PRODUCT_NAME: HaruBook
         INFOPLIST_FILE: HaruBook/Info.plist
+        CODE_SIGN_ENTITLEMENTS: HaruBook/HaruBook.entitlements
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         CURRENT_PROJECT_VERSION: 1

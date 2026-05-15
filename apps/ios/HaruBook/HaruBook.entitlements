@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Sign In with Apple — App Store Review Guideline 4.8 (다른 소셜 로그인이 있을 때 필수). -->
+    <key>com.apple.developer.applesignin</key>
+    <array>
+        <string>Default</string>
+    </array>
+
+    <!-- 푸시 알림 — Phase 5-C에서 사용. 빈 entitlement 미리 추가해 두면 capability 활성화 후 즉시 사용 가능. -->
+    <key>aps-environment</key>
+    <string>development</string>
+</dict>
+</plist>

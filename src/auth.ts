@@ -20,6 +20,10 @@ import {
 } from '@/lib/db/schema';
 import { isAdminEmail } from '@/lib/auth/admin-emails';
 import { LoginSchema, SignupSchema } from '@/lib/auth/schemas';
+import {
+  AppleJwksError,
+  verifyAppleIdentityToken,
+} from '@/lib/auth/apple-jwks';
 import authConfig from './auth.config';
 
 const MOBILE_AUTH_PROVIDERS = ['google', 'kakao'] as const;
@@ -564,6 +568,131 @@ async function handleMobileExchange(req: Request): Promise<Response> {
   );
 }
 
+/**
+ * Sign in with Apple — `ASAuthorizationAppleIDCredential.identityToken`을 받아
+ * Apple JWKS로 서명 검증 후 user 매핑 + access_token 발급.
+ *
+ * App Store 4.8: 다른 소셜 로그인을 제공할 때 SiwA가 필수.
+ *
+ * 매핑 정책 (D9 채택):
+ *   - 같은 이메일이 이미 가입(비밀번호 또는 OAuth)되어 있으면 **자동 연결**.
+ *     Apple이 검증한 이메일이라는 가정. accounts 테이블에 provider=`apple` 행을 추가하지는
+ *     않음 — 모바일 인증은 mobileAuthTokens만으로 충분.
+ *   - 신규 user: `users` insert + 기본 ⭐ 프로필 자동 생성 (signupAction과 동일 정책).
+ *   - email이 누락된 경우(Apple은 옵션): displayName만 채우고 진행.
+ *
+ * 요청 본문 (JSON):
+ *   identityToken: string (필수, JWT)
+ *   nonce: string (옵션, raw nonce. iOS가 보냈으면 SHA256 후 payload.nonce와 비교)
+ *   fullName: { givenName?: string, familyName?: string } (옵션, 첫 가입 시에만)
+ *   email: string (옵션, identityToken에 없으면 클라이언트가 보낸 값 사용)
+ */
+async function handleMobileApple(req: Request): Promise<Response> {
+  const clientId = process.env.APPLE_SIGN_IN_CLIENT_ID;
+  if (!clientId) {
+    return jsonError('apple_not_configured', 500);
+  }
+
+  const body = (await parseJsonBody(req)) as {
+    identityToken?: unknown;
+    nonce?: unknown;
+    fullName?: { givenName?: unknown; familyName?: unknown };
+    email?: unknown;
+  } | null;
+
+  const identityToken =
+    typeof body?.identityToken === 'string' ? body.identityToken : '';
+  if (!identityToken) {
+    return jsonError('missing_identity_token', 400);
+  }
+  const nonce = typeof body?.nonce === 'string' ? body.nonce : undefined;
+
+  let claims;
+  try {
+    claims = await verifyAppleIdentityToken(identityToken, clientId, nonce);
+  } catch (err) {
+    if (err instanceof AppleJwksError) {
+      console.warn('[apple-signin] verify failed', err.code);
+      return jsonError(err.code, 401);
+    }
+    console.error('[apple-signin] unexpected', err);
+    return jsonError('verify_failed', 500);
+  }
+
+  const appleSub = claims.sub;
+  const tokenEmail =
+    typeof claims.email === 'string' ? normalizeEmail(claims.email) : null;
+  const fallbackEmail =
+    typeof body?.email === 'string' ? normalizeEmail(body.email) : null;
+  const email = tokenEmail ?? fallbackEmail;
+
+  const givenName =
+    typeof body?.fullName?.givenName === 'string'
+      ? body.fullName.givenName.trim()
+      : '';
+  const familyName =
+    typeof body?.fullName?.familyName === 'string'
+      ? body.fullName.familyName.trim()
+      : '';
+  const fullName = `${familyName}${givenName}`.trim();
+
+  let userId = '';
+
+  await db.transaction(async (tx) => {
+    // 1) email 일치하는 기존 user — 자동 연결.
+    if (email) {
+      const existing = await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+      if (existing[0]) {
+        userId = existing[0].id;
+        return;
+      }
+    }
+
+    // 2) 신규 user 생성 + 기본 프로필.
+    userId = randomUUID();
+    const displayName = fullName.length > 0 ? `${fullName} 보호자` : '하루책 보호자';
+    await tx.insert(users).values({
+      id: userId,
+      name: displayName,
+      email,
+    });
+
+    const childName = givenName.length > 0 ? givenName : '하루';
+    await tx.insert(profiles).values({
+      userId,
+      name: childName,
+      age: 7,
+      avatar: '⭐',
+    });
+
+    // Apple sub은 별도 컬럼이 아직 없어 저장하지 않는다 — 다음 로그인은 같은 email로 자동 매칭.
+    // private relay email(@privaterelay.appleid.com)도 일관 작동.
+    void appleSub;
+  });
+
+  if (!userId) {
+    return jsonError('signup_failed', 500);
+  }
+
+  const token = await insertMobileToken(
+    userId,
+    'access_token',
+    MOBILE_ACCESS_TOKEN_TTL_MS,
+  );
+  const now = new Date();
+  return appendNoStore(
+    NextResponse.json({
+      accessToken: token.raw,
+      expiresAtUnix: toUnixSeconds(token.expiresAt),
+      issuedAtUnix: toUnixSeconds(now),
+    }),
+  );
+}
+
 function isMobileAuthPath(req: Request, pathname: string): boolean {
   return new URL(req.url).pathname === `/api/auth/mobile/${pathname}`;
 }
@@ -612,6 +741,7 @@ export const handlers = {
   async POST(req: NextRequest) {
     if (isMobileAuthPath(req, 'password')) return handleMobilePassword(req);
     if (isMobileAuthPath(req, 'signup')) return handleMobileSignup(req);
+    if (isMobileAuthPath(req, 'apple')) return handleMobileApple(req);
     if (isMobileAuthPath(req, 'exchange')) return handleMobileExchange(req);
     return baseHandlers.POST(req);
   },

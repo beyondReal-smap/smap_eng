@@ -1,10 +1,14 @@
 import SwiftUI
+import AuthenticationServices
 
 struct LoginView: View {
     @Environment(AuthState.self) private var auth
+    @Environment(\.colorScheme) private var colorScheme
     @State private var inFlightProvider: String?
     @State private var legalSheet: LegalDocument?
     @State private var showEmailFlow: Bool = false
+    @State private var appleNonce: AppleSignInNonce?
+    @State private var appleSignInBusy: Bool = false
 
     var body: some View {
         ZStack {
@@ -33,12 +37,42 @@ struct LoginView: View {
                 Spacer()
 
                 VStack(spacing: 12) {
+                    // App Store Review Guideline 4.8 — Sign in with Apple은 다른 소셜 옵션과
+                    // 동등하거나 위에 배치해야 한다. 가장 위에 둔다.
+                    SignInWithAppleButton(.continue) { request in
+                        let nonce = AppleSignInNonce.make()
+                        appleNonce = nonce
+                        request.requestedScopes = [.fullName, .email]
+                        request.nonce = nonce.hashed
+                    } onCompletion: { result in
+                        appleSignInBusy = true
+                        Task {
+                            defer { appleSignInBusy = false }
+                            switch result {
+                            case .success(let authorization):
+                                guard let nonce = appleNonce else { return }
+                                await auth.signInWithApple(
+                                    authorization: authorization,
+                                    rawNonce: nonce.raw,
+                                )
+                                appleNonce = nil
+                            case .failure(let error):
+                                auth.handleAppleError(error)
+                                appleNonce = nil
+                            }
+                        }
+                    }
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                    .frame(height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .disabled(inFlightProvider != nil || appleSignInBusy)
+
                     PrimaryButton(
                         title: "Google로 계속하기",
                         icon: Image(systemName: "g.circle.fill"),
                         variant: .filled,
                         isLoading: inFlightProvider == "google",
-                        isEnabled: inFlightProvider == nil
+                        isEnabled: inFlightProvider == nil && !appleSignInBusy,
                     ) {
                         Task { await signIn(provider: "google") }
                     }
@@ -48,7 +82,7 @@ struct LoginView: View {
                         icon: Image(systemName: "bubble.left.fill"),
                         variant: .tonal,
                         isLoading: inFlightProvider == "kakao",
-                        isEnabled: inFlightProvider == nil
+                        isEnabled: inFlightProvider == nil && !appleSignInBusy,
                     ) {
                         Task { await signIn(provider: "kakao") }
                     }
@@ -58,7 +92,7 @@ struct LoginView: View {
                         icon: Image(systemName: "envelope.fill"),
                         variant: .outline,
                         isLoading: false,
-                        isEnabled: inFlightProvider == nil,
+                        isEnabled: inFlightProvider == nil && !appleSignInBusy,
                     ) {
                         showEmailFlow = true
                     }
