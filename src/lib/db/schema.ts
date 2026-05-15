@@ -380,6 +380,38 @@ export const orders = mysqlTable(
   ],
 );
 
+// Apple StoreKit 2 IAP 거래 — `orders`(토스)와 분리된 iOS 전용 결제 경로.
+// App Store 3.1.1 — 디지털 콘텐츠는 IAP만 사용.
+export const IAP_ENVIRONMENTS = ['production', 'sandbox'] as const;
+export type IapEnvironment = (typeof IAP_ENVIRONMENTS)[number];
+
+export const IAP_STATUSES = ['verified', 'refunded'] as const;
+export type IapStatus = (typeof IAP_STATUSES)[number];
+
+export const iapTransactions = mysqlTable(
+  'iap_transactions',
+  {
+    id: int('id').autoincrement().primaryKey(),
+    userId: varchar('user_id', { length: 255 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** StoreKit 2 transactionId. 같은 영수증 재전송 시 INSERT 거절 → grantCredits 스킵. */
+    transactionId: varchar('transaction_id', { length: 64 }).notNull().unique(),
+    /** iOS Product ID — site.smap.harubook.star_{small,medium,large}. */
+    productId: varchar('product_id', { length: 128 }).notNull(),
+    stars: int('stars').notNull(),
+    environment: varchar('environment', { length: 16, enum: IAP_ENVIRONMENTS }).notNull(),
+    /** JWS payload signedDate. null이면 검증 시 미확보. */
+    signedAt: timestamp('signed_at'),
+    verifiedAt: timestamp('verified_at').notNull().defaultNow(),
+    status: varchar('status', { length: 16, enum: IAP_STATUSES })
+      .notNull()
+      .default('verified'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('iap_tx_user_idx').on(t.userId, t.createdAt)],
+);
+
 // 가족(user) 단위 구독 레코드 — 결제 이력/가입 통계용으로 보존.
 // (책 생성 한도는 별 크레딧으로 단일화되어 cycleAnchorDay는 더 이상 차감 게이트에 쓰이지 않음.)
 export const subscriptions = mysqlTable('subscriptions', {
@@ -417,3 +449,5 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type NewSubscription = typeof subscriptions.$inferInsert;
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
+export type IapTransaction = typeof iapTransactions.$inferSelect;
+export type NewIapTransaction = typeof iapTransactions.$inferInsert;

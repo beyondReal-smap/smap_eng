@@ -14,6 +14,7 @@ struct SettingsView: View {
     var body: some View {
         List {
             accountSection
+            storeSection
             parentsSection
             legalSection
             appInfoSection
@@ -52,6 +53,23 @@ struct SettingsView: View {
             } label: {
                 Label("로그아웃", systemImage: "rectangle.portrait.and.arrow.right")
             }
+        }
+    }
+
+    // MARK: - 별 충전 (IAP)
+
+    private var storeSection: some View {
+        Section {
+            NavigationLink {
+                StoreView()
+            } label: {
+                Label("별 충전", systemImage: "sparkles")
+                    .foregroundStyle(Color.smapText)
+            }
+        } footer: {
+            Text("결제는 Apple App Store를 통해 안전하게 처리됩니다.")
+                .font(.smapCaption)
+                .foregroundStyle(Color.smapMuted)
         }
     }
 
