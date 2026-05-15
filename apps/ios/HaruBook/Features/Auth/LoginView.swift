@@ -3,6 +3,7 @@ import SwiftUI
 struct LoginView: View {
     @Environment(AuthState.self) private var auth
     @State private var inFlightProvider: String?
+    @State private var legalSheet: LegalDocument?
 
     var body: some View {
         ZStack {
@@ -60,14 +61,40 @@ struct LoginView: View {
                         .padding(.horizontal, 12)
                 }
 
-                Text("로그인하면 [이용약관]과 [개인정보처리방침]에 동의한 것으로 간주합니다.")
-                    .font(.smapCaption)
-                    .foregroundStyle(Color.smapMuted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 8)
+                // SwiftUI Text는 마크다운 링크를 자동 파싱한다.
+                // 커스텀 스킴 `smap://legal/{terms,privacy}`를 openURL 환경값에서 가로채
+                // 외부 Safari가 아닌 인앱 sheet로 표시한다(App Store 2.3.7/5.1.1).
+                Text(
+                    "로그인하면 [이용약관](smap://legal/terms)과 [개인정보처리방침](smap://legal/privacy)에 동의한 것으로 간주합니다.",
+                )
+                .font(.smapCaption)
+                .foregroundStyle(Color.smapMuted)
+                .tint(.smapPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
+                .environment(\.openURL, OpenURLAction { url in
+                    if url.scheme == "smap", url.host == "legal" {
+                        let raw = url.lastPathComponent
+                        if let doc = LegalDocument(rawValue: raw) {
+                            legalSheet = doc
+                            return .handled
+                        }
+                    }
+                    return .systemAction
+                })
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 32)
+        }
+        .sheet(item: $legalSheet) { doc in
+            NavigationStack {
+                LegalDocumentView(document: doc)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("닫기") { legalSheet = nil }
+                        }
+                    }
+            }
         }
     }
 

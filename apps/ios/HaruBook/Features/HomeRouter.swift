@@ -43,16 +43,19 @@ struct HomeRouter: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button(role: .destructive) {
-                            auth.signOut()
-                            selectedProfileId = nil
-                            SessionPreferences.shared.lastProfileId = nil
-                        } label: {
-                            Label("로그아웃", systemImage: "rectangle.portrait.and.arrow.right")
-                        }
+                    NavigationLink {
+                        SettingsView(
+                            onSwitchProfile: {
+                                selectedProfileId = nil
+                                SessionPreferences.shared.lastProfileId = nil
+                            },
+                            onSignOut: {
+                                selectedProfileId = nil
+                                SessionPreferences.shared.lastProfileId = nil
+                            },
+                        )
                     } label: {
-                        Image(systemName: "person.circle")
+                        Image(systemName: "gearshape")
                             .font(.title2)
                             .foregroundStyle(Color.smapText)
                     }
