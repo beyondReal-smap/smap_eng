@@ -275,7 +275,24 @@ async function handleMobileStart(req: Request): Promise<Response> {
       redirect: false,
       redirectTo: callbackUrl.toString(),
     });
-    return NextResponse.redirect(authRedirect);
+
+    // Auth.js v5의 `redirectTo`가 OAuth callback 후 `callback-url` 쿠키와 동기화되지
+    // 않아 root(`https://eng.smap.site/`)로 fallback 되는 사례가 관찰됨
+    // (`Set-Cookie: __Secure-authjs.callback-url=https%3A%2F%2Feng.smap.site`).
+    // 결과: ASWebAuthenticationSession 콜백 스킴(`smapeng://`)으로 redirect되지
+    // 않아 시트가 닫히지 않고 그 안에서 메인 페이지가 로드됨.
+    // → 응답 헤더에 `callback-url` 쿠키를 명시적으로 mobile/start URL로 덮어쓴다.
+    const response = NextResponse.redirect(authRedirect);
+    const isHttps = reqUrl.protocol === 'https:';
+    response.cookies.set({
+      name: isHttps ? '__Secure-authjs.callback-url' : 'authjs.callback-url',
+      value: callbackUrl.toString(),
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: 'lax',
+      path: '/',
+    });
+    return response;
   }
 
   const code = await insertMobileToken(
