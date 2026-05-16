@@ -103,19 +103,13 @@ struct StoreView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(meta?.title ?? product.displayName)
-                            .font(Font.atozBlack(20))
-                            .foregroundStyle(Color.smapText)
-                        if let badge = meta?.badgeLabel {
-                            Text(badge)
-                                .font(Font.atozBold(11))
-                                .foregroundStyle(Color.smapPrimary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Color.smapPrimarySoft, in: Capsule())
-                        }
-                    }
+                    // "별 130개" / "별 60개"가 두 줄로 나뉘지 않게 lineLimit + fixedSize 조합으로
+                    // 우측 콘텐츠가 좁아도 묶음 이름은 한 줄로 유지.
+                    Text(meta?.title ?? product.displayName)
+                        .font(Font.atozBlack(20))
+                        .foregroundStyle(Color.smapText)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                     if let stars = meta?.stars {
                         Text("동화 \(stars)권 분량")
                             .font(Font.atozRegular(13))
@@ -125,10 +119,21 @@ struct StoreView: View {
 
                 Spacer(minLength: 4)
 
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: 3) {
+                    // 추천 배지("가장 인기"/"가장 알뜰")를 금액 위로 이동 — 가격에 함께 시선이 모이도록.
+                    if let badge = meta?.badgeLabel {
+                        Text(badge)
+                            .font(Font.atozBold(11))
+                            .foregroundStyle(Color.smapPrimary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.smapPrimarySoft, in: Capsule())
+                    }
                     Text(product.displayPrice)
                         .font(Font.atozBlack(20))
                         .foregroundStyle(Color.smapText)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                     if let perStar = meta?.perStarLabel(displayPrice: product.displayPrice) {
                         Text(perStar)
                             .font(Font.atozRegular(11))
