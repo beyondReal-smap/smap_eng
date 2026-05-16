@@ -18,7 +18,7 @@ import UserNotifications
 final class DailyVocabReminder {
     static let shared = DailyVocabReminder()
 
-    private static let requestId = "site.smap.harubook.vocab.daily"
+    private static let requestId = "com.smap.harubook.vocab.daily"
 
     private enum DefaultsKey {
         static let enabled = "vocab.dailyReminder.enabled"

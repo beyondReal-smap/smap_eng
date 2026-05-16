@@ -206,7 +206,7 @@ export async function verifyAppleSignedJws<T>(jws: string): Promise<T> {
  * 신규 구매(verify) 경로 — revoked 거래는 차단한다.
  *
  * @param jws — `Transaction.jwsRepresentation` 문자열
- * @param expectedBundleId — 우리 앱 번들 ID (`site.smap.harubook.ios`)
+ * @param expectedBundleId — 우리 앱 번들 ID (`com.smap.harubook`)
  */
 export async function verifyAppleTransactionJws(
   jws: string,

@@ -1,6 +1,6 @@
 # 하루책 (HaruBook) — iOS
 
-> SwiftUI + Swift 6 / iOS 17+ / Xcode 26+. 번들 ID `site.smap.harubook.ios`, 모듈 `HaruBook`. 백엔드: `https://eng.smap.site` (Next.js 16, monorepo `../../src`).
+> SwiftUI + Swift 6 / iOS 17+ / Xcode 26+. 번들 ID `com.smap.harubook`, 모듈 `HaruBook`. 백엔드: `https://eng.smap.site` (Next.js 16, monorepo `../../src`).
 >
 > URL scheme은 `smapeng://`로 유지 — 백엔드 `parseMobileRedirect`가 해당 프로토콜만 허용. 사용자에게는 노출되지 않는 콜백용.
 

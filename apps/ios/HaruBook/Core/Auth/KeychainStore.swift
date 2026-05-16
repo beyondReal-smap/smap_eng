@@ -9,7 +9,7 @@ enum KeychainError: Error {
 struct KeychainStore {
     let service: String
 
-    init(service: String = Bundle.main.bundleIdentifier ?? "site.smap.harubook.ios") {
+    init(service: String = Bundle.main.bundleIdentifier ?? "com.smap.harubook") {
         self.service = service
     }
 

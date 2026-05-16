@@ -18,7 +18,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "site.smap.harubook.star_small",
+      "productID" : "com.smap.harubook.star_small",
       "referenceName" : "Star Pack Small",
       "type" : "Consumable"
     },
@@ -38,7 +38,7 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "site.smap.harubook.star_medium",
+      "productID" : "com.smap.harubook.star_medium",
       "referenceName" : "Star Pack Medium",
       "type" : "Consumable"
     },
@@ -58,13 +58,13 @@
           "locale" : "en_US"
         }
       ],
-      "productID" : "site.smap.harubook.star_large",
+      "productID" : "com.smap.harubook.star_large",
       "referenceName" : "Star Pack Large",
       "type" : "Consumable"
     }
   ],
   "settings" : {
-    "_applicationInternalID" : "site.smap.harubook.ios",
+    "_applicationInternalID" : "com.smap.harubook",
     "_developerTeamID" : "",
     "_failTransactionsEnabled" : false,
     "_lastSynchronizedDate" : 0,

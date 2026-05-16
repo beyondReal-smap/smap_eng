@@ -24,7 +24,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>site.smap.harubook.ios.auth</string>
+			<string>com.smap.harubook.auth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>smapeng</string>

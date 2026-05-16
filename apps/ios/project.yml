@@ -1,6 +1,6 @@
 name: HaruBook
 options:
-  bundleIdPrefix: site.smap.harubook
+  bundleIdPrefix: com.smap.harubook
   deploymentTarget:
     iOS: "17.0"
   developmentLanguage: ko
@@ -28,7 +28,7 @@ targets:
           - "**/.DS_Store"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: site.smap.harubook.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.smap.harubook
         PRODUCT_NAME: HaruBook
         INFOPLIST_FILE: HaruBook/Info.plist
         CODE_SIGN_ENTITLEMENTS: HaruBook/HaruBook.entitlements
@@ -59,7 +59,7 @@ targets:
         # URL scheme은 백엔드 parseMobileRedirect (smapeng: 만 허용)와 동기화 유지.
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
-            CFBundleURLName: site.smap.harubook.ios.auth
+            CFBundleURLName: com.smap.harubook.auth
             CFBundleURLSchemes:
               - smapeng
         NSAppTransportSecurity:
@@ -81,7 +81,7 @@ targets:
       - target: HaruBook
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: site.smap.harubook.ios.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.smap.harubook.tests
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/HaruBook.app/HaruBook
         BUNDLE_LOADER: $(TEST_HOST)
         GENERATE_INFOPLIST_FILE: YES

@@ -397,7 +397,7 @@ export const iapTransactions = mysqlTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** StoreKit 2 transactionId. 같은 영수증 재전송 시 INSERT 거절 → grantCredits 스킵. */
     transactionId: varchar('transaction_id', { length: 64 }).notNull().unique(),
-    /** iOS Product ID — site.smap.harubook.star_{small,medium,large}. */
+    /** iOS Product ID — com.smap.harubook.star_{small,medium,large}. */
     productId: varchar('product_id', { length: 128 }).notNull(),
     stars: int('stars').notNull(),
     environment: varchar('environment', { length: 16, enum: IAP_ENVIRONMENTS }).notNull(),

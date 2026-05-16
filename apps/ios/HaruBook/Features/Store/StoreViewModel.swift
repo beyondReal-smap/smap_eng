@@ -22,9 +22,9 @@ struct StoreDestination: Hashable {}
 @MainActor
 final class StoreViewModel {
     static let productIds: [String] = [
-        "site.smap.harubook.star_small",
-        "site.smap.harubook.star_medium",
-        "site.smap.harubook.star_large",
+        "com.smap.harubook.star_small",
+        "com.smap.harubook.star_medium",
+        "com.smap.harubook.star_large",
     ]
 
     private(set) var products: [Product] = []
