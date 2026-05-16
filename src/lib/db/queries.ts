@@ -560,6 +560,15 @@ function toYMD(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+/// 주간 리포트 푸시 발송 대상 — 자식 프로필이 1개 이상이고 push 토큰이 등록된 user.
+/// notify-weekly 라우트가 이 목록을 순회하며 보호자에게 알림을 보낸다.
+export async function listUserIdsForWeeklyNotify(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ userId: profiles.userId })
+    .from(profiles);
+  return rows.map((r) => r.userId);
+}
+
 // 가족(user) 단위 보호자 리포트 — 해당 user의 모든 자녀 프로필 집계.
 export async function getParentalReport(
   userId: string,

@@ -80,5 +80,25 @@ module.exports = {
       merge_logs: true,
       time: true,
     },
+    {
+      // 매주 일요일 20:00(KST 서버 로컬타임)에 보호자 주간 리포트 푸시를 트리거.
+      // scripts/notify-weekly-report.mjs가 내부 HTTP 엔드포인트에 POST 한 번 후 종료 →
+      // PM2 cron_restart가 다음 일요일에 다시 띄움. autorestart=false로 재시작 루프 차단.
+      // 시크릿 토큰은 환경에서 주입 (.env.local의 CRON_TOKEN).
+      name: 'smap-eng-cron-weekly',
+      cwd: ROOT,
+      script: './scripts/notify-weekly-report.mjs',
+      interpreter: 'node',
+      autorestart: false,
+      cron_restart: '0 20 * * 0',
+      env: {
+        NODE_ENV: 'production',
+        NEXT_LOCAL_URL: 'http://127.0.0.1:5029',
+      },
+      out_file: `${ROOT}/logs/cron-weekly-out.log`,
+      error_file: `${ROOT}/logs/cron-weekly-error.log`,
+      merge_logs: true,
+      time: true,
+    },
   ],
 };
