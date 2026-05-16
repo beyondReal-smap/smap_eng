@@ -44,6 +44,8 @@ struct PassageView: View {
     private func koreanCard(textKo: String) -> some View {
         // 한글 폰트는 본문보다 1~2 단계 작게 — 영문 본문이 주연이고 한글은 보조. 너무 커지지 않게 24pt 상한.
         let koSize = min(max(textScale.fontSize * 0.72, 16), 24)
+        // 코랄 톤이 앱 전반에서 과해진다는 피드백을 반영해 한글 카드는 Stone Surface(secondary) 톤으로 분리.
+        // 영문 본문(코랄 highlight 가능) ↔ 한글 해석(차분한 회색) 시각 위계가 더 명확해진다.
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "character.book.closed.fill")
@@ -51,11 +53,11 @@ struct PassageView: View {
                 Text("한글 해석")
                     .font(Font.atozBold(12))
             }
-            .foregroundStyle(Color.smapPrimary)
+            .foregroundStyle(Color.smapMuted)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(Color.smapSurface, in: Capsule())
-            .overlay(Capsule().stroke(Color.smapPrimary.opacity(0.25), lineWidth: 1))
+            .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
 
             Text(textKo)
                 .font(Font.atozRegular(koSize))
@@ -66,12 +68,12 @@ struct PassageView: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            Color.smapPrimarySoft.opacity(0.55),
+            Color.smapMutedBg,
             in: RoundedRectangle(cornerRadius: 22, style: .continuous),
         )
         .overlay(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.smapPrimary.opacity(0.18), lineWidth: 1),
+                .stroke(Color.smapBorder, lineWidth: 1),
         )
     }
 

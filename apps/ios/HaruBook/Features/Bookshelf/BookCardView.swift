@@ -97,17 +97,23 @@ private struct CoverPlaceholder: View {
                 illustration(in: geo.size)
                     .opacity(0.92)
 
-                // 책표지처럼 하단에 큰 제목.
+                // 책표지처럼 하단에 큰 제목 — 일러스트 위 흰글씨는 파스텔 그라데이션과 대비가 약해
+                // 가독성이 떨어졌다. 반투명 흰 카드 + 어두운 텍스트로 어떤 일러스트 톤에서도 안정적으로 보이게.
                 VStack {
                     Spacer()
                     Text(book.title)
-                        .font(Font.atozBlack(18))
-                        .foregroundStyle(Color.white)
-                        .shadow(color: Color.black.opacity(0.35), radius: 3, x: 0, y: 1)
+                        .font(Font.atozBlack(17))
+                        .foregroundStyle(Color.smapText)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Color.white.opacity(0.92),
+                            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                        )
                         .padding(.horizontal, 10)
-                        .padding(.bottom, 12)
+                        .padding(.bottom, 10)
                 }
 
                 if isLoading {

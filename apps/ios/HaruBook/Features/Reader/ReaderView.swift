@@ -150,7 +150,9 @@ struct ReaderView: View {
                         .font(Font.atozBold(scale.controlPreviewSize))
                         .frame(maxWidth: .infinity)
                         .frame(height: 34)
-                        .foregroundStyle(viewModel.textScale == scale ? .white : Color.smapText)
+                        // Soft Coral Peach 위 .white는 WCAG 대비 1.7:1로 안 보임. 디자인 시스템 본래의
+                        // deep coral ink(smapPrimaryForeground)를 사용해 5.2:1 대비 확보.
+                        .foregroundStyle(viewModel.textScale == scale ? Color.smapPrimaryForeground : Color.smapText)
                         .background(viewModel.textScale == scale ? Color.smapPrimary : Color.smapSurface)
                         .clipShape(Capsule())
                         .overlay(
@@ -209,9 +211,12 @@ struct ReaderView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: Self.controlHeight)
-            .foregroundStyle(.white)
-            .background(Color.smapPrimary)
+            // 듣기/퀴즈와 같은 primary fill을 쓰면 컨트롤바에 코랄 톤이 과해진다.
+            // 다음 이동은 자연스러운 흐름이지 강조 대상이 아니므로 tonal(primarySoft + primaryForeground)로 한 단계 낮춤.
+            .foregroundStyle(Color.smapPrimaryForeground)
+            .background(Color.smapPrimarySoft)
             .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.smapPrimary.opacity(0.25), lineWidth: 1))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("다음 문장")
@@ -223,7 +228,7 @@ struct ReaderView: View {
         } label: {
             HStack(spacing: 6) {
                 if isPreparing {
-                    ProgressView().tint(.white).scaleEffect(0.75)
+                    ProgressView().tint(Color.smapPrimaryForeground).scaleEffect(0.75)
                 } else {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 14, weight: .semibold))
@@ -233,7 +238,8 @@ struct ReaderView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: Self.controlHeight)
-            .foregroundStyle(.white)
+            // WCAG 4.5:1 미달이던 흰글씨 → 디자인 시스템의 primaryForeground(deep coral ink)로 교정.
+            .foregroundStyle(Color.smapPrimaryForeground)
             .background(Color.smapPrimary)
             .clipShape(Capsule())
         }
@@ -277,7 +283,7 @@ struct ReaderView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: Self.controlHeight)
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.smapPrimaryForeground)
             .background(Color.smapPrimary)
             .clipShape(Capsule())
         }
