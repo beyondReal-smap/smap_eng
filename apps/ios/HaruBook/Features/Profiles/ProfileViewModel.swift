@@ -38,6 +38,24 @@ final class ProfileViewModel {
             self.error = error.localizedDescription
         }
     }
+
+    /// 프로필 soft delete — 서버는 deleted_at만 채우고 책/학습기록은 보존.
+    /// 옵티미스틱: 즉시 로컬에서 제거 → 실패 시 다시 로드해 동기화.
+    func delete(profile: Profile) async {
+        let removed = profile
+        self.profiles.removeAll { $0.id == profile.id }
+        do {
+            let _: DeleteProfileResponse = try await APIClient.shared.send(
+                Endpoint(path: "/api/profiles/\(profile.id)", method: .delete),
+            )
+            self.error = nil
+        } catch {
+            // 실패 시 원상 복귀 — 서버와 일관성 회복.
+            self.profiles.append(removed)
+            self.profiles.sort { $0.id < $1.id }
+            self.error = "프로필 삭제에 실패했어요."
+        }
+    }
 }
 
 private struct ProfilesResponse: Decodable {
@@ -50,4 +68,8 @@ private struct ProfileResponse: Decodable {
 
 private struct CreateProfileRequest: Encodable {
     let name: String
+}
+
+private struct DeleteProfileResponse: Decodable {
+    let profile: Profile
 }

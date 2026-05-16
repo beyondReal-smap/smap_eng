@@ -6,7 +6,7 @@ struct ProfilePickerView: View {
     @Bindable var viewModel: ProfileViewModel
     @State private var newName: String = ""
     @State private var isCreating: Bool = false
-    @State private var showOnboarding: Bool = false
+    @State private var profileToDelete: Profile?
     let onSelect: (Profile) -> Void
     /// 책장에서 "프로필 전환"을 통해 들어왔을 때 이전 프로필로 복귀하기 위한 콜백.
     /// 첫 로그인(돌아갈 프로필 없음) 흐름에서는 nil.
@@ -63,6 +63,9 @@ struct ProfilePickerView: View {
                     }
                     .padding(.horizontal, 24)
                     Spacer()
+                } else if viewModel.profiles.isEmpty {
+                    // 프로필이 없는 상태 — 강제 모달 대신 친절한 empty state로 안내.
+                    emptyState
                 } else {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
@@ -73,6 +76,13 @@ struct ProfilePickerView: View {
                                     ProfileCard(profile: profile)
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        profileToDelete = profile
+                                    } label: {
+                                        Label("삭제", systemImage: "trash")
+                                    }
+                                }
                             }
 
                             Button {
@@ -90,29 +100,75 @@ struct ProfilePickerView: View {
         }
         .task {
             // HomeRouter가 이미 prefetch하지만, 첫 진입에서 아직 load되지 않은 상태라면 한 번 더 보장.
-            // 이미 로드된 경우 짧은 네트워크 왕복이라 시각적 깜빡임은 없다.
+            // 첫 로그인 흐름에서도 OnboardingView를 강제로 띄우지 않는다 — 사용자가 직접 "프로필 추가"
+            // 카드를 선택할 때까지 기다린다. 강제 모달은 가족 단위 서비스에서 부담스럽다는 피드백 반영.
             if viewModel.profiles.isEmpty && !viewModel.isLoading {
                 await viewModel.load()
-            }
-            // 신규 가입자(예: OAuth 첫 로그인)는 프로필이 0개. 첫 프로필 생성을 강제 유도한다.
-            // 이메일 가입은 서버가 ⭐ 프로필을 자동 생성하므로 이 분기를 타지 않는다.
-            if viewModel.error == nil && viewModel.profiles.isEmpty {
-                showOnboarding = true
             }
         }
         .sheet(isPresented: $isCreating) {
             CreateProfileSheet(viewModel: viewModel, isPresented: $isCreating)
         }
-        .fullScreenCover(isPresented: $showOnboarding) {
-            NavigationStack {
-                OnboardingView { newProfile in
-                    viewModel.profiles.append(newProfile)
-                    showOnboarding = false
-                    // 첫 프로필 생성 직후 그 프로필로 자동 진입.
-                    onSelect(newProfile)
+        .confirmationDialog(
+            "프로필을 삭제할까요?",
+            isPresented: Binding(
+                get: { profileToDelete != nil },
+                set: { if !$0 { profileToDelete = nil } },
+            ),
+            titleVisibility: .visible,
+            presenting: profileToDelete,
+        ) { profile in
+            Button("삭제", role: .destructive) {
+                Task {
+                    Haptic.play(.warning)
+                    await viewModel.delete(profile: profile)
                 }
+                profileToDelete = nil
             }
+            Button("취소", role: .cancel) {
+                profileToDelete = nil
+            }
+        } message: { profile in
+            Text("\(profile.name) 프로필이 목록에서 사라져요. 만든 책과 학습 기록은 보존돼요.")
         }
+    }
+
+    /// 프로필이 한 명도 없을 때 — "프로필 추가" 카드만 가운데에 큰 비중으로.
+    /// 이전 강제 OnboardingView 대신 사용자가 직접 시작 시점을 선택할 수 있게.
+    private var emptyState: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "person.crop.circle.badge.plus")
+                .font(.system(size: 64, weight: .light))
+                .foregroundStyle(Color.smapPrimary)
+            VStack(spacing: 6) {
+                Text("첫 프로필을 추가해 주세요")
+                    .font(Font.atozBold(20))
+                    .foregroundStyle(Color.smapText)
+                Text("아이의 이름과 나이를 알려주면\n그에 맞는 영어 동화를 만들어 드려요.")
+                    .font(Font.atozRegular(15))
+                    .foregroundStyle(Color.smapMuted)
+                    .multilineTextAlignment(.center)
+            }
+            Button {
+                isCreating = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .bold))
+                    Text("프로필 추가")
+                        .font(Font.atozBold(16))
+                }
+                .padding(.horizontal, 28)
+                .frame(height: 52)
+                .background(Color.smapPrimary)
+                .foregroundStyle(Color.smapPrimaryForeground)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .padding(.horizontal, 32)
     }
 }
 

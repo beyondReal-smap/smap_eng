@@ -135,6 +135,9 @@ export const profiles = mysqlTable(
     // emoji ("🦊") 또는 이미지 경로
     avatar: varchar('avatar', { length: 255 }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
+    /// soft delete — 사용자가 프로필을 삭제하면 deletedAt만 채워지고 책/학습기록은 보존.
+    /// listProfiles는 NULL인 행만 반환. 통계/원장 추적용으로 데이터는 영구 보존.
+    deletedAt: timestamp('deleted_at'),
   },
   (t) => [index('profiles_user_idx').on(t.userId)],
 );
