@@ -22,18 +22,57 @@ struct PassageView: View {
                     )
 
                 if showsKorean, let textKo = passage.textKo, !textKo.isEmpty {
-                    Divider().background(Color.smapBorder)
-                    Text(textKo)
-                        .font(.smapBody)
-                        .foregroundStyle(Color.smapMuted)
-                        .lineSpacing(6)
+                    koreanCard(textKo: textKo)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
+                            removal: .opacity,
+                        ))
                 }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
+            // 한글 카드의 등장/사라짐 transition이 부드럽게 보이도록 부모에서 animation 트리거.
+            .animation(.easeInOut(duration: 0.25), value: showsKorean)
         }
         .scrollIndicators(.hidden)
+    }
+
+    /// 한글 해석을 본문과 시각적으로 분리된 카드로 표현. 웹 reader와 동일하게 secondary 톤의 둥근 카드 +
+    /// 상단에 작은 "한글 해석" 배지로 위계를 명확히 한다. Divider + 회색 텍스트만 두던 기존 표현이
+    /// 본문과 구분이 약하고 단조로워 "촌스럽다"는 피드백을 반영.
+    private func koreanCard(textKo: String) -> some View {
+        // 한글 폰트는 본문보다 1~2 단계 작게 — 영문 본문이 주연이고 한글은 보조. 너무 커지지 않게 24pt 상한.
+        let koSize = min(max(textScale.fontSize * 0.72, 16), 24)
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "character.book.closed.fill")
+                    .font(.system(size: 11, weight: .bold))
+                Text("한글 해석")
+                    .font(Font.atozBold(12))
+            }
+            .foregroundStyle(Color.smapPrimary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.smapSurface, in: Capsule())
+            .overlay(Capsule().stroke(Color.smapPrimary.opacity(0.25), lineWidth: 1))
+
+            Text(textKo)
+                .font(Font.atozRegular(koSize))
+                .foregroundStyle(Color.smapText)
+                .lineSpacing(6)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color.smapPrimarySoft.opacity(0.55),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous),
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.smapPrimary.opacity(0.18), lineWidth: 1),
+        )
     }
 
     /// vocabulary가 있으면 본문을 토큰화해 매칭 단어를 클릭 가능한 popover trigger로,
