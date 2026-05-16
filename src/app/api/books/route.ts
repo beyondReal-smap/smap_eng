@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
 
     const genre = body.genre ?? 'fiction';
 
+    const t0 = Date.now();
     let story;
     try {
       story = await generateBook({
@@ -89,7 +90,14 @@ export async function POST(req: NextRequest) {
         topic: body.topic,
         intake: body.intake,
       });
+      console.log(`[books-create] llm ok in ${Date.now() - t0}ms (cefr=${body.level.cefr} genre=${genre})`);
     } catch (e) {
+      console.error(`[books-create] llm failed after ${Date.now() - t0}ms`, {
+        userId,
+        cefr: body.level.cefr,
+        genre,
+        error: e instanceof Error ? e.message : String(e),
+      });
       await refundOrLogLost(userId, consumed.txId, 'llm', e);
       throw e;
     }

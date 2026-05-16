@@ -68,6 +68,9 @@ actor APIClient {
 
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
+        // Endpoint별 timeout — 기본 60s. LLM 책 생성처럼 오래 걸리는 호출이 클라이언트에서 끊겨
+        // "실패"로 보이고 서버는 별만 차감한 채 응답하는 사고를 막는다.
+        request.timeoutInterval = endpoint.timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if endpoint.body != nil {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

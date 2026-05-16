@@ -130,7 +130,10 @@ final class CreateBookViewModel {
                         level: LevelPayload(age: ageFromProfile(), cefr: cefr.rawValue),
                         genre: genre.rawValue,
                         intake: intake
-                    )
+                    ),
+                    // LLM 책 생성은 OpenAI fallback 시 1~2분 걸린다. 기본 60s에 끊겨 "실패"로
+                    // 보이지만 서버는 계속 처리하던 사고 방지 — 180s로 여유.
+                    timeout: 180
                 )
             )
             createdBook = response.book
