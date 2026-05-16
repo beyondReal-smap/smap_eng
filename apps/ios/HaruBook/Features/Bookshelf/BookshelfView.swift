@@ -27,7 +27,9 @@ struct BookshelfView: View {
                 )
 
                 if viewModel.books.isEmpty {
-                    Spacer(minLength: 0)
+                    // 가운데 정렬보다 약간 위 — 정중앙은 시각적으로 처지는 인상을 줘서, 위:아래 비율을
+                    // 비대칭으로 조정해 자연스럽게 위쪽에 자리잡게 한다.
+                    Color.clear.frame(height: 60)
                     content
                         .frame(maxWidth: .infinity)
                     Spacer(minLength: 0)

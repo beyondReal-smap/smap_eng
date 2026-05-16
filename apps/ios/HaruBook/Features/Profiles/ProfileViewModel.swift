@@ -22,16 +22,15 @@ final class ProfileViewModel {
         }
     }
 
-    /// 프로필 생성 — name + age 모두 필수. age는 책 생성 시 자녀 레벨 산정에 사용되므로 서버 zod
-    /// schema에서 5~10 범위 필수다. 이전엔 name만 보내 400 에러로 추가가 실패했다.
-    func create(name: String, age: Int) async {
+    /// 프로필 생성 — name + age 필수, avatar 선택. 서버 zod schema는 age 5~10 필수, avatar는 10자 이하 optional.
+    func create(name: String, age: Int, avatar: String? = nil) async {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         do {
             let response: ProfileResponse = try await APIClient.shared.send(
                 Endpoint(
                     path: "/api/profiles",
                     method: .post,
-                    body: CreateProfileRequest(name: name, age: age)
+                    body: CreateProfileRequest(name: name, age: age, avatar: avatar)
                 )
             )
             self.profiles.append(response.profile)
@@ -71,6 +70,7 @@ private struct ProfileResponse: Decodable {
 private struct CreateProfileRequest: Encodable {
     let name: String
     let age: Int
+    let avatar: String?
 }
 
 private struct DeleteProfileResponse: Decodable {

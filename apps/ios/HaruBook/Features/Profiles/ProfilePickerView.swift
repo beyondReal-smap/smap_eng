@@ -206,9 +206,15 @@ private struct ProfileCard: View {
                 Circle()
                     .fill(Color.smapPrimarySoft)
                     .frame(width: 96, height: 96)
-                Text(String(profile.name.prefix(1)))
-                    .font(.smapDisplay)
-                    .foregroundStyle(Color.smapPrimary)
+                // avatar(이모지)가 있으면 우선 표시, 없으면 이름 첫 글자 폴백.
+                if let avatar = profile.avatar, !avatar.isEmpty {
+                    Text(avatar)
+                        .font(.system(size: 48))
+                } else {
+                    Text(String(profile.name.prefix(1)))
+                        .font(.smapDisplay)
+                        .foregroundStyle(Color.smapPrimary)
+                }
             }
             Text(profile.name)
                 .font(.smapBodyEmphasis)
@@ -247,60 +253,98 @@ private struct CreateProfileSheet: View {
     @Binding var isPresented: Bool
     @State private var name: String = ""
     @State private var age: Int = 7   // 서버 default 와 동일한 기본값.
+    @State private var avatar: String = "🦊"  // 첫 이모지 기본 선택.
     @State private var isSubmitting: Bool = false
+
+    /// 어린이 친화 이모지 12종 — 동물 + 별/우주/하트. 서버 schema는 10자 이하 한도라 어떤 이모지든 OK.
+    private static let avatarChoices: [String] = [
+        "🦊", "🐰", "🐻", "🐼", "🦁", "🐯",
+        "🐨", "🐶", "🐱", "🦄", "⭐️", "🌈",
+    ]
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("이름")
-                        .font(Font.atozBold(13))
-                        .foregroundStyle(Color.smapMuted)
-                    TextField("예: 지우", text: $name)
-                        .font(.smapHeading)
-                        .padding(14)
-                        .background(Color.smapPrimarySoft)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .submitLabel(.done)
-                }
+            VStack(spacing: 12) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("이름")
+                            .font(Font.atozBold(13))
+                            .foregroundStyle(Color.smapMuted)
+                        TextField("예: 지우", text: $name)
+                            .font(.smapHeading)
+                            .padding(14)
+                            .background(Color.smapPrimarySoft)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .submitLabel(.done)
+                    }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("나이")
-                        .font(Font.atozBold(13))
-                        .foregroundStyle(Color.smapMuted)
-                    // 5~10세 가로 캡슐 — 책 생성 시 자녀 레벨 결정에 사용. 서버는 z.number().min(5).max(10).
-                    HStack(spacing: 6) {
-                        ForEach(5...10, id: \.self) { i in
-                            Button {
-                                Haptic.play(.lightTap)
-                                age = i
-                            } label: {
-                                Text("\(i)세")
-                                    .font(Font.atozBold(14))
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 40)
-                                    .foregroundStyle(age == i ? Color.smapPrimaryForeground : Color.smapText)
-                                    .background(age == i ? Color.smapPrimary : Color.smapSurface)
-                                    .clipShape(Capsule())
-                                    .overlay(
-                                        Capsule().stroke(
-                                            age == i ? Color.clear : Color.smapBorder,
-                                            lineWidth: 1,
-                                        ),
-                                    )
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("나이")
+                            .font(Font.atozBold(13))
+                            .foregroundStyle(Color.smapMuted)
+                        // 5~10세 가로 캡슐 — 책 생성 시 자녀 레벨 결정에 사용. 서버는 z.number().min(5).max(10).
+                        HStack(spacing: 6) {
+                            ForEach(5...10, id: \.self) { i in
+                                Button {
+                                    Haptic.play(.lightTap)
+                                    age = i
+                                } label: {
+                                    Text("\(i)세")
+                                        .font(Font.atozBold(14))
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 40)
+                                        .foregroundStyle(age == i ? Color.smapPrimaryForeground : Color.smapText)
+                                        .background(age == i ? Color.smapPrimary : Color.smapSurface)
+                                        .clipShape(Capsule())
+                                        .overlay(
+                                            Capsule().stroke(
+                                                age == i ? Color.clear : Color.smapBorder,
+                                                lineWidth: 1,
+                                            ),
+                                        )
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
-                }
 
-                if let error = viewModel.error {
-                    Text(error)
-                        .font(.smapCaption)
-                        .foregroundStyle(Color.smapDanger)
-                }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("프로필 모양")
+                            .font(Font.atozBold(13))
+                            .foregroundStyle(Color.smapMuted)
+                        // 6열 × 2행 그리드 — 어린이가 한눈에 고를 수 있게.
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 6), spacing: 8) {
+                            ForEach(Self.avatarChoices, id: \.self) { emoji in
+                                Button {
+                                    Haptic.play(.lightTap)
+                                    avatar = emoji
+                                } label: {
+                                    Text(emoji)
+                                        .font(.system(size: 28))
+                                        .frame(maxWidth: .infinity, minHeight: 52)
+                                        .background(avatar == emoji ? Color.smapPrimarySoft : Color.smapSurface)
+                                        .clipShape(Circle())
+                                        .overlay(
+                                            Circle().stroke(
+                                                avatar == emoji ? Color.smapPrimary : Color.smapBorder,
+                                                lineWidth: avatar == emoji ? 2 : 1,
+                                            ),
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
 
-                Spacer()
+                    if let error = viewModel.error {
+                        Text(error)
+                            .font(.smapCaption)
+                            .foregroundStyle(Color.smapDanger)
+                    }
+                }
+                    .padding(.bottom, 8)
+                }
 
                 PrimaryButton(
                     title: "추가하기",
@@ -311,7 +355,7 @@ private struct CreateProfileSheet: View {
                     Task {
                         isSubmitting = true
                         viewModel.error = nil
-                        await viewModel.create(name: name, age: age)
+                        await viewModel.create(name: name, age: age, avatar: avatar)
                         isSubmitting = false
                         if viewModel.error == nil { isPresented = false }
                     }
