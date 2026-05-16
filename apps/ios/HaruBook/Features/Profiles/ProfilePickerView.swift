@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct ProfilePickerView: View {
-    @State private var viewModel = ProfileViewModel()
+    /// HomeRouter가 보유한 인스턴스를 주입받는다. 책장 ↔ 프로필 전환 시 데이터를 재페치하지 않고
+    /// 이미 채워진 카드와 함께 슬라이드되어 들어오도록 하기 위함.
+    @Bindable var viewModel: ProfileViewModel
     @State private var newName: String = ""
     @State private var isCreating: Bool = false
     @State private var showOnboarding: Bool = false
@@ -87,7 +89,11 @@ struct ProfilePickerView: View {
             }
         }
         .task {
-            await viewModel.load()
+            // HomeRouter가 이미 prefetch하지만, 첫 진입에서 아직 load되지 않은 상태라면 한 번 더 보장.
+            // 이미 로드된 경우 짧은 네트워크 왕복이라 시각적 깜빡임은 없다.
+            if viewModel.profiles.isEmpty && !viewModel.isLoading {
+                await viewModel.load()
+            }
             // 신규 가입자(예: OAuth 첫 로그인)는 프로필이 0개. 첫 프로필 생성을 강제 유도한다.
             // 이메일 가입은 서버가 ⭐ 프로필을 자동 생성하므로 이 분기를 타지 않는다.
             if viewModel.error == nil && viewModel.profiles.isEmpty {

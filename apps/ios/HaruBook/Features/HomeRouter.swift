@@ -9,6 +9,9 @@ import SwiftUI
 struct HomeRouter: View {
     @State private var selectedProfileId: Int? = SessionPreferences.shared.lastProfileId
     @State private var switching: Bool = false
+    /// 프로필 목록을 HomeRouter 수명주기 동안 유지. 책장 사용 중에도 미리 로드해 두어,
+    /// 프로필 전환 시 카드가 비어 있다가 늦게 채워지지 않고 슬라이드와 함께 즉시 등장한다.
+    @State private var profileViewModel = ProfileViewModel()
 
     /// MainTabView ↔ ProfilePickerView 사이를 책장 → 리더뷰 push와 동일한 좌우 슬라이드로 연결.
     ///
@@ -40,6 +43,7 @@ struct HomeRouter: View {
                 // switching=true 면 이전 책장으로 복귀 가능. lastProfileId가 없으면(첫 로그인)
                 // 백 버튼 자체가 생기지 않는다.
                 ProfilePickerView(
+                    viewModel: profileViewModel,
                     onSelect: { profile in
                         withAnimation(.easeInOut(duration: 0.32)) {
                             selectedProfileId = profile.id
@@ -56,6 +60,13 @@ struct HomeRouter: View {
                         : nil,
                 )
                 .transition(.move(edge: .trailing))
+            }
+        }
+        // 책장 사용 중에도 백그라운드에서 프로필 목록을 한 번 받아둔다 — 첫 진입은 ProfilePickerView가
+        // 책임지지만, 그 후 책장에서 "프로필 전환"을 눌렀을 때 슬라이드와 동시에 카드가 보이도록.
+        .task {
+            if profileViewModel.profiles.isEmpty && !profileViewModel.isLoading {
+                await profileViewModel.load()
             }
         }
     }
