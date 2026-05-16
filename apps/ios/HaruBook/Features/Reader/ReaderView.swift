@@ -56,6 +56,7 @@ struct ReaderView: View {
                         .font(.smapCaption)
                         .foregroundStyle(Color.smapMuted)
                 }
+                textScaleMenu
             }
 
             ProgressView(
@@ -67,6 +68,31 @@ struct ReaderView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 12)
+    }
+
+    /// 본문 텍스트 크기 4단계 선택 메뉴. 헤더 우측 끝의 작은 Aa 아이콘으로 노출.
+    private var textScaleMenu: some View {
+        Menu {
+            Picker("본문 크기", selection: Binding(
+                get: { viewModel.textScale },
+                set: { viewModel.textScale = $0 }
+            )) {
+                ForEach(ReaderTextScale.allCases) { scale in
+                    Text(scale.label).tag(scale)
+                }
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Image(systemName: "textformat.size")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .frame(width: 30, height: 28)
+            .foregroundStyle(Color.smapText)
+            .background(Color.smapSurface)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
+        }
+        .accessibilityLabel("본문 텍스트 크기")
     }
 
     private var pagedContent: some View {
@@ -85,6 +111,7 @@ struct ReaderView: View {
                     vocabulary: viewModel.book.vocabulary ?? [],
                     showsKorean: viewModel.showsKorean,
                     isPlaying: isPlaying,
+                    textScale: viewModel.textScale,
                 )
                 .tag(index)
             }

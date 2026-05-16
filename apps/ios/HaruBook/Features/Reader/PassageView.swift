@@ -7,6 +7,7 @@ struct PassageView: View {
     let vocabulary: [VocabularyEntry]
     let showsKorean: Bool
     let isPlaying: Bool
+    let textScale: ReaderTextScale
 
     var body: some View {
         ScrollView {
@@ -42,11 +43,15 @@ struct PassageView: View {
         let vocabMap = Self.buildVocabMap(vocabulary)
         if vocabMap.isEmpty {
             Text(passage.textEn)
-                .font(.smapReader)
+                .font(Font.atozRegular(textScale.fontSize))
                 .foregroundStyle(Color.smapText)
                 .lineSpacing(8)
         } else {
-            VocabAwarePassageText(text: passage.textEn, vocabMap: vocabMap)
+            VocabAwarePassageText(
+                text: passage.textEn,
+                vocabMap: vocabMap,
+                fontSize: textScale.fontSize,
+            )
         }
     }
 
@@ -89,15 +94,16 @@ struct PassageView: View {
 private struct VocabAwarePassageText: View {
     let text: String
     let vocabMap: [String: VocabularyEntry]
+    let fontSize: CGFloat
 
     var body: some View {
         FlowLayout(spacing: 0) {
             ForEach(tokens) { token in
                 if token.isWord, let entry = vocabMap[PassageView.normalize(token.text)] {
-                    VocabWord(displayWord: token.text, entry: entry)
+                    VocabWord(displayWord: token.text, entry: entry, fontSize: fontSize)
                 } else {
                     Text(token.text)
-                        .font(.smapReader)
+                        .font(Font.atozRegular(fontSize))
                         .foregroundStyle(Color.smapText)
                 }
             }
@@ -194,6 +200,7 @@ private struct FlowLayout: Layout {
 private struct VocabWord: View {
     let displayWord: String
     let entry: VocabularyEntry
+    let fontSize: CGFloat
     @State private var showsPopover: Bool = false
 
     var body: some View {
@@ -201,7 +208,7 @@ private struct VocabWord: View {
             showsPopover = true
         } label: {
             Text(displayWord)
-                .font(.smapReader)
+                .font(Font.atozRegular(fontSize))
                 .foregroundStyle(Color.smapPrimary)
                 .underline(true, pattern: .solid, color: Color.smapPrimary.opacity(0.55))
         }

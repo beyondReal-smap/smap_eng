@@ -1,5 +1,43 @@
 import Foundation
 import Observation
+import CoreGraphics
+
+/// 본문 텍스트 크기. 사용자 전역 선호도로 UserDefaults에 영속화.
+enum ReaderTextScale: String, CaseIterable, Identifiable {
+    case small, medium, large, xlarge
+
+    var id: String { rawValue }
+
+    /// 본문 폰트 사이즈(`atozRegular`). 기본 .smapReader(22pt)와 동일한 medium을 기준으로 4단계.
+    var fontSize: CGFloat {
+        switch self {
+        case .small:  return 18
+        case .medium: return 22
+        case .large:  return 28
+        case .xlarge: return 34
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .small:  return "작게"
+        case .medium: return "보통"
+        case .large:  return "크게"
+        case .xlarge: return "아주 크게"
+        }
+    }
+
+    private static let defaultsKey = "readerTextScale"
+
+    static func load() -> ReaderTextScale {
+        let raw = UserDefaults.standard.string(forKey: defaultsKey) ?? ""
+        return ReaderTextScale(rawValue: raw) ?? .medium
+    }
+
+    func save() {
+        UserDefaults.standard.set(rawValue, forKey: Self.defaultsKey)
+    }
+}
 
 @Observable
 @MainActor
@@ -12,6 +50,10 @@ final class ReaderViewModel {
     var showsKorean: Bool = false
     var isLoadingDetail: Bool = true
     var error: String?
+    /// 본문 텍스트 크기. 변경 시 UserDefaults에 영속화 — 모든 책에서 같은 크기로 시작.
+    var textScale: ReaderTextScale = ReaderTextScale.load() {
+        didSet { textScale.save() }
+    }
 
     /// 현재 진행 중인 reading_log id. 외부(QuizView)가 점수 PATCH 시 참조한다.
     private(set) var readingLogId: Int?

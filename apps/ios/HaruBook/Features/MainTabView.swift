@@ -22,6 +22,12 @@ struct MainTabView: View {
         case settings
     }
 
+    /// 책장에서 destination이 push되면(예: ReaderView/QuizView/StoreView) 자체 탭바를 숨겨
+    /// 콘텐츠가 풀스크린을 사용하고 하단 컨트롤바가 가려지지 않게 한다. (몰입 모드)
+    private var hidesTabBar: Bool {
+        selectedTab == .bookshelf && !bookshelfPath.isEmpty
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.smapBackground.ignoresSafeArea()
@@ -41,10 +47,14 @@ struct MainTabView: View {
             }
             .animation(.easeInOut(duration: 0.22), value: selectedTab)
 
-            customTabBar
-                .padding(.horizontal, 16)
-                .padding(.bottom, 4)
+            if !hidesTabBar {
+                customTabBar
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.easeInOut(duration: 0.22), value: hidesTabBar)
     }
 
     // MARK: - 자체 탭바
