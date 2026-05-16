@@ -84,21 +84,24 @@ struct VocabDeckView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Text(t.label)
-                            .font(.smapBodyEmphasis)
+                            .font(Font.atozBold(14))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                         if let badge = badgeCount(for: t), badge > 0 {
                             Text("\(badge)")
-                                .font(.system(size: 11, weight: .bold))
-                                .padding(.horizontal, 6)
+                                .font(Font.atozBold(11))
+                                .padding(.horizontal, 7)
                                 .padding(.vertical, 2)
                                 .background(viewModel.tab == t ? Color.white.opacity(0.25) : Color.smapPrimarySoft)
-                                .foregroundStyle(viewModel.tab == t ? Color.white : Color.smapPrimary)
+                                .foregroundStyle(viewModel.tab == t ? Color.white : Color.smapPrimaryForeground)
                                 .clipShape(Capsule())
                         }
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(viewModel.tab == t ? Color.smapPrimary : Color.smapSurface)
-                    .foregroundStyle(viewModel.tab == t ? Color.white : Color.smapText)
+                    .foregroundStyle(viewModel.tab == t ? Color.smapPrimaryForeground : Color.smapText)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
