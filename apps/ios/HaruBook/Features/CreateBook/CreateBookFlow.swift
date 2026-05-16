@@ -18,27 +18,20 @@ struct CreateBookFlow: View {
             VStack(spacing: 0) {
                 progress
 
-                Group {
-                    switch viewModel.step {
-                    case .genre:
-                        GenrePickerStep { viewModel.selectGenre($0) }
-                    case .level:
-                        LevelPickerStep(
-                            genre: viewModel.genre,
-                            selected: viewModel.cefr,
-                            onSelect: { viewModel.selectLevel($0) }
+                // 단계 전환을 ZStack + transition으로 매끄럽게 슬라이드 + 페이드 인/아웃.
+                // 새 단계는 우측에서 들어오고, 이전 단계는 좌측으로 빠지는 push 느낌.
+                ZStack {
+                    currentStep
+                        .id(viewModel.step)
+                        .transition(
+                            .asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity),
+                            ),
                         )
-                    case .intake:
-                        IntakeStep(viewModel: viewModel) {
-                            Task { await viewModel.generate() }
-                        }
-                    case .generating:
-                        GeneratingStep(viewModel: viewModel) { book in
-                            onCreated(book)
-                        }
-                    }
                 }
                 .frame(maxHeight: .infinity)
+                .animation(.easeInOut(duration: 0.28), value: viewModel.step)
             }
         }
         .navigationTitle("새 동화 만들기")
@@ -62,6 +55,28 @@ struct CreateBookFlow: View {
         }
         .onChange(of: viewModel.createdBook) { _, book in
             if let book { onCreated(book) }
+        }
+    }
+
+    @ViewBuilder
+    private var currentStep: some View {
+        switch viewModel.step {
+        case .genre:
+            GenrePickerStep { viewModel.selectGenre($0) }
+        case .level:
+            LevelPickerStep(
+                genre: viewModel.genre,
+                selected: viewModel.cefr,
+                onSelect: { viewModel.selectLevel($0) }
+            )
+        case .intake:
+            IntakeStep(viewModel: viewModel) {
+                Task { await viewModel.generate() }
+            }
+        case .generating:
+            GeneratingStep(viewModel: viewModel) { book in
+                onCreated(book)
+            }
         }
     }
 

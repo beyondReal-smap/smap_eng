@@ -20,11 +20,12 @@ struct LevelPickerStep: View {
                 VStack(spacing: 12) {
                     ForEach(CefrLevel.allCases) { level in
                         Button { onSelect(level) } label: {
-                            HStack(alignment: .top, spacing: 16) {
+                            HStack(alignment: .center, spacing: 14) {
+                                // 동그라미 40pt로 축소 — 헤드라인이 한 줄에 들어가도록 가로 공간 확보.
                                 Text(level.label)
-                                    .font(.smapHeading)
+                                    .font(Font.atozBlack(14))
                                     .foregroundStyle(level == selected ? .white : Color.smapPrimary)
-                                    .frame(width: 56, height: 56)
+                                    .frame(width: 40, height: 40)
                                     .background(
                                         level == selected ? Color.smapPrimary : Color.smapPrimarySoft,
                                         in: Circle()
@@ -33,13 +34,17 @@ struct LevelPickerStep: View {
                                     Text(headline(for: level))
                                         .font(.smapBodyEmphasis)
                                         .foregroundStyle(Color.smapText)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                     Text(detail(for: level))
                                         .font(.smapCaption)
                                         .foregroundStyle(Color.smapMuted)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                 }
                                 Spacer()
                             }
-                            .padding(18)
+                            .padding(16)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.smapSurface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                             .overlay(
@@ -56,12 +61,13 @@ struct LevelPickerStep: View {
         }
     }
 
+    /// 레벨 코드(A1/A2/B1/B2)는 동그라미에 이미 표시되므로 headline에서는 제외 — 줄바꿈 방지 + 정보 중복 제거.
     private func headline(for level: CefrLevel) -> String {
         switch level {
-        case .a1: return "A1 — 처음 시작 (5~7세)"
-        case .a2: return "A2 — 자주 쓰는 표현 (7~9세)"
-        case .b1: return "B1 — 자기 의견 표현 (9~10세)"
-        case .b2: return "B2 — 능숙한 표현"
+        case .a1: return "처음 시작 · 5~7세"
+        case .a2: return "자주 쓰는 표현 · 7~9세"
+        case .b1: return "자기 의견 표현 · 9~10세"
+        case .b2: return "능숙한 표현"
         }
     }
 
