@@ -68,10 +68,8 @@ struct PrimaryButton: View {
 
     private var foreground: Color {
         if let foregroundOverride { return foregroundOverride }
-        switch variant {
-        case .filled: return .white
-        case .tonal, .outline: return .smapPrimary
-        }
+        // Soft Coral Peach 배경/외곽선 위 deep coral ink 글자 (웹과 동일).
+        return .smapPrimaryForeground
     }
 
     private var borderColor: Color {
