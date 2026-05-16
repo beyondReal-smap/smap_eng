@@ -13,23 +13,17 @@ struct VocabCardView: View {
     let onFlip: () -> Void
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            ZStack {
-                front.opacity(isFlipped ? 0 : 1)
-                back.opacity(isFlipped ? 1 : 0)
-                    .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
-            }
-            .rotation3DEffect(
-                .degrees(isFlipped ? 180 : 0),
-                axis: (x: 0, y: 1, z: 0),
-                perspective: 0.6,
-            )
-            .animation(.easeInOut(duration: 0.4), value: isFlipped)
-
-            stateChip
-                .padding(.top, 14)
-                .padding(.leading, 14)
+        ZStack {
+            front.opacity(isFlipped ? 0 : 1)
+            back.opacity(isFlipped ? 1 : 0)
+                .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
         }
+        .rotation3DEffect(
+            .degrees(isFlipped ? 180 : 0),
+            axis: (x: 0, y: 1, z: 0),
+            perspective: 0.6,
+        )
+        .animation(.easeInOut(duration: 0.4), value: isFlipped)
         .frame(maxWidth: .infinity, minHeight: 240)
         .padding(28)
         .background(Color.smapSurface)
@@ -38,6 +32,14 @@ struct VocabCardView: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(Color.smapBorder, lineWidth: 1),
         )
+        // 카드 회전 바깥에 칩을 overlay — 좌상단 고정. 회전과 함께 뒤집히지 않아 학습 상태가 항상 보인다.
+        // 이전 ZStack(.topLeading) 안에 두면 inner ZStack 사이즈가 텍스트만큼만 차지해 칩이 카드 중앙으로 밀렸다.
+        .overlay(alignment: .topLeading) {
+            stateChip
+                .padding(.top, 12)
+                .padding(.leading, 12)
+                .allowsHitTesting(false)
+        }
         .onTapGesture { onFlip() }
     }
 
