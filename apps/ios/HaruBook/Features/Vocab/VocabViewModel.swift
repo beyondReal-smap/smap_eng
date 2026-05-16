@@ -53,6 +53,8 @@ final class VocabViewModel {
     func load() async {
         isLoading = true
         defer { isLoading = false }
+        // 단어 목록과 서버 SRS 진도를 병렬로 받아 다른 디바이스에서 평가한 진도가 통합된 상태로 시작.
+        async let serverHydrate: Void = srs.hydrateFromServer()
         do {
             let response: VocabResponse = try await APIClient.shared.send(
                 Endpoint(
@@ -61,6 +63,7 @@ final class VocabViewModel {
                     query: [URLQueryItem(name: "profileId", value: String(profileId))],
                 ),
             )
+            await serverHydrate
             // word + meaning 단위 dedup (웹과 동일).
             var seen = Set<String>()
             self.entries = response.entries.filter { e in
@@ -72,6 +75,7 @@ final class VocabViewModel {
             self.error = nil
         } catch {
             self.error = "단어장을 불러오지 못했어요."
+            await serverHydrate
         }
     }
 

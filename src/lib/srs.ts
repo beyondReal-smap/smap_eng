@@ -1,8 +1,11 @@
 'use client';
 
 /**
- * 아주 단순한 Leitner 스타일 SRS(Spaced Repetition System).
- * localStorage 전용 — 서버 저장 없음. 프로필별 네임스페이스 분리.
+ * Leitner 스타일 SRS(Spaced Repetition System).
+ *
+ * 저장소: localStorage(즉시 반응) + 서버(통계/디바이스 동기화). 평가 시 옵티미스틱하게 로컬을
+ * 갱신하고, fire-and-forget으로 `POST /api/vocab/grade`에 동기. 부팅 시 `hydrateFromServer`로
+ * 서버 진도를 받아 로컬과 머지(시각이 더 최신인 쪽으로).
  *
  * 평가는 **2단계만**: "몰라"(again) / "알아"(good)
  *  - 새 단어: level=0, due=now (즉시 학습 대상)
@@ -63,7 +66,7 @@ export function saveStore(profileId: number, store: SrsStore): void {
   }
 }
 
-/** 단어에 점수를 매기고 다음 간격을 계산해 저장. */
+/** 단어에 점수를 매기고 다음 간격을 계산해 저장. 서버 sync는 fire-and-forget. */
 export function gradeWord(
   profileId: number,
   word: string,
@@ -84,7 +87,53 @@ export function gradeWord(
   };
   store[key] = next;
   saveStore(profileId, store);
+
+  // 서버 미러 — 실패해도 사용자 흐름 막지 않음(로컬은 이미 저장됨). 통계가 잠시 지연될 뿐.
+  void fetch('/api/vocab/grade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profileId, word, grade }),
+  }).catch(() => {
+    /* offline / 일시 장애 — 다음 hydrate에서 일부 누락이 메워지지는 않지만 큰 문제 아님 */
+  });
+
   return next;
+}
+
+/**
+ * 서버 vocab_progress를 받아 로컬 store와 머지. 같은 키는 `lastGradedAt`이 더 큰 쪽 사용.
+ * 부팅/로그인 직후 한 번 호출 — 다른 디바이스에서 평가한 진도가 통합된다.
+ */
+export async function hydrateFromServer(profileId: number): Promise<SrsStore> {
+  try {
+    const res = await fetch(`/api/vocab/progress?profileId=${profileId}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return loadStore(profileId);
+    const data = (await res.json()) as {
+      progress: Array<{
+        wordKey: string;
+        level: number;
+        dueAtMs: number;
+        lastGradedAtMs: number;
+      }>;
+    };
+    const local = loadStore(profileId);
+    for (const row of data.progress) {
+      const cur = local[row.wordKey];
+      if (!cur || row.lastGradedAtMs > cur.lastGradedAt) {
+        local[row.wordKey] = {
+          level: row.level,
+          dueAt: row.dueAtMs,
+          lastGradedAt: row.lastGradedAtMs,
+        };
+      }
+    }
+    saveStore(profileId, local);
+    return local;
+  } catch {
+    return loadStore(profileId);
+  }
 }
 
 /**

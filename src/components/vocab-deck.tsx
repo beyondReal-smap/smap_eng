@@ -20,6 +20,7 @@ import type { VocabEntry } from '@/lib/db/queries';
 import { useKeyboardNav } from '@/lib/hooks/use-keyboard-nav';
 import {
   gradeWord,
+  hydrateFromServer,
   isDue,
   isUnknown,
   loadStore,
@@ -63,7 +64,8 @@ export function VocabDeck() {
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 초기 SRS 스토어 로드 (프로필 변경 시 재로드)
+  // 초기 SRS 스토어 로드 (프로필 변경 시 재로드).
+  // 1) 로컬에서 즉시 표시 → 2) 서버 진도를 받아 머지 (다른 디바이스 평가 통합).
   useEffect(() => {
     let cancelled = false;
     const frame = requestAnimationFrame(() => {
@@ -71,6 +73,11 @@ export function VocabDeck() {
       setSrsStore(profileId ? loadStore(profileId) : {});
       setNowMs(Date.now());
     });
+    if (profileId) {
+      hydrateFromServer(profileId).then((merged) => {
+        if (!cancelled) setSrsStore(merged);
+      });
+    }
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);

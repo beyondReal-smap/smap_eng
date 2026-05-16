@@ -436,6 +436,54 @@ export const pushTokens = mysqlTable(
 
 // 가족(user) 단위 구독 레코드 — 결제 이력/가입 통계용으로 보존.
 // (책 생성 한도는 별 크레딧으로 단일화되어 cycleAnchorDay는 더 이상 차감 게이트에 쓰이지 않음.)
+// 단어 학습 진도 — 프로필 × 정규화된 단어 키 1행. 단말 SrsStore와 동일한 schema의 서버 미러.
+// 디바이스 간 동기화 + 통계 화면(StatsDashboard)이 정확한 누적 학습 수를 표시하기 위한 표.
+// COPPA: 단어 키(소문자/구두점 제거)만 저장, 개인 식별 정보 일절 없음.
+export const VOCAB_GRADES = ['again', 'good'] as const;
+export type VocabGrade = (typeof VOCAB_GRADES)[number];
+
+export const vocabProgress = mysqlTable(
+  'vocab_progress',
+  {
+    profileId: int('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    // 정규화된 단어 키 (lowercased + 양끝 공백/구두점 제거). SrsStore.srsNormalizeKey와 동일.
+    wordKey: varchar('word_key', { length: 80 }).notNull(),
+    // Leitner level (0~3). 0 = 모르는 단어.
+    level: int('level').notNull().default(0),
+    // 다음 복습 시각 (epoch ms). 0 또는 과거면 즉시 due.
+    dueAtMs: double('due_at_ms').notNull().default(0),
+    // 가장 최근 평가 시각 (epoch ms). 0이면 평가 이력 없음(이론상 row 자체가 없어야 함).
+    lastGradedAtMs: double('last_graded_at_ms').notNull().default(0),
+    updatedAt: timestamp('updated_at').notNull().defaultNow().onUpdateNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.profileId, t.wordKey] }),
+    index('vocab_progress_profile_idx').on(t.profileId),
+  ],
+);
+
+// 단어 학습 이벤트 로그 — 각 평가 한 줄. 일자별 학습 그래프/정답률 추이 통계용.
+export const vocabGradeLog = mysqlTable(
+  'vocab_grade_log',
+  {
+    id: int('id').autoincrement().primaryKey(),
+    profileId: int('profile_id')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    wordKey: varchar('word_key', { length: 80 }).notNull(),
+    grade: varchar('grade', { length: 8, enum: VOCAB_GRADES }).notNull(),
+    prevLevel: int('prev_level').notNull(),
+    nextLevel: int('next_level').notNull(),
+    gradedAt: timestamp('graded_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('vocab_log_profile_at_idx').on(t.profileId, t.gradedAt),
+    index('vocab_log_word_idx').on(t.profileId, t.wordKey),
+  ],
+);
+
 export const subscriptions = mysqlTable('subscriptions', {
   id: int('id').autoincrement().primaryKey(),
   userId: varchar('user_id', { length: 255 })
@@ -469,6 +517,10 @@ export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type NewCreditTransaction = typeof creditTransactions.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type NewSubscription = typeof subscriptions.$inferInsert;
+export type VocabProgress = typeof vocabProgress.$inferSelect;
+export type NewVocabProgress = typeof vocabProgress.$inferInsert;
+export type VocabGradeLog = typeof vocabGradeLog.$inferSelect;
+export type NewVocabGradeLog = typeof vocabGradeLog.$inferInsert;
 export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type IapTransaction = typeof iapTransactions.$inferSelect;

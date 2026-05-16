@@ -76,7 +76,8 @@ final class SrsStore {
 
     // MARK: - Public API
 
-    /// 단어 평가 후 다음 간격 계산 + 영속화.
+    /// 단어 평가 후 다음 간격 계산 + 영속화. 동시에 서버 vocab_progress + grade_log에 미러링.
+    /// 서버 동기는 fire-and-forget — 오프라인/장애 시에도 단말 학습 흐름은 막지 않는다.
     @discardableResult
     func grade(_ word: String, _ grade: SrsGrade) -> SrsItem {
         let key = srsNormalizeKey(word)
@@ -94,7 +95,65 @@ final class SrsStore {
         let next = SrsItem(level: level, dueAtMs: nowMs + interval, lastGradedAtMs: nowMs)
         items[key] = next
         persist()
+
+        // 서버 미러 — async detached. 단어/grade만 전송, 위치/시간은 서버가 재계산해도 동일 결과.
+        let profileId = self.profileId
+        let originalWord = word
+        Task {
+            await Self.postGrade(profileId: profileId, word: originalWord, grade: grade)
+        }
+
         return next
+    }
+
+    /// 서버 vocab_progress를 받아 로컬과 머지 — `lastGradedAtMs`가 더 큰 쪽 사용. 다른 디바이스에서
+    /// 평가한 진도가 있으면 그게 반영된다. 부팅 시 한 번 호출하면 충분.
+    func hydrateFromServer() async {
+        do {
+            let response: VocabProgressResponse = try await APIClient.shared.send(
+                Endpoint(
+                    path: "/api/vocab/progress",
+                    method: .get,
+                    query: [URLQueryItem(name: "profileId", value: String(profileId))],
+                ),
+            )
+            var merged = items
+            for row in response.progress {
+                let cur = merged[row.wordKey]
+                if cur == nil || row.lastGradedAtMs > (cur?.lastGradedAtMs ?? 0) {
+                    merged[row.wordKey] = SrsItem(
+                        level: row.level,
+                        dueAtMs: row.dueAtMs,
+                        lastGradedAtMs: row.lastGradedAtMs,
+                    )
+                }
+            }
+            items = merged
+            persist()
+        } catch {
+            // 오프라인이면 로컬만으로 동작. 다음 hydrate 시 시도.
+        }
+    }
+
+    private static func postGrade(profileId: Int, word: String, grade: SrsGrade) async {
+        struct Body: Encodable {
+            let profileId: Int
+            let word: String
+            let grade: String
+        }
+        struct Response: Decodable {}
+        do {
+            let _: Response = try await APIClient.shared.send(
+                Endpoint(
+                    path: "/api/vocab/grade",
+                    method: .post,
+                    body: Body(profileId: profileId, word: word, grade: grade.rawValue),
+                ),
+            )
+        } catch {
+            // 사용자 흐름 미차단. 다음 hydrate 호출 시 서버에 누락된 평가는 메워지지 않지만
+            // 통계가 잠시 비는 수준에서 끝남.
+        }
     }
 
     /// 키 기준 현재 상태 조회.
@@ -118,5 +177,16 @@ final class SrsStore {
     func hasHistory(_ word: String) -> Bool {
         guard let it = item(for: word) else { return false }
         return it.lastGradedAtMs > 0
+    }
+}
+
+/// 서버 `GET /api/vocab/progress` 응답 — SrsStore에서만 사용.
+private struct VocabProgressResponse: Decodable {
+    let progress: [Row]
+    struct Row: Decodable {
+        let wordKey: String
+        let level: Int
+        let dueAtMs: Double
+        let lastGradedAtMs: Double
     }
 }

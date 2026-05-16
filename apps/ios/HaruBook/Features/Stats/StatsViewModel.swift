@@ -32,8 +32,10 @@ final class StatsViewModel {
         error = nil
 
         do {
-            // SRS는 로컬이라 즉시 로드.
-            self.srs = SrsStore(profileId: profileId)
+            // SRS 로컬 즉시 로드 + 서버 진도 머지 — 통계 화면이 다른 디바이스 평가까지 포함한 정확한 수치를 표시.
+            let store = SrsStore(profileId: profileId)
+            self.srs = store
+            async let serverHydrate: Void = store.hydrateFromServer()
 
             async let summaryResp: LearningSummaryResponse = APIClient.shared.send(
                 Endpoint(
@@ -60,6 +62,7 @@ final class StatsViewModel {
             )
 
             let (s, b, v) = try await (summaryResp, booksResp, vocabResp)
+            await serverHydrate
             self.summary = s.summary
             self.books = b.books
             self.stats = Dictionary(
