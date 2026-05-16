@@ -13,6 +13,7 @@ struct SettingsView: View {
 
     @State private var showDeleteSheet: Bool = false
     @State private var pushManager = PushManager.shared
+    @State private var dailyReminder = DailyVocabReminder.shared
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -26,6 +27,7 @@ struct SettingsView: View {
                     accountSection
                     storeSection
                     notificationSection
+                    vocabReminderSection
                     parentsSection
                     legalSection
                     appInfoSection
@@ -154,6 +156,73 @@ struct SettingsView: View {
                 .font(Font.atozRegular(13))
                 .foregroundStyle(Color.smapMuted)
         }
+    }
+
+    // MARK: - 단어 복습 알림 (로컬 알림)
+
+    private var vocabReminderSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { dailyReminder.isEnabled },
+                set: { newValue in
+                    if newValue {
+                        // 권한이 없으면 토글을 켤 수 없게 — 권한 요청 흐름을 동시에 시작.
+                        Task {
+                            if pushManager.authorizationStatus == .notDetermined {
+                                _ = await pushManager.requestAuthorization()
+                            }
+                            dailyReminder.isEnabled = true
+                        }
+                    } else {
+                        dailyReminder.isEnabled = false
+                    }
+                },
+            )) {
+                Label("매일 복습 알림", systemImage: "alarm.fill")
+                    .font(Font.atozBold(17))
+                    .foregroundStyle(Color.smapText)
+            }
+            .tint(Color.smapPrimary)
+
+            if dailyReminder.isEnabled {
+                DatePicker(
+                    selection: Binding(
+                        get: {
+                            var comps = DateComponents()
+                            comps.hour = dailyReminder.hour
+                            comps.minute = dailyReminder.minute
+                            return Calendar.current.date(from: comps) ?? Date()
+                        },
+                        set: { newDate in
+                            let comps = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                            if let h = comps.hour { dailyReminder.hour = h }
+                            if let m = comps.minute { dailyReminder.minute = m }
+                        },
+                    ),
+                    displayedComponents: .hourAndMinute,
+                ) {
+                    Label("알림 시간", systemImage: "clock")
+                        .font(Font.atozBold(17))
+                        .foregroundStyle(Color.smapText)
+                }
+            }
+        } header: {
+            sectionHeader("단어 복습 알림", icon: "alarm.waves.left.and.right.fill", color: Color(hex: 0x8A6300))
+        } footer: {
+            Text(dailyReminder.isEnabled
+                ? "매일 \(timeLabel)에 단어 복습 알림을 보내드려요."
+                : "원하는 시간에 단어 복습을 잊지 않도록 단말에서 알림을 보내드려요.")
+                .font(Font.atozRegular(13))
+                .foregroundStyle(Color.smapMuted)
+        }
+    }
+
+    private var timeLabel: String {
+        let h = dailyReminder.hour
+        let m = dailyReminder.minute
+        let suffix = h < 12 ? "오전" : "오후"
+        let hour12 = h == 0 ? 12 : (h > 12 ? h - 12 : h)
+        return String(format: "%@ %d:%02d", suffix, hour12, m)
     }
 
     // MARK: - 보호자 모드
