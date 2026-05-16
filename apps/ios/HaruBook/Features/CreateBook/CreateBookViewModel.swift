@@ -118,7 +118,11 @@ final class CreateBookViewModel {
         generationError = nil
         defer { isGenerating = false }
 
-        let intake = IntakePayload(questions: intakeQuestions, answers: intakeAnswers.mapValues { Optional($0) })
+        // intakeQuestions가 비어 있으면 IntakePayload를 nil로 전송 — 서버 BookIntakeSchema가
+        // questions.min(2)를 요구해 빈 배열은 검증 실패한다(400 validation). 서버 intake는 optional.
+        let intake: IntakePayload? = intakeQuestions.isEmpty
+            ? nil
+            : IntakePayload(questions: intakeQuestions, answers: intakeAnswers.mapValues { Optional($0) })
 
         do {
             let response: CreateBookResponse = try await APIClient.shared.send(
@@ -177,7 +181,7 @@ private struct CreateBookRequest: Encodable {
     let profileId: Int
     let level: LevelPayload
     let genre: String
-    let intake: IntakePayload
+    let intake: IntakePayload?
 }
 
 private struct CreateBookResponse: Decodable {

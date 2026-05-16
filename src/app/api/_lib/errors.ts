@@ -27,6 +27,8 @@ export function handleApiError(err: unknown): NextResponse {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
   if (err instanceof z.ZodError) {
+    // 어디서 검증 실패했는지 운영 로그에 남긴다 — issue.path + message로 즉시 디버깅 가능.
+    console.warn('[api-validation]', err.issues.map((i) => ({ path: i.path, code: i.code, message: i.message })));
     return NextResponse.json(
       { error: 'validation', issues: err.issues },
       { status: 400 },
