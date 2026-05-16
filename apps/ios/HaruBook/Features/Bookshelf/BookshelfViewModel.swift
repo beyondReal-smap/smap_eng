@@ -6,7 +6,6 @@ import Observation
 final class BookshelfViewModel {
     let profileId: Int
     var books: [Book] = []
-    var ageFilter: Int?
     var cefrFilter: CefrLevel?
     var isLoading: Bool = false
     var error: String?
@@ -34,9 +33,6 @@ final class BookshelfViewModel {
         var query: [URLQueryItem] = [
             URLQueryItem(name: "profileId", value: String(profileId))
         ]
-        if let age = ageFilter {
-            query.append(URLQueryItem(name: "age", value: String(age)))
-        }
         if let cefr = cefrFilter {
             query.append(URLQueryItem(name: "cefr", value: cefr.rawValue))
         }
@@ -50,11 +46,6 @@ final class BookshelfViewModel {
         } catch {
             self.error = error.localizedDescription
         }
-    }
-
-    func setAge(_ age: Int?) async {
-        ageFilter = age
-        await load()
     }
 
     func setCefr(_ cefr: CefrLevel?) async {

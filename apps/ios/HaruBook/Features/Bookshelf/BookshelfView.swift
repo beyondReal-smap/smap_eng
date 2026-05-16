@@ -59,10 +59,6 @@ struct BookshelfView: View {
                     }
 
                     LevelFilterView(
-                        selectedAge: Binding(
-                            get: { viewModel.ageFilter },
-                            set: { viewModel.ageFilter = $0 }
-                        ),
                         selectedCefr: Binding(
                             get: { viewModel.cefrFilter },
                             set: { viewModel.cefrFilter = $0 }

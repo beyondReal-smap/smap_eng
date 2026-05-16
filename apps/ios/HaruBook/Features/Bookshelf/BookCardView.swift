@@ -12,7 +12,7 @@ struct BookCardView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(book.title)
-                    .font(.smapBodyEmphasis)
+                    .font(Font.atozBold(17))
                     .foregroundStyle(Color.smapText)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -41,40 +41,58 @@ struct BookCardView: View {
         if let path = book.coverImagePath, !path.isEmpty {
             AuthenticatedAsyncImage(
                 path: path,
-                placeholder: { CoverPlaceholder(title: book.title, isLoading: true) },
-                failure: { CoverPlaceholder(title: book.title, isLoading: false) }
+                placeholder: { CoverPlaceholder(book: book, isLoading: true) },
+                failure: { CoverPlaceholder(book: book, isLoading: false) }
             )
         } else {
-            CoverPlaceholder(title: book.title, isLoading: false)
+            CoverPlaceholder(book: book, isLoading: false)
         }
     }
 }
 
+/// 커버 이미지가 없을 때(또는 로딩/실패) 보여줄 시각적 폴백.
+/// book.id를 시드로 6개 액센트 팔레트 중 하나를 선택해 책마다 톤이 다르게 보이도록 한다.
+/// 단조로운 코랄 단색에서 벗어나 웹 cover-art.tsx 정신을 단순화한 형태.
 private struct CoverPlaceholder: View {
-    let title: String
+    let book: Book
     let isLoading: Bool
+
+    private static let palettes: [(start: Color, end: Color)] = [
+        (.smapPeach,  .smapGold),     // 노랑 ↔ 코랄
+        (.smapMint,   .smapAccent),   // 민트 ↔ 스카이
+        (.smapAccent, .smapLilac),    // 스카이 ↔ 라일락
+        (.smapRose,   .smapPeach),    // 로즈 ↔ 피치
+        (.smapLilac,  .smapMint),     // 라일락 ↔ 민트
+        (.smapGold,   .smapRose),     // 골드 ↔ 로즈
+    ]
+
+    private var palette: (start: Color, end: Color) {
+        let idx = abs(book.id) % Self.palettes.count
+        return Self.palettes[idx]
+    }
+
+    private var initial: String {
+        // 한글/영문 모두에서 자연스러운 첫 그래핌.
+        guard let first = book.title.first else { return "📖" }
+        return String(first)
+    }
 
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color.smapPrimary, Color.smapPrimarySoft],
+                colors: [palette.start, palette.end],
                 startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                endPoint: .bottomTrailing,
             )
-            VStack(spacing: 8) {
+
+            VStack(spacing: 10) {
                 if isLoading {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(Color.smapText.opacity(0.5))
                 } else {
-                    Image(systemName: "book.fill")
-                        .font(.system(size: 36))
-                        .foregroundStyle(.white)
+                    Text(initial)
+                        .font(Font.atozBlack(56))
+                        .foregroundStyle(Color.smapText.opacity(0.85))
                 }
-                Text(title)
-                    .font(.smapCaption)
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                    .lineLimit(2)
             }
         }
     }

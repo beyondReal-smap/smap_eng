@@ -1,7 +1,6 @@
 import Foundation
 
-/// 책의 CEFR 난이도. 백엔드는 'A1' | 'A2' | 'B1' | 'B2' 4종을 보낼 수 있다 —
-/// iOS UI 필터(`allCases`)에서는 A1/A2/B1만 노출하고, B2는 디코딩 호환만 유지.
+/// 책의 CEFR 난이도. 백엔드와 동일 A1~B2 4종. UI 필터/배지에 모두 노출.
 enum CefrLevel: String, Codable, CaseIterable, Hashable, Sendable, Identifiable {
     case a1 = "A1"
     case a2 = "A2"
@@ -10,10 +9,6 @@ enum CefrLevel: String, Codable, CaseIterable, Hashable, Sendable, Identifiable 
 
     var id: String { rawValue }
     var label: String { rawValue }
-
-    /// UI 필터/배지에 노출되는 레벨. B2는 향후 도입 예정이라 디코딩 호환만 유지하고
-    /// 명시적으로 allCases 에서 제외 (자동 합성 override).
-    static var allCases: [CefrLevel] { [.a1, .a2, .b1] }
 
     static func recommended(forAge age: Int) -> [CefrLevel] {
         switch age {

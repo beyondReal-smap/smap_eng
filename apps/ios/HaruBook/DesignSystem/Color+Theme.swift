@@ -24,8 +24,13 @@ extension Color {
     static let smapDanger     = Color(hex: 0xC73E1F)   // destructive (rich red)
     static let smapWarn       = Color(hex: 0xE08A1E)
 
-    // 보조 액센트 — 웹 secondary palette (Powder Sky / Gold / Mint / Peach / Rose / Lilac).
-    static let smapAccent     = Color(hex: 0xB8D9F0)   // Powder Sky
+    // 보조 액센트 — 웹 secondary palette. 카드/배지/배경 그라디언트에 활용.
+    static let smapAccent     = Color(hex: 0xB8D9F0)   // Powder Sky (--sky)
+    static let smapGold       = Color(hex: 0xF6CE73)   // (--gold oklch 0.82 0.15 84)
+    static let smapMint       = Color(hex: 0xB6E5D0)   // (--mint oklch 0.88 0.07 160)
+    static let smapPeach      = Color(hex: 0xF7CFAE)   // (--peach oklch 0.88 0.08 42)
+    static let smapRose       = Color(hex: 0xF1BBC1)   // (--rose oklch 0.86 0.08 18)
+    static let smapLilac      = Color(hex: 0xD2B8E5)   // (--lilac oklch 0.84 0.07 300)
 
     // CEFR 레벨 배지 — 웹 `--level-{a1,a2,b1,b2}` 토큰 미러.
     static let smapLevelA1    = Color(hex: 0xC8E6C9)

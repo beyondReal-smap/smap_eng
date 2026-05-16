@@ -1,78 +1,65 @@
 import SwiftUI
 
+/// 레벨(CEFR) 필터 — A1/A2/B1/B2 4종 칩. 연령 필터는 제거됨(레벨만으로 충분).
 struct LevelFilterView: View {
-    @Binding var selectedAge: Int?
     @Binding var selectedCefr: CefrLevel?
     let onChange: () -> Void
-
-    private static let ages: [Int] = Array(5...10)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text("연령").font(.smapCaption).foregroundStyle(Color.smapMuted)
+                Text("레벨")
+                    .font(Font.atozBold(13))
+                    .foregroundStyle(Color.smapMuted)
                 Spacer()
-                if selectedAge != nil || selectedCefr != nil {
-                    Button("필터 초기화") {
-                        selectedAge = nil
+                if selectedCefr != nil {
+                    Button("초기화") {
                         selectedCefr = nil
                         onChange()
                     }
-                    .font(.smapCaption)
-                    .foregroundStyle(Color.smapPrimary)
+                    .font(Font.atozBold(13))
+                    .foregroundStyle(Color.smapPrimaryForeground)
                 }
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Self.ages, id: \.self) { age in
-                        FilterChip(
-                            title: "\(age)세",
-                            isSelected: selectedAge == age
-                        ) {
-                            selectedAge = (selectedAge == age) ? nil : age
-                            onChange()
-                        }
-                    }
-                }
-            }
-
-            HStack(spacing: 8) {
-                Text("레벨").font(.smapCaption).foregroundStyle(Color.smapMuted)
-                Spacer()
             }
 
             HStack(spacing: 8) {
                 ForEach(CefrLevel.allCases) { cefr in
                     FilterChip(
                         title: cefr.label,
-                        isSelected: selectedCefr == cefr
+                        tint: cefr.color,
+                        isSelected: selectedCefr == cefr,
                     ) {
                         selectedCefr = (selectedCefr == cefr) ? nil : cefr
                         onChange()
                     }
                 }
+                Spacer()
             }
         }
     }
 }
 
+/// 선택 시 레벨 컬러(파스텔)로 채움 → 단색 코랄 일관 사용에서 벗어나 웹 톤에 더 가까움.
 private struct FilterChip: View {
     let title: String
+    let tint: Color
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.smapBadge)
-                .padding(.horizontal, 14)
+                .font(Font.atozBold(13))
+                .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color.smapPrimary : Color.smapSurface)
-                .foregroundStyle(isSelected ? .white : Color.smapText)
+                .background(isSelected ? tint : Color.smapSurface)
+                .foregroundStyle(Color.smapText)
                 .clipShape(Capsule())
                 .overlay(
-                    Capsule().stroke(Color.smapBorder, lineWidth: isSelected ? 0 : 1)
+                    Capsule().stroke(
+                        isSelected ? Color.clear : Color.smapBorder,
+                        lineWidth: 1,
+                    ),
                 )
         }
         .buttonStyle(.plain)
