@@ -15,6 +15,7 @@ import { CEFR_LEVELS } from '@/lib/db/schema';
 import { consumeCredit, refundCredit } from '@/lib/billing/credits';
 import { requireProfileOwnershipForApi } from '@/lib/auth/session';
 import { startBookTtsBatch } from '@/lib/tts/batch';
+import { sendPushToUser } from '@/lib/push/send';
 import { handleApiError } from '../_lib/errors';
 
 export const runtime = 'nodejs';
@@ -126,10 +127,23 @@ export async function POST(req: NextRequest) {
       throw e;
     }
 
-    // 응답을 내보낸 뒤 백그라운드로 책의 모든 passage TTS를 순차 생성.
-    // Reader가 열릴 때쯤이면 상당수가 준비되어 문장 전환 지연이 사라진다.
+    // 응답을 내보낸 뒤 백그라운드 작업 2종:
+    //  1) 책의 모든 passage TTS 순차 생성 — Reader 열릴 때 문장 전환 지연 감소
+    //  2) 가족의 다른 디바이스에 새 동화 알림 푸시
+    //
+    // 생성한 디바이스는 보통 포그라운드라 iOS가 알림을 무음 처리하지만, 보호자의 다른 단말
+    // (태블릿/배우자 폰)에는 정상 표시. fire-and-forget — 푸시 실패가 본 응답을 막지 않는다.
+    const bookTitle = book.title;
     after(() => {
       startBookTtsBatch(book.id);
+      void sendPushToUser(userId, {
+        title: '새 동화가 준비됐어요',
+        body: `${bookTitle} — 지금 함께 읽어볼까요?`,
+        sound: 'default',
+        custom: { kind: 'book_created', bookId: book.id },
+      }).catch((err) => {
+        console.warn('[books-create] push failed', err);
+      });
     });
 
     return NextResponse.json(
