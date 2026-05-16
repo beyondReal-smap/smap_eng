@@ -94,6 +94,9 @@ schemes:
         HaruBookTests: [test]
     run:
       config: Debug
+      # 시뮬레이터에서 App Store Connect 등록 상품 대신 로컬 .storekit 파일을 사용해 결제 흐름 테스트.
+      # 이 파일 미연결 시 Product.products(for:)가 빈 배열을 반환해 StoreView에 "아직 상품이 없어요"가 뜬다.
+      storeKitConfiguration: HaruBook.storekit
     test:
       config: Debug
       targets:
