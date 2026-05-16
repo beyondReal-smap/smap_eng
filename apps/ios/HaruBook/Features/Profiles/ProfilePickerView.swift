@@ -246,21 +246,59 @@ private struct CreateProfileSheet: View {
     @Bindable var viewModel: ProfileViewModel
     @Binding var isPresented: Bool
     @State private var name: String = ""
+    @State private var age: Int = 7   // 서버 default 와 동일한 기본값.
     @State private var isSubmitting: Bool = false
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("프로필 이름을 알려주세요.")
-                    .font(.smapBody)
-                    .foregroundStyle(Color.smapMuted)
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("이름")
+                        .font(Font.atozBold(13))
+                        .foregroundStyle(Color.smapMuted)
+                    TextField("예: 지우", text: $name)
+                        .font(.smapHeading)
+                        .padding(14)
+                        .background(Color.smapPrimarySoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .submitLabel(.done)
+                }
 
-                TextField("예: 지우", text: $name)
-                    .font(.smapHeading)
-                    .padding(14)
-                    .background(Color.smapPrimarySoft)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .submitLabel(.done)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("나이")
+                        .font(Font.atozBold(13))
+                        .foregroundStyle(Color.smapMuted)
+                    // 5~10세 가로 캡슐 — 책 생성 시 자녀 레벨 결정에 사용. 서버는 z.number().min(5).max(10).
+                    HStack(spacing: 6) {
+                        ForEach(5...10, id: \.self) { i in
+                            Button {
+                                Haptic.play(.lightTap)
+                                age = i
+                            } label: {
+                                Text("\(i)세")
+                                    .font(Font.atozBold(14))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
+                                    .foregroundStyle(age == i ? Color.smapPrimaryForeground : Color.smapText)
+                                    .background(age == i ? Color.smapPrimary : Color.smapSurface)
+                                    .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule().stroke(
+                                            age == i ? Color.clear : Color.smapBorder,
+                                            lineWidth: 1,
+                                        ),
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                if let error = viewModel.error {
+                    Text(error)
+                        .font(.smapCaption)
+                        .foregroundStyle(Color.smapDanger)
+                }
 
                 Spacer()
 
@@ -272,7 +310,8 @@ private struct CreateProfileSheet: View {
                 ) {
                     Task {
                         isSubmitting = true
-                        await viewModel.create(name: name)
+                        viewModel.error = nil
+                        await viewModel.create(name: name, age: age)
                         isSubmitting = false
                         if viewModel.error == nil { isPresented = false }
                     }
@@ -288,6 +327,6 @@ private struct CreateProfileSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 }
