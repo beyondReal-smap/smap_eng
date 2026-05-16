@@ -30,7 +30,9 @@ actor APIClient {
         // (예: `"2026-05-15T22:00:00.000Z"`). 기본 `.deferredToDate`로는 디코딩 실패.
         // 일부 모델은 `xxxAtUnix` 같은 Double 키를 별도로 사용하니, ISO8601 외에
         // Double(epoch)도 허용하는 커스텀 strategy를 둔다.
-        let iso = ISOWithFractional.formatter
+        //
+        // ISO8601DateFormatter는 non-Sendable이라 @Sendable closure에 캡처되면 Swift 6 경고.
+        // 단일 decode당 인스턴스 1~2개 생성은 비용 미미하므로 closure 안에서 매번 생성.
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             if let unix = try? container.decode(Double.self) {
@@ -38,7 +40,9 @@ actor APIClient {
                 return Date(timeIntervalSince1970: ms ? unix / 1000 : unix)
             }
             let raw = try container.decode(String.self)
-            if let date = iso.date(from: raw) {
+            let fractional = ISO8601DateFormatter()
+            fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = fractional.date(from: raw) {
                 return date
             }
             if let date = ISO8601DateFormatter().date(from: raw) {
@@ -121,17 +125,9 @@ actor APIClient {
     }
 }
 
-/// ISO8601 fractional seconds 지원하는 formatter.
-/// `ISO8601DateFormatter`는 `Sendable`이 아니라 Swift 6 concurrency 검사에서
-/// static let 으로 두면 경고/에러. nonisolated(unsafe) 로 한 번만 생성하고
-/// dateDecodingStrategy closure는 동기 호출이라 안전.
-private enum ISOWithFractional {
-    nonisolated(unsafe) static let formatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-}
+// ISOWithFractional 캐시는 제거. ISO8601DateFormatter가 non-Sendable이라 @Sendable closure
+// 캡처가 Swift 6에서 경고로 떠, dateDecodingStrategy closure 안에서 매번 새로 인스턴스화한다.
+// 단일 decode당 비용은 무시 가능.
 
 private struct APIErrorBody: Decodable {
     let error: String?
