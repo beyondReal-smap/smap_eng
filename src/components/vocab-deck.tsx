@@ -19,13 +19,18 @@ import { APP_HOME } from '@/lib/paths';
 import type { VocabEntry } from '@/lib/db/queries';
 import { useKeyboardNav } from '@/lib/hooks/use-keyboard-nav';
 import {
+  cardState,
+  DAILY_GOAL,
   gradeWord,
+  gradedTodayCount,
   hydrateFromServer,
   isDue,
   isMastered,
+  isNew,
   isUnknown,
   loadStore,
   normalizeKey,
+  type CardState,
   type Grade,
   type SrsStore,
 } from '@/lib/srs';
@@ -154,18 +159,30 @@ export function VocabDeck() {
   }, [hasHydrated, profileId]);
 
   // 탭별 덱 구성
-  // - review: 새 단어 + due 도래 단어 (최대 20개), 마스터(level=MAX) 제외
-  // - unknown: 최근 "몰라"로 평가된 단어 누적
-  // - all: 전체 — 단, 마스터한 단어는 제외해 학습 진도가 카운트에 반영됨
+  // - review: 새 단어 + due 도래 단어 (최대 20개), 마스터 제외, 새 단어 우선
+  // - unknown: "몰라요" 누른 단어 누적
+  // - all: 마스터 제외한 전체
   const deck = useMemo(() => {
     if (tab === 'all') return entries.filter((e) => !isMastered(srsStore, e.word));
     if (tab === 'unknown') {
       return entries.filter((e) => isUnknown(srsStore, e.word));
     }
-    return entries
-      .filter((e) => isDue(srsStore, e.word, nowMs) && !isMastered(srsStore, e.word))
-      .slice(0, 20);
+    const candidates = entries.filter(
+      (e) => isDue(srsStore, e.word, nowMs) && !isMastered(srsStore, e.word),
+    );
+    // 새 단어 우선 — 학습 곡선 자연스럽게.
+    const sorted = [...candidates].sort((a, b) => {
+      const an = isNew(srsStore, a.word);
+      const bn = isNew(srsStore, b.word);
+      if (an === bn) return 0;
+      return an ? -1 : 1;
+    });
+    return sorted.slice(0, DAILY_GOAL);
   }, [entries, nowMs, srsStore, tab]);
+
+  // 오늘 평가한 단어 수 — 일일 목표 진행률.
+  const todayCount = useMemo(() => gradedTodayCount(srsStore), [srsStore]);
+  const sessionComplete = tab === 'review' && deck.length === 0 && todayCount > 0;
 
   const total = deck.length;
   const current = deck[idx];
@@ -329,6 +346,10 @@ export function VocabDeck() {
 
   return (
     <div className="space-y-5">
+      {tab === 'review' ? (
+        <DailyGoalBar done={todayCount} goal={DAILY_GOAL} />
+      ) : null}
+
       <TabBar
         tab={tab}
         onChange={setTab}
@@ -340,10 +361,17 @@ export function VocabDeck() {
       />
 
       {total === 0 ? (
-        <EmptyState
-          title="오늘 학습할 단어가 없어요"
-          text="잠시 쉬거나 '전체 단어장' 탭에서 다시 훑어보세요."
-        />
+        sessionComplete ? (
+          <SessionCompleteCard
+            todayCount={todayCount}
+            masteredCount={masteredCount}
+          />
+        ) : (
+          <EmptyState
+            title="오늘 학습할 단어가 없어요"
+            text="잠시 쉬거나 '전체 단어장' 탭에서 다시 훑어보세요."
+          />
+        )
       ) : (
         <>
           <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
@@ -368,6 +396,8 @@ export function VocabDeck() {
             aria-label={flipped ? '뒤집어서 단어 보기' : '뒤집어서 뜻 보기'}
             className="group relative block w-full rounded-2xl [perspective:1000px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
+            <CardStateChip state={cardState(srsStore, current!.word)} level={srsStore[normalizeKey(current!.word)]?.level ?? 0} />
+
             <div
               className={`relative h-64 w-full rounded-2xl border border-border/60 bg-card shadow-sm transition-transform duration-500 [transform-style:preserve-3d] ${
                 flipped ? '[transform:rotateY(180deg)]' : ''
@@ -480,6 +510,82 @@ export function VocabDeck() {
 
 /* ---------- Subcomponents ---------- */
 
+/// 일일 학습 목표 진행률 바. "오늘 학습" 탭에서만 노출 — 명확한 KPI로 학습 동기 부여.
+function DailyGoalBar({ done, goal }: { done: number; goal: number }) {
+  const ratio = Math.min(1, done / goal);
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-[13px] font-bold text-[color:var(--primary)]">
+        <span aria-hidden="true">🎯</span>
+        <span>오늘 {done} / {goal} 단어</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full bg-[color:var(--primary)] transition-all duration-300"
+          style={{ width: `${ratio * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/// 세션 완료 축하 카드 — Duolingo/Anki 패턴. 오늘 학습한 단어 수 + 누적 마스터.
+function SessionCompleteCard({
+  todayCount,
+  masteredCount,
+}: {
+  todayCount: number;
+  masteredCount: number;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-3xl border border-border bg-card p-8 text-center">
+      <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[color:var(--primary)]/15 text-5xl">
+        ✓
+      </div>
+      <div className="space-y-1">
+        <h3 className="text-2xl font-black text-foreground">오늘 학습 완료!</h3>
+        <p className="text-sm text-muted-foreground">
+          오늘 {todayCount}개 단어를 학습했어요
+        </p>
+      </div>
+      {masteredCount > 0 ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--primary)]/15 px-3 py-1 text-sm font-bold text-[color:var(--primary)]">
+          ★ 누적 마스터 {masteredCount}개
+        </span>
+      ) : null}
+      <p className="max-w-[280px] text-xs text-muted-foreground">
+        다음 복습은 단어마다 정해진 시간에 다시 알려드릴게요.
+      </p>
+    </div>
+  );
+}
+
+/// 단어 카드 좌상단 학습 상태 칩 — 새 / 다시 학습 / 학습 중 / (마스터는 deck에서 빠짐).
+function CardStateChip({ state, level }: { state: CardState; level: number }) {
+  if (state === 'mastered') return null;
+
+  const config = (() => {
+    switch (state) {
+      case 'new':
+        return { label: 'NEW', emoji: '✨', fg: '#1E6FB8', bg: '#E2F0FB' };
+      case 'relearning':
+        return { label: '다시 학습', emoji: '↻', fg: '#C73E1F', bg: '#FDE2DD' };
+      case 'learning':
+        return { label: `Lv.${level}`, emoji: '🎓', fg: '#8A6300', bg: '#FCEDC1' };
+    }
+  })();
+
+  return (
+    <span
+      className="pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
+      style={{ color: config.fg, backgroundColor: config.bg }}
+    >
+      <span aria-hidden="true">{config.emoji}</span>
+      <span>{config.label}</span>
+    </span>
+  );
+}
+
 function TabBar({
   tab,
   onChange,
@@ -510,7 +616,7 @@ function TabBar({
         <TabItem
           active={tab === 'unknown'}
           onClick={() => onChange('unknown')}
-          label="모르는 단어"
+          label="다시 학습"
           badge={unknownCount}
         />
         <TabItem

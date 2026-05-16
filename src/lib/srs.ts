@@ -167,3 +167,30 @@ export function isMastered(store: SrsStore, word: string): boolean {
   if (!item) return false;
   return item.level >= MAX_LEVEL;
 }
+
+/** 새 단어(평가 이력 없음)인지 — review deck에서 새 단어를 앞에 정렬할 때 사용. */
+export function isNew(store: SrsStore, word: string): boolean {
+  return getItem(store, word) === null;
+}
+
+export type CardState = 'new' | 'relearning' | 'learning' | 'mastered';
+
+/** 카드 상태 분류 — UI 칩 표시용. */
+export function cardState(store: SrsStore, word: string): CardState {
+  const item = getItem(store, word);
+  if (!item) return 'new';
+  if (item.level >= MAX_LEVEL) return 'mastered';
+  if (item.level === 0) return 'relearning';
+  return 'learning';
+}
+
+/** 오늘(로컬 자정 이후) 평가한 단어 수 — 일일 목표 진행률 표시용. */
+export function gradedTodayCount(store: SrsStore): number {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const startMs = start.getTime();
+  return Object.values(store).filter((it) => it.lastGradedAt >= startMs).length;
+}
+
+/** 일일 학습 목표 — iOS와 동일한 20. */
+export const DAILY_GOAL = 20;

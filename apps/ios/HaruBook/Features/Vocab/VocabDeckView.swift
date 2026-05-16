@@ -53,20 +53,31 @@ struct VocabDeckView: View {
     private var content: some View {
         VStack(spacing: 16) {
             pageHeader
+            // review 탭에서만 오늘 학습한 단어 / 일일 목표 진행률을 노출. 다른 탭에서는 자리 차지 X.
+            if viewModel.tab == .review {
+                dailyGoalBar
+            }
             tabBar
 
             let deck = viewModel.deck
             if deck.isEmpty {
                 Spacer()
-                emptyTab
+                if viewModel.isSessionComplete {
+                    sessionCompleteCard
+                } else {
+                    emptyTab
+                }
                 Spacer()
             } else {
                 progressBar(current: viewModel.index, total: deck.count)
                     .padding(.horizontal, 4)
 
                 if let entry = viewModel.current {
+                    let level = viewModel.srs.item(for: entry.word)?.level ?? 0
                     VocabCardView(
                         entry: entry,
+                        cardState: viewModel.srs.cardState(for: entry.word),
+                        level: level,
                         isFlipped: viewModel.isFlipped,
                         isSpeaking: viewModel.isSpeaking,
                         onSpeak: { Task { await viewModel.speak(entry.word) } },
@@ -86,6 +97,71 @@ struct VocabDeckView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
+    }
+
+    /// 일일 학습 목표 진행률 — "오늘 X / 20" + ProgressView. 명확한 KPI로 학습 동기 부여.
+    private var dailyGoalBar: some View {
+        let done = viewModel.gradedTodayCount
+        let goal = VocabViewModel.dailyGoal
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "target")
+                    .font(.system(size: 11, weight: .bold))
+                Text("오늘 \(done) / \(goal) 단어")
+                    .font(Font.atozBold(13))
+            }
+            .foregroundStyle(Color.smapPrimary)
+
+            ProgressView(value: viewModel.dailyGoalProgress)
+                .tint(Color.smapPrimary)
+                .scaleEffect(x: 1, y: 1.4, anchor: .center)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    /// 세션 완료 축하 카드 — review 탭 deck이 비고 오늘 한 단어 이상 평가했을 때.
+    /// 학습한 단어 수 + 다음 학습 가능 안내. Duolingo / Anki 패턴.
+    private var sessionCompleteCard: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(Color.smapPrimarySoft)
+                    .frame(width: 96, height: 96)
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 48, weight: .bold))
+                    .foregroundStyle(Color.smapPrimary)
+            }
+
+            VStack(spacing: 6) {
+                Text("오늘 학습 완료!")
+                    .font(Font.atozBlack(24))
+                    .foregroundStyle(Color.smapText)
+                Text("오늘 \(viewModel.gradedTodayCount)개 단어를 학습했어요")
+                    .font(Font.atozRegular(15))
+                    .foregroundStyle(Color.smapMuted)
+            }
+
+            if viewModel.masteredCount > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("누적 마스터 \(viewModel.masteredCount)개")
+                        .font(Font.atozBold(13))
+                }
+                .foregroundStyle(Color.smapPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.smapPrimarySoft, in: Capsule())
+            }
+
+            Text("다음 복습은 단어마다 정해진 시간에 다시 알려드릴게요.")
+                .font(Font.atozRegular(13))
+                .foregroundStyle(Color.smapMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+                .padding(.top, 4)
+        }
+        .padding(.horizontal, 32)
     }
 
     // MARK: - Tabs

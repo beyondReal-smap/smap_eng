@@ -24,6 +24,14 @@ enum SrsGrade: String, Sendable {
     case good
 }
 
+/// 단어 카드의 학습 상태 — UI 칩 표시용 의미 단위 분류.
+enum VocabCardState: String, Sendable {
+    case new        // 평가 이력 없음 — 처음 만나는 단어
+    case relearning // "몰라요"로 떨어진 단어 (level 0 + 평가 이력)
+    case learning   // 학습 중 (level 1~maxLevel-1)
+    case mastered   // 마스터 (level == maxLevel)
+}
+
 /// 단어 키 정규화 — 대소문자·양끝 공백·구두점 무시. 웹과 동일.
 func srsNormalizeKey(_ word: String) -> String {
     let trimmed = word.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -184,6 +192,31 @@ final class SrsStore {
     func isMastered(_ word: String) -> Bool {
         guard let it = item(for: word) else { return false }
         return it.level >= Self.maxLevel
+    }
+
+    /// 카드 상태 분류 — UI 칩 표시용. new / relearning / learning / mastered.
+    func cardState(for word: String) -> VocabCardState {
+        guard let it = item(for: word) else { return .new }
+        if it.level >= Self.maxLevel { return .mastered }
+        if it.level == 0 { return .relearning }
+        return .learning
+    }
+
+    /// 단어가 처음 만나는 단어(평가 이력 없음)인지. review deck에서 새 단어를 앞에 정렬할 때 사용.
+    func isNew(_ word: String) -> Bool {
+        return item(for: word) == nil
+    }
+
+    /// 오늘(로컬 자정 이후) 평가한 단어 수 — 일일 학습 목표 진행률 표시용.
+    func gradedTodayCount() -> Int {
+        let startOfTodayMs = Self.startOfTodayMs()
+        return items.values.filter { $0.lastGradedAtMs >= startOfTodayMs }.count
+    }
+
+    private static func startOfTodayMs() -> Double {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: Date())
+        return start.timeIntervalSince1970 * 1000
     }
 }
 

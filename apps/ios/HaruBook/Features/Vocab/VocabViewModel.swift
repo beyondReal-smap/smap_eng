@@ -19,11 +19,15 @@ final class VocabViewModel {
         var label: String {
             switch self {
             case .review: return "오늘 학습"
-            case .unknown: return "모르는 단어"
+            // "몰라요" 누른 단어 = relearning. "모르는 단어"는 평가 이력 없는 새 단어와 혼동돼 의미 명확화.
+            case .unknown: return "다시 학습"
             case .all: return "전체"
             }
         }
     }
+
+    /// 일일 학습 목표. 한 세션의 review deck 상한과 동일.
+    static let dailyGoal: Int = 20
 
     private(set) var entries: [VocabEntry] = []
     private(set) var srs: SrsStore
@@ -84,8 +88,8 @@ final class VocabViewModel {
     /// "오늘 학습" 세션의 최대 단어 수. 웹과 동일.
     static let reviewDeckLimit: Int = 20
 
-    /// "전체"/"오늘 학습" deck 모두 마스터된 단어는 제외 — 학습이 끝난 단어는 카운트에서 차감되어
-    /// 진행감을 준다. 마스터 수는 별도 `masteredCount`로 표시.
+    /// 마스터 제외 + tab별 deck.
+    /// "오늘 학습"은 새 단어를 먼저, 그 다음 복습 도래 단어를 배치 — 학습 곡선을 자연스럽게.
     var deck: [VocabEntry] {
         switch tab {
         case .all:
@@ -93,11 +97,12 @@ final class VocabViewModel {
         case .unknown:
             return entries.filter { srs.isUnknown($0.word) }
         case .review:
-            return Array(
-                entries
-                    .filter { srs.isDue($0.word) && !srs.isMastered($0.word) }
-                    .prefix(Self.reviewDeckLimit),
-            )
+            let candidates = entries.filter { srs.isDue($0.word) && !srs.isMastered($0.word) }
+            // 새 단어 우선, 동일 카테고리 내에서는 원본 순서 유지(stable).
+            let sorted = candidates.sorted { a, b in
+                srs.isNew(a.word) && !srs.isNew(b.word)
+            }
+            return Array(sorted.prefix(Self.reviewDeckLimit))
         }
     }
 
@@ -117,6 +122,20 @@ final class VocabViewModel {
     var remainingCount: Int { entries.filter { !srs.isMastered($0.word) }.count }
     /// 마스터한 단어 수 — 학습 진도 표시용.
     var masteredCount: Int { entries.filter { srs.isMastered($0.word) }.count }
+
+    /// 오늘(로컬 자정 이후) 평가한 단어 수. 일일 목표 진행률 표시용.
+    var gradedTodayCount: Int { srs.gradedTodayCount() }
+
+    /// 일일 목표 진행률 (0.0 ~ 1.0). UI에서 ProgressView로 표시.
+    var dailyGoalProgress: Double {
+        min(1.0, Double(gradedTodayCount) / Double(Self.dailyGoal))
+    }
+
+    /// "오늘 학습" 세션 종료 여부 — review 탭에서 due 단어가 없고 오늘 한 단어라도 평가했을 때.
+    /// 진입 직후 0/0이면 아직 시작 안 한 상태로 보고 false.
+    var isSessionComplete: Bool {
+        tab == .review && deck.isEmpty && gradedTodayCount > 0
+    }
 
     // MARK: - Navigation
 
