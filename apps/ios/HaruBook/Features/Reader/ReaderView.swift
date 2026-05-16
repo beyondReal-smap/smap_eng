@@ -80,21 +80,11 @@ struct ReaderView: View {
         ) {
             ForEach(Array(viewModel.passages.enumerated()), id: \.offset) { index, passage in
                 let isPlaying = audio.nowPlayingPassageId == passage.id
-                let isPreparing = audio.preparingPassageId == passage.id
-                    || viewModel.synthesizingPassageId == passage.id
-                let isGeneratingScene = viewModel.generatingScenePassageId == passage.id
                 PassageView(
                     passage: passage,
+                    vocabulary: viewModel.book.vocabulary ?? [],
                     showsKorean: viewModel.showsKorean,
                     isPlaying: isPlaying,
-                    isPreparing: isPreparing,
-                    isGeneratingScene: isGeneratingScene,
-                    onTogglePlayback: {
-                        Task { await viewModel.togglePlayback(for: index) }
-                    },
-                    onRequestScene: {
-                        Task { await viewModel.requestSceneImage(for: index) }
-                    }
                 )
                 .tag(index)
             }
@@ -103,79 +93,136 @@ struct ReaderView: View {
         .indexViewStyle(.page(backgroundDisplayMode: .never))
     }
 
+    /// 하단 통합 컨트롤바: [← 이전] [▶︎ 듣기] [Aa 한글] [다음 → / 퀴즈]
+    /// 메인 액션(듣기)은 가장 눈에 띄는 primary 캡슐. 보조 토글(한글)은 surface 캡슐.
+    /// 페이지 네비게이션은 원형 보조 버튼으로 좌우 끝에 둔다.
     @ViewBuilder
     private var bottomBar: some View {
         let isLastPage = viewModel.currentIndex + 1 >= viewModel.passages.count
+        let passage = viewModel.passages[viewModel.currentIndex]
+        let isPlaying = audio.nowPlayingPassageId == passage.id
+        let isPreparing = audio.preparingPassageId == passage.id
+            || viewModel.synthesizingPassageId == passage.id
 
-        HStack(spacing: 12) {
-            Button {
-                viewModel.toggleKorean()
-            } label: {
-                Label(
-                    viewModel.showsKorean ? "한글 끄기" : "한글 보기",
-                    systemImage: viewModel.showsKorean ? "character.book.closed.fill" : "character.book.closed"
-                )
-                .font(.smapCaption)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(viewModel.showsKorean ? Color.smapPrimary : Color.smapSurface)
-                .foregroundStyle(viewModel.showsKorean ? .white : Color.smapText)
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule().stroke(Color.smapBorder, lineWidth: viewModel.showsKorean ? 0 : 1)
-                )
-            }
-            .buttonStyle(.plain)
+        HStack(spacing: 10) {
+            previousButton
 
-            Spacer()
+            listenButton(isPlaying: isPlaying, isPreparing: isPreparing)
+
+            koreanToggle
 
             if isLastPage {
-                NavigationLink(value: QuizDestination(book: viewModel.book, readingLogId: viewModel.readingLogId)) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "questionmark.circle.fill")
-                        Text("퀴즈 풀기").font(.smapBodyEmphasis)
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(Color.smapPrimary, in: Capsule())
-                    .foregroundStyle(.white)
-                }
+                quizButton
             } else {
-                Button {
-                    if viewModel.currentIndex > 0 {
-                        Task { await viewModel.reportPageChanged(to: viewModel.currentIndex - 1) }
-                    }
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.smapHeading)
-                        .padding(12)
-                        .background(Color.smapSurface)
-                        .foregroundStyle(Color.smapText)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .disabled(viewModel.currentIndex == 0)
-
-                Button {
-                    let next = viewModel.currentIndex + 1
-                    if next < viewModel.passages.count {
-                        Task { await viewModel.reportPageChanged(to: next) }
-                    }
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.smapHeading)
-                        .padding(12)
-                        .background(Color.smapPrimary)
-                        .foregroundStyle(.white)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
+                nextButton
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(.ultraThinMaterial)
+    }
+
+    private var previousButton: some View {
+        Button {
+            if viewModel.currentIndex > 0 {
+                Task { await viewModel.reportPageChanged(to: viewModel.currentIndex - 1) }
+            }
+        } label: {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .background(Color.smapSurface)
+                .foregroundStyle(viewModel.currentIndex == 0 ? Color.smapMuted : Color.smapText)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(viewModel.currentIndex == 0)
+        .accessibilityLabel("이전 문장")
+    }
+
+    private var nextButton: some View {
+        Button {
+            let next = viewModel.currentIndex + 1
+            if next < viewModel.passages.count {
+                Task { await viewModel.reportPageChanged(to: next) }
+            }
+        } label: {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .background(Color.smapPrimary)
+                .foregroundStyle(.white)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("다음 문장")
+    }
+
+    private func listenButton(isPlaying: Bool, isPreparing: Bool) -> some View {
+        Button {
+            Task { await viewModel.togglePlayback(for: viewModel.currentIndex) }
+        } label: {
+            HStack(spacing: 6) {
+                if isPreparing {
+                    ProgressView().tint(.white).scaleEffect(0.8)
+                } else {
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                Text(isPlaying ? "일시정지" : (isPreparing ? "준비 중" : "듣기"))
+                    .font(Font.atozBold(14))
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .background(Color.smapPrimary)
+            .foregroundStyle(.white)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isPlaying ? "재생 일시정지" : "이 문장 듣기")
+    }
+
+    private var koreanToggle: some View {
+        Button {
+            viewModel.toggleKorean()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: viewModel.showsKorean ? "character.book.closed.fill" : "character.book.closed")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("한글")
+                    .font(Font.atozBold(14))
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 44)
+            .background(viewModel.showsKorean ? Color.smapPrimarySoft : Color.smapSurface)
+            .foregroundStyle(viewModel.showsKorean ? Color.smapPrimary : Color.smapText)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule().stroke(
+                    viewModel.showsKorean ? Color.smapPrimary.opacity(0.4) : Color.smapBorder,
+                    lineWidth: 1,
+                ),
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(viewModel.showsKorean ? "한글 번역 끄기" : "한글 번역 보기")
+    }
+
+    private var quizButton: some View {
+        NavigationLink(value: QuizDestination(book: viewModel.book, readingLogId: viewModel.readingLogId)) {
+            HStack(spacing: 6) {
+                Image(systemName: "questionmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("퀴즈")
+                    .font(Font.atozBold(14))
+            }
+            .padding(.horizontal, 14)
+            .frame(height: 44)
+            .background(Color.smapPrimary, in: Capsule())
+            .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
     }
 }
 

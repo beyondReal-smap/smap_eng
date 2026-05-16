@@ -19,6 +19,13 @@ enum CefrLevel: String, Codable, CaseIterable, Hashable, Sendable, Identifiable 
     }
 }
 
+/// 책 본문에서 학습자가 알아두면 좋은 핵심 단어. LLM이 생성 시 함께 채운다.
+/// Reader에서 본문 텍스트를 토큰화해 매칭되는 단어를 클릭 가능한 popover로 감싼다.
+struct VocabularyEntry: Codable, Hashable, Sendable {
+    let word: String
+    let meaning: String
+}
+
 struct Book: Codable, Identifiable, Hashable, Sendable {
     let id: Int
     let profileId: Int
@@ -27,6 +34,8 @@ struct Book: Codable, Identifiable, Hashable, Sendable {
     let cefr: CefrLevel
     let topic: String?
     let coverImagePath: String?
+    /// nil/빈 배열이면 Reader는 모든 단어를 plain text로 렌더링.
+    let vocabulary: [VocabularyEntry]?
     let flaggedAt: Date?
     let createdAt: Date?
 
