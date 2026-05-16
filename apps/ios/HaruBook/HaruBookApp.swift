@@ -10,6 +10,33 @@ struct HaruBookApp: App {
     // RootView가 관찰하는 environment 인스턴스는 갱신되지 않아 LoginView로 복귀 못 함.
     @State private var authState = AuthState.shared
 
+    init() {
+        // NavigationBar 타이틀(SwiftUI Text가 아니라 UIKit NavigationBar)의 폰트도 A2Z로.
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor = .clear
+        let charcoal = UIColor(red: 0x34/255, green: 0x34/255, blue: 0x33/255, alpha: 1)
+        if let inlineFont = UIFont(name: "A2Z-Bold", size: 17) {
+            appearance.titleTextAttributes = [.font: inlineFont, .foregroundColor: charcoal]
+        }
+        if let largeFont = UIFont(name: "A2Z-Black", size: 28) {
+            appearance.largeTitleTextAttributes = [.font: largeFont, .foregroundColor: charcoal]
+        }
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        UINavigationBar.appearance().compactAppearance = appearance
+
+        // TabBar 라벨도 동일.
+        let tabAppearance = UITabBarAppearance()
+        tabAppearance.configureWithDefaultBackground()
+        if let tabFont = UIFont(name: "A2Z-Bold", size: 10) {
+            tabAppearance.stackedLayoutAppearance.normal.titleTextAttributes = [.font: tabFont]
+            tabAppearance.stackedLayoutAppearance.selected.titleTextAttributes = [.font: tabFont]
+        }
+        UITabBar.appearance().standardAppearance = tabAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

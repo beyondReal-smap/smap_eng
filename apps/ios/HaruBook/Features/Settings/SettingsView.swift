@@ -24,6 +24,9 @@ struct SettingsView: View {
             appInfoSection
             dangerSection
         }
+        // List 안의 모든 Text/Label이 동일한 A2Z 폰트를 기본값으로 쓰게 한다.
+        // 각 row가 Font.smapBody/atozBold 등을 개별 명시하면 그 값이 우선.
+        .environment(\.font, Font.atozRegular(17))
         .task { await pushManager.refreshAuthorizationStatus() }
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
@@ -43,12 +46,13 @@ struct SettingsView: View {
     // MARK: - 계정
 
     private var accountSection: some View {
-        Section("계정") {
+        Section {
             Button {
                 onSwitchProfile()
                 dismiss()
             } label: {
                 Label("프로필 전환", systemImage: "person.crop.circle.badge.questionmark")
+                    .font(Font.atozBold(17))
                     .foregroundStyle(Color.smapText)
             }
 
@@ -61,7 +65,10 @@ struct SettingsView: View {
                 }
             } label: {
                 Label("로그아웃", systemImage: "rectangle.portrait.and.arrow.right")
+                    .font(Font.atozBold(17))
             }
+        } header: {
+            sectionHeader("계정")
         }
     }
 
@@ -75,6 +82,7 @@ struct SettingsView: View {
                     Task { await pushManager.requestAuthorization() }
                 } label: {
                     Label("푸시 알림 받기", systemImage: "bell.badge")
+                        .font(Font.atozBold(17))
                         .foregroundStyle(Color.smapText)
                 }
             case .denied:
@@ -84,15 +92,17 @@ struct SettingsView: View {
                     }
                 } label: {
                     Label("푸시 알림 허용하기", systemImage: "bell.slash")
+                        .font(Font.atozBold(17))
                         .foregroundStyle(Color.smapText)
                 }
             case .authorized, .provisional, .ephemeral:
                 HStack {
                     Label("푸시 알림", systemImage: "bell.fill")
+                        .font(Font.atozBold(17))
                         .foregroundStyle(Color.smapText)
                     Spacer()
                     Text("켜짐")
-                        .font(.smapCaption)
+                        .font(Font.atozBold(13))
                         .foregroundStyle(Color.smapPrimary)
                 }
             @unknown default:
@@ -100,7 +110,7 @@ struct SettingsView: View {
             }
         } footer: {
             Text("새 동화가 완성되거나 보호자 리포트가 준비되면 알려드릴게요.")
-                .font(.smapCaption)
+                .font(Font.atozRegular(13))
                 .foregroundStyle(Color.smapMuted)
         }
     }
@@ -113,11 +123,12 @@ struct SettingsView: View {
                 StoreView()
             } label: {
                 Label("별 충전", systemImage: "sparkles")
+                    .font(Font.atozBold(17))
                     .foregroundStyle(Color.smapText)
             }
         } footer: {
             Text("결제는 Apple App Store를 통해 안전하게 처리됩니다.")
-                .font(.smapCaption)
+                .font(Font.atozRegular(13))
                 .foregroundStyle(Color.smapMuted)
         }
     }
@@ -130,11 +141,12 @@ struct SettingsView: View {
                 ParentalPinGateView()
             } label: {
                 Label("보호자 모드 · 주간 리포트", systemImage: "person.2.fill")
+                    .font(Font.atozBold(17))
                     .foregroundStyle(Color.smapText)
             }
         } footer: {
             Text("PIN으로 잠긴 보호자 전용 영역입니다. 30분 후 자동 잠금됩니다.")
-                .font(.smapCaption)
+                .font(Font.atozRegular(13))
                 .foregroundStyle(Color.smapMuted)
         }
     }
@@ -142,22 +154,25 @@ struct SettingsView: View {
     // MARK: - 법적 정보
 
     private var legalSection: some View {
-        Section("법적 정보") {
+        Section {
             ForEach(LegalDocument.allCases) { doc in
                 NavigationLink {
                     LegalDocumentView(document: doc)
                 } label: {
                     Text(doc.title)
+                        .font(Font.atozBold(17))
                         .foregroundStyle(Color.smapText)
                 }
             }
+        } header: {
+            sectionHeader("법적 정보")
         }
     }
 
     // MARK: - 앱 정보
 
     private var appInfoSection: some View {
-        Section("앱 정보") {
+        Section {
             row(title: "서비스", value: BusinessInfo.serviceName)
             row(title: "운영자", value: BusinessInfo.companyName)
             row(title: "버전", value: appVersion)
@@ -165,6 +180,8 @@ struct SettingsView: View {
                 row(title: "고객 문의", value: BusinessInfo.email)
             }
             .buttonStyle(.plain)
+        } header: {
+            sectionHeader("앱 정보")
         }
     }
 
@@ -176,22 +193,32 @@ struct SettingsView: View {
                 showDeleteSheet = true
             } label: {
                 Label("계정 삭제", systemImage: "trash")
+                    .font(Font.atozBold(17))
             }
         } footer: {
             Text("계정을 삭제하면 모든 책·학습 기록·결제 이력이 영구적으로 사라지며 복구할 수 없습니다.")
-                .font(.smapCaption)
+                .font(Font.atozRegular(13))
                 .foregroundStyle(Color.smapMuted)
         }
     }
 
     // MARK: - Helpers
 
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(Font.atozBold(13))
+            .foregroundStyle(Color.smapMuted)
+            .textCase(nil) // SwiftUI 기본 uppercased 비활성
+    }
+
     private func row(title: String, value: String) -> some View {
         HStack {
             Text(title)
+                .font(Font.atozBold(17))
                 .foregroundStyle(Color.smapText)
             Spacer()
             Text(value)
+                .font(Font.atozRegular(17))
                 .foregroundStyle(Color.smapMuted)
                 .multilineTextAlignment(.trailing)
         }
