@@ -1,0 +1,80 @@
+{
+  "identifier" : "C2A1F1C0-0001-4F1A-9A1B-HARUBOOK001",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "1.49",
+      "familyShareable" : false,
+      "internalID" : "HB-STAR-SMALL",
+      "localizations" : [
+        {
+          "description" : "별 10개 — 새 동화 10권 분량",
+          "displayName" : "별 10개",
+          "locale" : "ko_KR"
+        },
+        {
+          "description" : "10 stars — enough for 10 stories",
+          "displayName" : "10 Stars",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "site.smap.harubook.star_small",
+      "referenceName" : "Star Pack Small",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "5.99",
+      "familyShareable" : false,
+      "internalID" : "HB-STAR-MEDIUM",
+      "localizations" : [
+        {
+          "description" : "별 60개 — 가장 인기 있는 묶음",
+          "displayName" : "별 60개",
+          "locale" : "ko_KR"
+        },
+        {
+          "description" : "60 stars — our most popular pack",
+          "displayName" : "60 Stars",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "site.smap.harubook.star_medium",
+      "referenceName" : "Star Pack Medium",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "HB-STAR-LARGE",
+      "localizations" : [
+        {
+          "description" : "별 130개 — 한 학기 학습 분량",
+          "displayName" : "별 130개",
+          "locale" : "ko_KR"
+        },
+        {
+          "description" : "130 stars — a full semester of stories",
+          "displayName" : "130 Stars",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "site.smap.harubook.star_large",
+      "referenceName" : "Star Pack Large",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "site.smap.harubook.ios",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "ko_KR",
+    "_storefront" : "KOR",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

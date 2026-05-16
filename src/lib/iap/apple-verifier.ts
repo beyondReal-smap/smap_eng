@@ -155,15 +155,11 @@ function verifyChain(chain: X509Certificate[], now: Date): X509Certificate {
 }
 
 /**
- * Apple StoreKit 2 JWS transaction 토큰을 검증하고 payload 반환.
- *
- * @param jws — `Transaction.jwsRepresentation` 문자열
- * @param expectedBundleId — 우리 앱 번들 ID (`site.smap.harubook.ios`)
+ * Apple JWS(ES256, x5c chain) 토큰의 인증서 체인 + 서명을 검증하고 payload만 반환.
+ * Transaction JWS와 Server Notification JWS 둘 다 같은 ES256+x5c 포맷이라 공통 로직으로 분리.
+ * Domain 검증(bundleId / productId / revocation 등)은 호출자가 payload를 받아 직접 수행.
  */
-export async function verifyAppleTransactionJws(
-  jws: string,
-  expectedBundleId: string,
-): Promise<JwsTransactionPayload> {
+export async function verifyAppleSignedJws<T>(jws: string): Promise<T> {
   const parts = jws.split('.');
   if (parts.length !== 3) {
     throw new AppleIapError('invalid_jws', 'expected 3 parts');
@@ -171,7 +167,7 @@ export async function verifyAppleTransactionJws(
   const [headerB64, payloadB64, signatureB64] = parts;
 
   let header: { alg: string; x5c?: string[] };
-  let payload: JwsTransactionPayload;
+  let payload: T;
   try {
     header = JSON.parse(base64UrlToBuffer(headerB64).toString('utf8'));
     payload = JSON.parse(base64UrlToBuffer(payloadB64).toString('utf8'));
@@ -190,7 +186,6 @@ export async function verifyAppleTransactionJws(
   const chain = header.x5c.map((b64) => certFromDer(derFromX5cEntry(b64)));
   const leaf = verifyChain(chain, now);
 
-  // 서명 검증 — header.payload를 ASCII로 SHA-256 후 ES256 → DER ECDSA로 변환.
   const signedBytes = Buffer.from(`${headerB64}.${payloadB64}`, 'ascii');
   const sigRaw = base64UrlToBuffer(signatureB64);
   const sigDer = jwsEcdsaSigToDer(sigRaw);
@@ -203,7 +198,22 @@ export async function verifyAppleTransactionJws(
     throw new AppleIapError('payload_signature_invalid');
   }
 
-  // payload 검증.
+  return payload;
+}
+
+/**
+ * Apple StoreKit 2 JWS transaction 토큰을 검증하고 payload 반환.
+ * 신규 구매(verify) 경로 — revoked 거래는 차단한다.
+ *
+ * @param jws — `Transaction.jwsRepresentation` 문자열
+ * @param expectedBundleId — 우리 앱 번들 ID (`site.smap.harubook.ios`)
+ */
+export async function verifyAppleTransactionJws(
+  jws: string,
+  expectedBundleId: string,
+): Promise<JwsTransactionPayload> {
+  const payload = await verifyAppleSignedJws<JwsTransactionPayload>(jws);
+
   if (payload.bundleId !== expectedBundleId) {
     throw new AppleIapError('invalid_bundle_id', payload.bundleId);
   }
@@ -214,9 +224,26 @@ export async function verifyAppleTransactionJws(
     throw new AppleIapError('missing_payload_fields');
   }
   if (payload.revocationDate) {
-    // 환불된 거래 — INSERT 전에 호출자가 차단해야 함.
     throw new AppleIapError('revoked_transaction', `${payload.revocationDate}`);
   }
 
+  return payload;
+}
+
+/**
+ * 서버 알림 안에 포함된 transaction info를 검증한다. REFUND notification은 정의상
+ * revocationDate가 있어 `verifyAppleTransactionJws`로는 통과하지 않으므로 별도 변형.
+ */
+export async function verifyNotificationTransactionInfo(
+  jws: string,
+  expectedBundleId: string,
+): Promise<JwsTransactionPayload> {
+  const payload = await verifyAppleSignedJws<JwsTransactionPayload>(jws);
+  if (payload.bundleId !== expectedBundleId) {
+    throw new AppleIapError('invalid_bundle_id', payload.bundleId);
+  }
+  if (!payload.transactionId || !payload.productId) {
+    throw new AppleIapError('missing_payload_fields');
+  }
   return payload;
 }
