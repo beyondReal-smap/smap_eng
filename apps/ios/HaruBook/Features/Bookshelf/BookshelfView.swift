@@ -29,16 +29,20 @@ struct BookshelfView: View {
                         Button {
                             onSwitchProfile()
                         } label: {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(Color.smapText)
-                                .frame(width: 44, height: 44)
-                                .background(Color.smapSurface)
-                                .clipShape(Circle())
-                                .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
+                            HStack(spacing: 6) {
+                                Image(systemName: "person.2.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text("프로필 전환")
+                                    .font(Font.atozBold(14))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .background(Color.smapSurface)
+                            .foregroundStyle(Color.smapText)
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("프로필 전환")
                     }
 
                     // 2행: 새 동화 만들기(주요 CTA, full-width) + 별 잔액 카드(우측)

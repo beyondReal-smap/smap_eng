@@ -4,25 +4,39 @@ import SwiftUI
 ///  - 프로필 미선택: ProfilePickerView (탭바 없음, 풀스크린)
 ///  - 프로필 선택됨: MainTabView (4탭)
 ///
-/// 라우팅 깊이가 깊은 책장 흐름(Reader/Quiz/CreateBook)은 MainTabView의 책장 탭 NavigationStack이
-/// 단독으로 관리한다 — 탭 전환과 페이지 이동을 분리해 사용자 경험을 단순화.
+/// 책장에서 "프로필 전환" 호출 → `switching = true`로 ProfilePickerView 표시.
+/// 이때 `lastProfileId`는 그대로 보존해 사용자가 뒤로가기 시 같은 책장으로 복귀.
 struct HomeRouter: View {
     @State private var selectedProfileId: Int? = SessionPreferences.shared.lastProfileId
+    @State private var switching: Bool = false
 
     var body: some View {
-        if let profileId = selectedProfileId {
+        if let profileId = selectedProfileId, !switching {
             MainTabView(
                 profileId: profileId,
                 onResetProfile: {
+                    // "프로필 전환" — 책장 유지 + ProfilePickerView 띄움. lastProfileId는 보존.
+                    switching = true
+                },
+                onSignOut: {
                     selectedProfileId = nil
+                    switching = false
                     SessionPreferences.shared.lastProfileId = nil
                 },
             )
         } else {
-            ProfilePickerView { profile in
-                selectedProfileId = profile.id
-                SessionPreferences.shared.lastProfileId = profile.id
-            }
+            // switching=true 면 이전 책장으로 복귀 가능. lastProfileId가 없으면(첫 로그인)
+            // 백 버튼 자체가 생기지 않는다.
+            ProfilePickerView(
+                onSelect: { profile in
+                    selectedProfileId = profile.id
+                    SessionPreferences.shared.lastProfileId = profile.id
+                    switching = false
+                },
+                onCancel: switching && selectedProfileId != nil
+                    ? { switching = false }
+                    : nil,
+            )
         }
     }
 }

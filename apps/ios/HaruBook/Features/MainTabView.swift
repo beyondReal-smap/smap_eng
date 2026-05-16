@@ -7,7 +7,10 @@ import SwiftUI
 /// 하단 탭바는 SwiftUI `Label` 기반 자체 구현 — 글꼴/색을 디자인 시스템과 일치.
 struct MainTabView: View {
     let profileId: Int
+    /// 책장/설정 어디서든 "프로필 전환" → HomeRouter가 ProfilePickerView 표시.
     var onResetProfile: () -> Void
+    /// 설정의 "로그아웃" — 토큰 삭제 + lastProfileId 제거 + LoginView 복귀.
+    var onSignOut: () -> Void
 
     @State private var selectedTab: Tab = .bookshelf
     @State private var bookshelfPath = NavigationPath()
@@ -137,7 +140,7 @@ struct MainTabView: View {
         NavigationStack {
             SettingsView(
                 onSwitchProfile: { onResetProfile() },
-                onSignOut: { onResetProfile() },
+                onSignOut: { onSignOut() },
             )
             .safeAreaInset(edge: .bottom) { tabBarInsetSpacer }
         }

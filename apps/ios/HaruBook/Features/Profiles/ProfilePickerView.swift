@@ -6,22 +6,44 @@ struct ProfilePickerView: View {
     @State private var isCreating: Bool = false
     @State private var showOnboarding: Bool = false
     let onSelect: (Profile) -> Void
+    /// 책장에서 "프로필 전환"을 통해 들어왔을 때 이전 프로필로 복귀하기 위한 콜백.
+    /// 첫 로그인(돌아갈 프로필 없음) 흐름에서는 nil.
+    var onCancel: (() -> Void)?
 
     var body: some View {
         ZStack {
             Color.smapBackground.ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("우리 가족")
-                        .font(.smapDisplay)
-                        .foregroundStyle(Color.smapText)
-                    Text("오늘은 누가 책을 읽을까요?")
-                        .font(.smapBody)
-                        .foregroundStyle(Color.smapMuted)
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(alignment: .center, spacing: 12) {
+                    if let onCancel {
+                        Button {
+                            onCancel()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(Color.smapText)
+                                .frame(width: 44, height: 44)
+                                .background(Color.smapSurface)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("뒤로")
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("우리 가족")
+                            .font(Font.atozBlack(34))
+                            .foregroundStyle(Color.smapText)
+                        Text("오늘은 누가 책을 읽을까요?")
+                            .font(Font.atozRegular(15))
+                            .foregroundStyle(Color.smapMuted)
+                    }
+                    Spacer()
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
 
                 if viewModel.isLoading && viewModel.profiles.isEmpty {
                     Spacer()
@@ -58,7 +80,7 @@ struct ProfilePickerView: View {
                             }
                             .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, 20)
                         .padding(.bottom, 32)
                     }
                 }
