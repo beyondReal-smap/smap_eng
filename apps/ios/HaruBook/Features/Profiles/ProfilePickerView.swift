@@ -70,12 +70,37 @@ struct ProfilePickerView: View {
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
                             ForEach(viewModel.profiles) { profile in
-                                Button {
-                                    onSelect(profile)
-                                } label: {
-                                    ProfileCard(profile: profile)
+                                ZStack(alignment: .topTrailing) {
+                                    // 카드 본체 — 탭 시 프로필 선택.
+                                    Button {
+                                        onSelect(profile)
+                                    } label: {
+                                        ProfileCard(profile: profile)
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    // 우상단 ⋯ Menu — 한 번 탭으로 삭제 진입. contextMenu(long-press) 외에
+                                    // 항상 보이는 명확한 진입점.
+                                    Menu {
+                                        Button(role: .destructive) {
+                                            profileToDelete = profile
+                                        } label: {
+                                            Label("삭제", systemImage: "trash")
+                                        }
+                                    } label: {
+                                        Image(systemName: "ellipsis")
+                                            .font(.system(size: 13, weight: .bold))
+                                            .frame(width: 30, height: 30)
+                                            .foregroundStyle(Color.smapMuted)
+                                            .background(Color.smapSurface)
+                                            .clipShape(Circle())
+                                            .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
+                                    }
+                                    .padding(.top, 10)
+                                    .padding(.trailing, 10)
+                                    .accessibilityLabel("\(profile.name) 옵션")
                                 }
-                                .buttonStyle(.plain)
+                                // 길게 누르기로도 진입 가능 — 기존 동작 유지.
                                 .contextMenu {
                                     Button(role: .destructive) {
                                         profileToDelete = profile
