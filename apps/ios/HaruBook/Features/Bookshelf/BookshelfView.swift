@@ -2,10 +2,14 @@ import SwiftUI
 
 struct BookshelfView: View {
     @State private var viewModel: BookshelfViewModel
+    /// 현재 선택된 프로필 — 헤더 타이틀/우상단 프로필 칩에 이름·아바타 표시용.
+    /// nil인 첫 진입 순간엔 폴백("책장")으로 표시.
+    let currentProfile: Profile?
     let onSwitchProfile: () -> Void
 
-    init(profileId: Int, onSwitchProfile: @escaping () -> Void) {
+    init(profileId: Int, currentProfile: Profile?, onSwitchProfile: @escaping () -> Void) {
         _viewModel = State(initialValue: BookshelfViewModel(profileId: profileId))
+        self.currentProfile = currentProfile
         self.onSwitchProfile = onSwitchProfile
     }
 
@@ -59,7 +63,7 @@ struct BookshelfView: View {
     private var headerRow: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("책장")
+                Text(titleText)
                     .font(Font.atozBlack(34))
                     .foregroundStyle(Color.smapText)
                 Text("읽고 싶은 책을 골라봐요")
@@ -67,16 +71,31 @@ struct BookshelfView: View {
                     .foregroundStyle(Color.smapMuted)
             }
             Spacer()
+            // 우상단 캡슐 — 현재 프로필 아바타 + 이름 표시, 탭하면 전환. 탭 가능 단서로 화살표 아이콘 동봉.
             Button {
                 onSwitchProfile()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("프로필 전환")
-                        .font(Font.atozBold(14))
+                    if let avatar = currentProfile?.avatar, !avatar.isEmpty {
+                        Text(avatar)
+                            .font(.system(size: 16))
+                    } else {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    if let name = currentProfile?.name, !name.isEmpty {
+                        Text(name)
+                            .font(Font.atozBold(14))
+                            .lineLimit(1)
+                    } else {
+                        Text("프로필 전환")
+                            .font(Font.atozBold(14))
+                    }
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.smapMuted)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .background(Color.smapSurface)
                 .foregroundStyle(Color.smapText)
@@ -84,7 +103,16 @@ struct BookshelfView: View {
                 .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("프로필 전환")
         }
+    }
+
+    /// 헤더 타이틀 — "지우의 책장" 식으로 자녀 이름 결합. 이름 모르면 폴백 "책장".
+    private var titleText: String {
+        if let name = currentProfile?.name, !name.isEmpty {
+            return "\(name)의 책장"
+        }
+        return "책장"
     }
 
     /// 새 동화 만들기 + 별 잔액 — 옆의 CreditBadge / 위쪽 헤더의 "프로필 전환"이 모두 Capsule이라 통일.

@@ -24,6 +24,9 @@ struct HomeRouter: View {
             if let profileId = selectedProfileId, !switching {
                 MainTabView(
                     profileId: profileId,
+                    // 현재 선택된 프로필 객체를 매칭해 전달. profileViewModel.profiles가 아직 비어 있는
+                    // 첫 진입 순간에는 nil — UI는 폴백 텍스트로 처리한다.
+                    currentProfile: profileViewModel.profiles.first(where: { $0.id == profileId }),
                     onResetProfile: {
                         // "프로필 전환" — 책장 유지 + ProfilePickerView 띄움. lastProfileId는 보존.
                         withAnimation(.easeInOut(duration: 0.32)) {
