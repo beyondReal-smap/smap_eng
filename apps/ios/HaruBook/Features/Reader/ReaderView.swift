@@ -175,6 +175,7 @@ struct ReaderView: View {
         let isDisabled = viewModel.currentIndex == 0
         return Button {
             if !isDisabled {
+                Haptic.play(.lightTap)
                 Task { await viewModel.reportPageChanged(to: viewModel.currentIndex - 1) }
             }
         } label: {
@@ -200,6 +201,7 @@ struct ReaderView: View {
         Button {
             let next = viewModel.currentIndex + 1
             if next < viewModel.passages.count {
+                Haptic.play(.lightTap)
                 Task { await viewModel.reportPageChanged(to: next) }
             }
         } label: {

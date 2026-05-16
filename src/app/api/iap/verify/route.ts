@@ -14,6 +14,7 @@ import {
   isKnownIapProduct,
   starsForIapProduct,
 } from '@/lib/iap/products';
+import { sendPushToUser } from '@/lib/push/send';
 
 export const runtime = 'nodejs';
 
@@ -111,6 +112,18 @@ export async function POST(req: NextRequest) {
 
     try {
       const result = await grantCredits(userId, stars);
+
+      // 결제 완료 푸시 — fire-and-forget. 푸시 실패가 클라이언트 응답을 막지 않게.
+      // (앱이 포그라운드일 가능성이 크지만, 다른 가족 디바이스에서도 잔액 변동을 안내.)
+      void sendPushToUser(userId, {
+        title: '별 충전이 완료됐어요',
+        body: `별 ${stars}개가 추가됐어요. 동화를 만들어 보세요.`,
+        sound: 'default',
+        custom: { kind: 'iap_purchase', stars, productId: payload.productId },
+      }).catch((err) => {
+        console.warn('[iap-verify] push failed', err);
+      });
+
       return NextResponse.json({
         granted: true,
         balance: result.balance,

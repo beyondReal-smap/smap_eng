@@ -257,9 +257,12 @@ struct VocabDeckView: View {
     private var gradeButtons: some View {
         HStack(spacing: 12) {
             PrimaryButton(title: "몰라요", variant: .outline) {
+                Haptic.play(.warning)
                 viewModel.grade(.again)
             }
             PrimaryButton(title: "알아요", variant: .filled) {
+                // 마스터 도달 시점은 더 강한 success로 별도 처리하면 좋지만, 일단 모든 good은 success.
+                Haptic.play(.success)
                 viewModel.grade(.good)
             }
         }
@@ -268,9 +271,11 @@ struct VocabDeckView: View {
     private var navButtons: some View {
         HStack(spacing: 12) {
             PrimaryButton(title: "이전", variant: .outline) {
+                Haptic.play(.lightTap)
                 viewModel.go(-1)
             }
             PrimaryButton(title: "다음", variant: .filled) {
+                Haptic.play(.lightTap)
                 viewModel.go(1)
             }
         }

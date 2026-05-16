@@ -65,7 +65,13 @@ struct QuizView: View {
                         questionNumber: viewModel.currentIndex + 1,
                         total: viewModel.totalQuestions,
                         selection: viewModel.selections[quiz.id],
-                        onSelect: { idx in viewModel.selectAnswer(idx) }
+                        onSelect: { idx in
+                            // 선택 즉시 정/오답 햅틱. quiz.answerIndex와 비교 — 처음 선택만(이미 같은 답이면 무음).
+                            if viewModel.selections[quiz.id] != idx {
+                                Haptic.play(idx == quiz.answerIndex ? .success : .error)
+                            }
+                            viewModel.selectAnswer(idx)
+                        },
                     )
                     .padding(.horizontal, 20)
                     .padding(.vertical, 8)

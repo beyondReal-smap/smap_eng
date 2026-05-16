@@ -114,12 +114,14 @@ final class StoreViewModel {
             )
             if response.granted, let stars = response.stars {
                 lastGrantedStars = stars
+                Haptic.play(.success)
             }
             // 멱등 응답(granted=false)도 finish — 이미 처리된 거래라 큐에서 제거 OK.
             await transaction?.finish()
         } catch {
             // 서버 검증 실패 → finish 하지 않는다. StoreKit이 다음 앱 시작 시 다시 전달.
             errorMessage = "결제 확인에 실패했어요. 잠시 후 다시 시도해 주세요."
+            Haptic.play(.error)
         }
     }
 

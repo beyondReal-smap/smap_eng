@@ -40,7 +40,10 @@ struct VocabCardView: View {
                 .padding(.leading, 12)
                 .allowsHitTesting(false)
         }
-        .onTapGesture { onFlip() }
+        .onTapGesture {
+            Haptic.play(.lightTap)
+            onFlip()
+        }
     }
 
     /// 카드 좌상단 학습 상태 칩 — 새/다시 학습/학습 중을 색으로 즉시 구분. 마스터는 deck에서 빠지므로 표시 없음.

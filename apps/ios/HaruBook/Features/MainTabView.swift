@@ -80,6 +80,9 @@ struct MainTabView: View {
     private func tabButton(_ tab: Tab, label: String, icon: String) -> some View {
         let isSelected = selectedTab == tab
         return Button {
+            if !isSelected {
+                Haptic.play(.lightTap)
+            }
             withAnimation(.easeInOut(duration: 0.22)) {
                 selectedTab = tab
             }
