@@ -13,75 +13,38 @@ struct BookshelfView: View {
         ZStack {
             Color.smapBackground.ignoresSafeArea()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    // 1행: 타이틀 + 부제 (좌측) + 둥근 아이콘 액션 2개(우측)
-                    HStack(alignment: .center, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("책장")
-                                .font(Font.atozBlack(34))
-                                .foregroundStyle(Color.smapText)
-                            Text("읽고 싶은 책을 골라봐요")
-                                .font(Font.atozRegular(15))
-                                .foregroundStyle(Color.smapMuted)
-                        }
-                        Spacer()
-                        Button {
-                            onSwitchProfile()
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "person.2.fill")
-                                    .font(.system(size: 13, weight: .semibold))
-                                Text("프로필 전환")
-                                    .font(Font.atozBold(14))
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(Color.smapSurface)
-                            .foregroundStyle(Color.smapText)
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                    }
+            // 헤더/CTA/필터는 상단 고정. 책이 없거나 로딩/에러 상태에서는 ScrollView 없이
+            // Spacer로 emptyState를 레벨필터 ~ 하단 탭바 사이 가운데에 배치.
+            VStack(alignment: .leading, spacing: 18) {
+                headerRow
+                actionsRow
+                LevelFilterView(
+                    selectedCefr: Binding(
+                        get: { viewModel.cefrFilter },
+                        set: { viewModel.cefrFilter = $0 }
+                    ),
+                    onChange: { Task { await viewModel.load() } }
+                )
 
-                    // 2행: 새 동화 만들기(주요 CTA, full-width) + 별 잔액 카드(우측).
-                    // 옆의 CreditBadge / 위쪽 헤더의 "프로필 전환"이 모두 Capsule이므로 같은 캡슐로 통일한다.
-                    HStack(spacing: 10) {
-                        NavigationLink(value: CreateBookDestination(profileId: viewModel.profileId)) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 18, weight: .semibold))
-                                Text("새 동화 만들기")
-                                    .font(Font.atozBold(16))
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 48)
-                            .background(Color.smapPrimary)
-                            .foregroundStyle(Color.smapPrimaryForeground)
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-
-                        NavigationLink(value: StoreDestination()) {
-                            CreditBadge(balance: viewModel.credits?.balance)
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    LevelFilterView(
-                        selectedCefr: Binding(
-                            get: { viewModel.cefrFilter },
-                            set: { viewModel.cefrFilter = $0 }
-                        ),
-                        onChange: { Task { await viewModel.load() } }
-                    )
-
+                if viewModel.books.isEmpty {
+                    Spacer(minLength: 0)
                     content
+                        .frame(maxWidth: .infinity)
+                    Spacer(minLength: 0)
+                } else {
+                    ScrollView {
+                        content
+                            .padding(.bottom, 32)
+                    }
+                    .refreshable {
+                        async let books: Void = viewModel.load()
+                        async let credits: Void = viewModel.fetchCredits()
+                        _ = await (books, credits)
+                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 32)
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
         }
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -89,16 +52,67 @@ struct BookshelfView: View {
             async let credits: Void = viewModel.fetchCredits()
             _ = await (books, credits)
         }
-        .refreshable {
-            async let books: Void = viewModel.load()
-            async let credits: Void = viewModel.fetchCredits()
-            _ = await (books, credits)
+    }
+
+    private var headerRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("책장")
+                    .font(Font.atozBlack(34))
+                    .foregroundStyle(Color.smapText)
+                Text("읽고 싶은 책을 골라봐요")
+                    .font(Font.atozRegular(15))
+                    .foregroundStyle(Color.smapMuted)
+            }
+            Spacer()
+            Button {
+                onSwitchProfile()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("프로필 전환")
+                        .font(Font.atozBold(14))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(Color.smapSurface)
+                .foregroundStyle(Color.smapText)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// 새 동화 만들기 + 별 잔액 — 옆의 CreditBadge / 위쪽 헤더의 "프로필 전환"이 모두 Capsule이라 통일.
+    private var actionsRow: some View {
+        HStack(spacing: 10) {
+            NavigationLink(value: CreateBookDestination(profileId: viewModel.profileId)) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                    Text("새 동화 만들기")
+                        .font(Font.atozBold(16))
+                }
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(Color.smapPrimary)
+                .foregroundStyle(Color.smapPrimaryForeground)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+
+            NavigationLink(value: StoreDestination()) {
+                CreditBadge(balance: viewModel.credits?.balance)
+            }
+            .buttonStyle(.plain)
         }
     }
 
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading && viewModel.books.isEmpty {
+            // Spacer로 가운데 정렬되므로 추가 top padding 불필요.
             VStack(spacing: 16) {
                 ProgressView().tint(Color.smapPrimary)
                 Text("책을 불러오는 중…")
@@ -106,7 +120,6 @@ struct BookshelfView: View {
                     .foregroundStyle(Color.smapMuted)
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 64)
         } else if let error = viewModel.error, viewModel.books.isEmpty {
             VStack(spacing: 16) {
                 Text(error)
@@ -117,7 +130,6 @@ struct BookshelfView: View {
                     Task { await viewModel.load() }
                 }
             }
-            .padding(.top, 48)
         } else if viewModel.books.isEmpty {
             VStack(spacing: 12) {
                 Image(systemName: "books.vertical")
@@ -132,7 +144,6 @@ struct BookshelfView: View {
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 48)
         } else {
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
                 ForEach(viewModel.books) { book in
