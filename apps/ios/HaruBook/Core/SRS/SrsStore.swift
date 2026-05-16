@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// Leitner 스타일 SRS — 웹 `src/lib/srs.ts` 미러.
 ///
@@ -32,19 +33,23 @@ func srsNormalizeKey(_ word: String) -> String {
     }
 }
 
+/// SwiftUI가 `items` 변경(평가 결과 저장)을 추적하도록 `@Observable`. 이전엔 일반 class라
+/// `dueCount` / `unknownCount` 같은 computed 값이 평가 후에도 stale 상태로 남아
+/// "오늘 학습" 배지가 줄지 않는 증상이 있었다.
+@Observable
 @MainActor
 final class SrsStore {
     /// 인터벌(ms): 5분 / 1일 / 3일 / 7일.
-    static let intervalMs: [Double] = [
+    @ObservationIgnored static let intervalMs: [Double] = [
         5 * 60 * 1000,
         24 * 60 * 60 * 1000,
         3 * 24 * 60 * 60 * 1000,
         7 * 24 * 60 * 60 * 1000,
     ]
-    static let maxLevel = 3
+    @ObservationIgnored static let maxLevel = 3
 
-    private let profileId: Int
-    private let defaults: UserDefaults
+    @ObservationIgnored private let profileId: Int
+    @ObservationIgnored private let defaults: UserDefaults
     private var items: [String: SrsItem]
 
     init(profileId: Int, defaults: UserDefaults = .standard) {

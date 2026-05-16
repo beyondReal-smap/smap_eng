@@ -77,6 +77,9 @@ final class VocabViewModel {
 
     // MARK: - Deck composition
 
+    /// "오늘 학습" 세션의 최대 단어 수. 웹과 동일.
+    static let reviewDeckLimit: Int = 20
+
     var deck: [VocabEntry] {
         switch tab {
         case .all:
@@ -84,7 +87,7 @@ final class VocabViewModel {
         case .unknown:
             return entries.filter { srs.isUnknown($0.word) }
         case .review:
-            return Array(entries.filter { srs.isDue($0.word) }.prefix(20))
+            return Array(entries.filter { srs.isDue($0.word) }.prefix(Self.reviewDeckLimit))
         }
     }
 
@@ -94,7 +97,12 @@ final class VocabViewModel {
         return d[index]
     }
 
-    var dueCount: Int { entries.filter { srs.isDue($0.word) }.count }
+    /// "오늘 학습" 탭 배지 카운트. 실제 deck이 `reviewDeckLimit`로 잘리므로 배지도 같은 상한을
+    /// 적용해 카드 진행률(1/N)과 일치하게. 이전엔 배지가 25, 카드는 1/20처럼 어긋나 혼동을 줬다.
+    var dueCount: Int {
+        let raw = entries.filter { srs.isDue($0.word) }.count
+        return Swift.min(raw, Self.reviewDeckLimit)
+    }
     var unknownCount: Int { entries.filter { srs.isUnknown($0.word) }.count }
 
     // MARK: - Navigation
