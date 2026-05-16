@@ -97,24 +97,8 @@ private struct CoverPlaceholder: View {
                 illustration(in: geo.size)
                     .opacity(0.92)
 
-                // 책표지처럼 하단에 큰 제목 — 일러스트 위 흰글씨는 파스텔 그라데이션과 대비가 약해
-                // 가독성이 떨어졌다. 반투명 흰 카드 + 어두운 텍스트로 어떤 일러스트 톤에서도 안정적으로 보이게.
-                VStack {
-                    Spacer()
-                    Text(book.title)
-                        .font(Font.atozBlack(17))
-                        .foregroundStyle(Color.smapText)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Color.white.opacity(0.92),
-                            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
-                        )
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 10)
-                }
+                // BookCardView 하단에 이미 같은 제목이 표시되므로 일러스트 안 제목은 중복.
+                // 폴백 일러스트는 시각적 인상만 담당하고, 텍스트 정보는 카드 하단에서만 노출.
 
                 if isLoading {
                     ProgressView().tint(.white)

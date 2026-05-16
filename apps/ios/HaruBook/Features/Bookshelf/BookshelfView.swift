@@ -45,7 +45,8 @@ struct BookshelfView: View {
                         .buttonStyle(.plain)
                     }
 
-                    // 2행: 새 동화 만들기(주요 CTA, full-width) + 별 잔액 카드(우측)
+                    // 2행: 새 동화 만들기(주요 CTA, full-width) + 별 잔액 카드(우측).
+                    // 옆의 CreditBadge / 위쪽 헤더의 "프로필 전환"이 모두 Capsule이므로 같은 캡슐로 통일한다.
                     HStack(spacing: 10) {
                         NavigationLink(value: CreateBookDestination(profileId: viewModel.profileId)) {
                             HStack(spacing: 8) {
@@ -57,7 +58,7 @@ struct BookshelfView: View {
                             .frame(maxWidth: .infinity, minHeight: 48)
                             .background(Color.smapPrimary)
                             .foregroundStyle(Color.smapPrimaryForeground)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
 
