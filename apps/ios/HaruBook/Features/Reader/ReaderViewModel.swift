@@ -28,6 +28,17 @@ enum ReaderTextScale: String, CaseIterable, Identifiable {
         }
     }
 
+    /// 텍스트 크기 컨트롤의 "A" 미리보기 글자 크기 — 단계 차이를 시각적으로 보여주기 위한 값.
+    /// 실제 본문 폰트(`fontSize`)와는 별개.
+    var controlPreviewSize: CGFloat {
+        switch self {
+        case .small:  return 12
+        case .medium: return 15
+        case .large:  return 18
+        case .xlarge: return 22
+        }
+    }
+
     private static let defaultsKey = "readerTextScale"
 
     static func load() -> ReaderTextScale {

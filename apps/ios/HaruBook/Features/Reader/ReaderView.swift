@@ -56,7 +56,6 @@ struct ReaderView: View {
                         .font(.smapCaption)
                         .foregroundStyle(Color.smapMuted)
                 }
-                textScaleMenu
             }
 
             ProgressView(
@@ -68,36 +67,6 @@ struct ReaderView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 12)
-    }
-
-    /// 본문 텍스트 크기 4단계 선택 메뉴. 헤더 우측에서 또렷하게 보이도록 primarySoft 배경 + 라벨까지.
-    private var textScaleMenu: some View {
-        Menu {
-            Picker("본문 크기", selection: Binding(
-                get: { viewModel.textScale },
-                set: { viewModel.textScale = $0 }
-            )) {
-                ForEach(ReaderTextScale.allCases) { scale in
-                    Text(scale.label).tag(scale)
-                }
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "textformat.size")
-                    .font(.system(size: 13, weight: .semibold))
-                Text("크기")
-                    .font(Font.atozBold(13))
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .bold))
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 34)
-            .foregroundStyle(Color.smapPrimary)
-            .background(Color.smapPrimarySoft)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.smapPrimary.opacity(0.3), lineWidth: 1))
-        }
-        .accessibilityLabel("본문 텍스트 크기")
     }
 
     private var pagedContent: some View {
@@ -142,6 +111,10 @@ struct ReaderView: View {
         VStack(spacing: 0) {
             Divider().background(Color.smapBorder)
 
+            textScaleControl
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
+
             HStack(spacing: 8) {
                 previousButton
                 listenButton(isPlaying: isPlaying, isPreparing: isPreparing)
@@ -153,10 +126,44 @@ struct ReaderView: View {
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.top, 12)
+            .padding(.top, 8)
             .padding(.bottom, 10)
         }
         .background(Color.smapBackground)
+    }
+
+    /// 텍스트 크기 4단계 선택기 — 각 버튼에 단계별로 다른 크기의 "A"를 표시해 시각적 미리보기 제공.
+    /// 하단 컨트롤바 위에 한 줄로 배치 — 자주 토글하지 않는 보조 컨트롤이지만 본문 작성 중에도
+    /// 즉시 닿을 수 있는 위치.
+    private var textScaleControl: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "textformat.size")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.smapMuted)
+                .padding(.trailing, 2)
+
+            ForEach(ReaderTextScale.allCases) { scale in
+                Button {
+                    viewModel.textScale = scale
+                } label: {
+                    Text("A")
+                        .font(Font.atozBold(scale.controlPreviewSize))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 34)
+                        .foregroundStyle(viewModel.textScale == scale ? .white : Color.smapText)
+                        .background(viewModel.textScale == scale ? Color.smapPrimary : Color.smapSurface)
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().stroke(
+                                viewModel.textScale == scale ? Color.clear : Color.smapBorder,
+                                lineWidth: 1,
+                            ),
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("본문 크기 \(scale.label)")
+            }
+        }
     }
 
     /// 모든 컨트롤이 동일한 48pt 높이와 캡슐 모양을 공유 — 한 줄에서 일관된 시각 단위로 보이게.
