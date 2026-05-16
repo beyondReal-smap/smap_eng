@@ -178,6 +178,13 @@ final class SrsStore {
         guard let it = item(for: word) else { return false }
         return it.lastGradedAtMs > 0
     }
+
+    /// 마스터 — 최대 레벨에 도달한 단어. "전체"/"오늘 학습" 카운트에서 제외해 학습 진도가
+    /// 시각적으로 줄어들도록 한다.
+    func isMastered(_ word: String) -> Bool {
+        guard let it = item(for: word) else { return false }
+        return it.level >= Self.maxLevel
+    }
 }
 
 /// 서버 `GET /api/vocab/progress` 응답 — SrsStore에서만 사용.

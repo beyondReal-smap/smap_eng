@@ -160,3 +160,10 @@ export function isDue(store: SrsStore, word: string, now = Date.now()): boolean 
   if (!item) return true;
   return item.dueAt <= now;
 }
+
+/** 마스터(최대 레벨)했는가 — "전체"/"오늘 학습" 카운트에서 제외해 진행감을 표현. */
+export function isMastered(store: SrsStore, word: string): boolean {
+  const item = getItem(store, word);
+  if (!item) return false;
+  return item.level >= MAX_LEVEL;
+}

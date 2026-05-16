@@ -22,6 +22,7 @@ import {
   gradeWord,
   hydrateFromServer,
   isDue,
+  isMastered,
   isUnknown,
   loadStore,
   normalizeKey,
@@ -153,15 +154,17 @@ export function VocabDeck() {
   }, [hasHydrated, profileId]);
 
   // 탭별 덱 구성
-  // - review: 새 단어 + due 도래 단어 (최대 20개)
+  // - review: 새 단어 + due 도래 단어 (최대 20개), 마스터(level=MAX) 제외
   // - unknown: 최근 "몰라"로 평가된 단어 누적
-  // - all: 전체
+  // - all: 전체 — 단, 마스터한 단어는 제외해 학습 진도가 카운트에 반영됨
   const deck = useMemo(() => {
-    if (tab === 'all') return entries;
+    if (tab === 'all') return entries.filter((e) => !isMastered(srsStore, e.word));
     if (tab === 'unknown') {
       return entries.filter((e) => isUnknown(srsStore, e.word));
     }
-    return entries.filter((e) => isDue(srsStore, e.word, nowMs)).slice(0, 20);
+    return entries
+      .filter((e) => isDue(srsStore, e.word, nowMs) && !isMastered(srsStore, e.word))
+      .slice(0, 20);
   }, [entries, nowMs, srsStore, tab]);
 
   const total = deck.length;
@@ -255,14 +258,27 @@ export function VocabDeck() {
     [profileId, current, total],
   );
 
-  // 오늘 학습 남은 수(새 단어 + 복습 대기 단어, 탭 뱃지).
+  // 오늘 학습 남은 수(새 단어 + 복습 대기 단어, 탭 뱃지). 마스터 단어 제외 + 20개 상한 → deck 길이와 일치.
   const dueCount = useMemo(() => {
-    return entries.filter((e) => isDue(srsStore, e.word, nowMs)).length;
+    const raw = entries.filter(
+      (e) => isDue(srsStore, e.word, nowMs) && !isMastered(srsStore, e.word),
+    ).length;
+    return Math.min(raw, 20);
   }, [entries, nowMs, srsStore]);
 
   // "몰라" 누적 수(탭 뱃지).
   const unknownCount = useMemo(() => {
     return entries.filter((e) => isUnknown(srsStore, e.word)).length;
+  }, [entries, srsStore]);
+
+  // "전체" 탭 배지 — 마스터한 단어를 제외한 남은 학습 대상.
+  const remainingCount = useMemo(() => {
+    return entries.filter((e) => !isMastered(srsStore, e.word)).length;
+  }, [entries, srsStore]);
+
+  // 마스터한 단어 수 — 헤더에 진도 표시.
+  const masteredCount = useMemo(() => {
+    return entries.filter((e) => isMastered(srsStore, e.word)).length;
   }, [entries, srsStore]);
 
   const bindings = useMemo(
@@ -318,7 +334,9 @@ export function VocabDeck() {
         onChange={setTab}
         dueCount={dueCount}
         unknownCount={unknownCount}
-        totalCount={entries.length}
+        // "전체" 배지는 마스터 제외한 남은 학습 대상.
+        totalCount={remainingCount}
+        masteredCount={masteredCount}
       />
 
       {total === 0 ? (
@@ -468,36 +486,45 @@ function TabBar({
   dueCount,
   unknownCount,
   totalCount,
+  masteredCount,
 }: {
   tab: Tab;
   onChange: (t: Tab) => void;
   dueCount: number;
   unknownCount: number;
   totalCount: number;
+  masteredCount: number;
 }) {
   return (
-    <div
-      role="tablist"
-      className="inline-flex flex-wrap rounded-full border border-border bg-card p-0.5"
-    >
-      <TabItem
-        active={tab === 'review'}
-        onClick={() => onChange('review')}
-        label="오늘 학습"
-        badge={dueCount}
-      />
-      <TabItem
-        active={tab === 'unknown'}
-        onClick={() => onChange('unknown')}
-        label="모르는 단어"
-        badge={unknownCount}
-      />
-      <TabItem
-        active={tab === 'all'}
-        onClick={() => onChange('all')}
-        label="전체"
-        badge={totalCount}
-      />
+    <div className="flex flex-wrap items-center gap-3">
+      <div
+        role="tablist"
+        className="inline-flex flex-wrap rounded-full border border-border bg-card p-0.5"
+      >
+        <TabItem
+          active={tab === 'review'}
+          onClick={() => onChange('review')}
+          label="오늘 학습"
+          badge={dueCount}
+        />
+        <TabItem
+          active={tab === 'unknown'}
+          onClick={() => onChange('unknown')}
+          label="모르는 단어"
+          badge={unknownCount}
+        />
+        <TabItem
+          active={tab === 'all'}
+          onClick={() => onChange('all')}
+          label="전체"
+          badge={totalCount}
+        />
+      </div>
+      {masteredCount > 0 ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--primary)]/15 px-2.5 py-1 text-xs font-bold text-[color:var(--primary)]">
+          ✓ 마스터 {masteredCount}
+        </span>
+      ) : null}
     </div>
   );
 }

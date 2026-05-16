@@ -29,9 +29,23 @@ struct VocabDeckView: View {
             Text("단어장")
                 .font(Font.atozBlack(34))
                 .foregroundStyle(Color.smapText)
-            Text("매일 만나는 영어 단어를 차곡차곡")
-                .font(Font.atozRegular(15))
-                .foregroundStyle(Color.smapMuted)
+            HStack(spacing: 8) {
+                Text("매일 만나는 영어 단어를 차곡차곡")
+                    .font(Font.atozRegular(15))
+                    .foregroundStyle(Color.smapMuted)
+                if viewModel.masteredCount > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("마스터 \(viewModel.masteredCount)")
+                            .font(Font.atozBold(12))
+                    }
+                    .foregroundStyle(Color.smapPrimary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.smapPrimarySoft, in: Capsule())
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -122,7 +136,8 @@ struct VocabDeckView: View {
         switch tab {
         case .review: return viewModel.dueCount
         case .unknown: return viewModel.unknownCount
-        case .all: return viewModel.entries.count
+        // 마스터한 단어는 제외 — 학습이 끝난 만큼 "전체" 배지도 줄어들도록.
+        case .all: return viewModel.remainingCount
         }
     }
 

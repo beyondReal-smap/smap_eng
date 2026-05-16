@@ -84,14 +84,20 @@ final class VocabViewModel {
     /// "오늘 학습" 세션의 최대 단어 수. 웹과 동일.
     static let reviewDeckLimit: Int = 20
 
+    /// "전체"/"오늘 학습" deck 모두 마스터된 단어는 제외 — 학습이 끝난 단어는 카운트에서 차감되어
+    /// 진행감을 준다. 마스터 수는 별도 `masteredCount`로 표시.
     var deck: [VocabEntry] {
         switch tab {
         case .all:
-            return entries
+            return entries.filter { !srs.isMastered($0.word) }
         case .unknown:
             return entries.filter { srs.isUnknown($0.word) }
         case .review:
-            return Array(entries.filter { srs.isDue($0.word) }.prefix(Self.reviewDeckLimit))
+            return Array(
+                entries
+                    .filter { srs.isDue($0.word) && !srs.isMastered($0.word) }
+                    .prefix(Self.reviewDeckLimit),
+            )
         }
     }
 
@@ -101,13 +107,16 @@ final class VocabViewModel {
         return d[index]
     }
 
-    /// "오늘 학습" 탭 배지 카운트. 실제 deck이 `reviewDeckLimit`로 잘리므로 배지도 같은 상한을
-    /// 적용해 카드 진행률(1/N)과 일치하게. 이전엔 배지가 25, 카드는 1/20처럼 어긋나 혼동을 줬다.
+    /// "오늘 학습" 탭 배지 — 마스터 제외 + `reviewDeckLimit` 상한. deck 길이와 일치.
     var dueCount: Int {
-        let raw = entries.filter { srs.isDue($0.word) }.count
+        let raw = entries.filter { srs.isDue($0.word) && !srs.isMastered($0.word) }.count
         return Swift.min(raw, Self.reviewDeckLimit)
     }
     var unknownCount: Int { entries.filter { srs.isUnknown($0.word) }.count }
+    /// "전체" 탭 배지 — 마스터 제외한 남은 학습 대상. 평가로 maxLevel 도달 시 줄어든다.
+    var remainingCount: Int { entries.filter { !srs.isMastered($0.word) }.count }
+    /// 마스터한 단어 수 — 학습 진도 표시용.
+    var masteredCount: Int { entries.filter { srs.isMastered($0.word) }.count }
 
     // MARK: - Navigation
 
