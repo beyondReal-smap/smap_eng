@@ -90,9 +90,9 @@ struct StoreView: View {
         let isPurchasing = viewModel.purchasingProductId == product.id
         let isHighlighted = meta?.isPopular == true
 
-        return VStack(alignment: .leading, spacing: 14) {
-            // 상단: 별 아이콘 + 개수 + (추천 배지) + 가격
-            HStack(alignment: .center, spacing: 12) {
+        // 카드 본문 — 메인 행의 갯수("별 60개") ↔ 금액("₩5,500")이 .firstTextBaseline으로 같은 라인 정렬.
+        let card = VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 ZStack {
                     Circle()
                         .fill(isHighlighted ? Color.smapPrimary.opacity(0.18) : Color.smapPrimarySoft)
@@ -101,10 +101,9 @@ struct StoreView: View {
                         .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(Color.smapWarn)
                 }
+                .alignmentGuide(.firstTextBaseline) { _ in 36 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    // "별 130개" / "별 60개"가 두 줄로 나뉘지 않게 lineLimit + fixedSize 조합으로
-                    // 우측 콘텐츠가 좁아도 묶음 이름은 한 줄로 유지.
                     Text(meta?.title ?? product.displayName)
                         .font(Font.atozBlack(20))
                         .foregroundStyle(Color.smapText)
@@ -119,16 +118,7 @@ struct StoreView: View {
 
                 Spacer(minLength: 4)
 
-                VStack(alignment: .trailing, spacing: 3) {
-                    // 추천 배지("가장 인기"/"가장 알뜰")를 금액 위로 이동 — 가격에 함께 시선이 모이도록.
-                    if let badge = meta?.badgeLabel {
-                        Text(badge)
-                            .font(Font.atozBold(11))
-                            .foregroundStyle(Color.smapPrimary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color.smapPrimarySoft, in: Capsule())
-                    }
+                VStack(alignment: .trailing, spacing: 2) {
                     Text(product.displayPrice)
                         .font(Font.atozBlack(20))
                         .foregroundStyle(Color.smapText)
@@ -142,7 +132,7 @@ struct StoreView: View {
                 }
             }
 
-            // 구매 버튼 — 추천 묶음만 filled 강조, 나머지는 tonal로 한 단계 낮춤.
+            // 추천 묶음만 filled 강조, 나머지는 tonal로 한 단계 낮춤.
             PrimaryButton(
                 title: isPurchasing ? "결제 중…" : "구매하기",
                 variant: isHighlighted ? .filled : .tonal,
@@ -170,6 +160,22 @@ struct StoreView: View {
             x: 0,
             y: 4,
         )
+
+        // 배지를 카드 외곽 우상단에 ribbon으로 띄움 — 카드 내부 정렬에 영향 주지 않으면서 가격/금액 옆에 위치.
+        return ZStack(alignment: .topTrailing) {
+            card
+            if let badge = meta?.badgeLabel {
+                Text(badge)
+                    .font(Font.atozBold(11))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.smapPrimary, in: Capsule())
+                    .shadow(color: Color.smapPrimary.opacity(0.25), radius: 4, x: 0, y: 2)
+                    .offset(x: -16, y: -10)
+            }
+        }
+        .padding(.top, 10) // ribbon 만큼 카드 위쪽 여백 확보 — 다른 콘텐츠와 겹치지 않게.
     }
 
     // MARK: - Footer
