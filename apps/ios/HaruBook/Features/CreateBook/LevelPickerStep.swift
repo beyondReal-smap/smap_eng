@@ -61,6 +61,7 @@ struct LevelPickerStep: View {
         case .a1: return "A1 — 처음 시작 (5~7세)"
         case .a2: return "A2 — 자주 쓰는 표현 (7~9세)"
         case .b1: return "B1 — 자기 의견 표현 (9~10세)"
+        case .b2: return "B2 — 능숙한 표현"
         }
     }
 
@@ -69,6 +70,7 @@ struct LevelPickerStep: View {
         case .a1: return "기초 단어 · 짧은 문장 · 현재형"
         case .a2: return "과거형 · 일상 표현 · 간단한 접속사"
         case .b1: return "긴 문장 · 감정 표현 · 관계절"
+        case .b2: return "복합 문장 · 추상 개념 · 토론"
         }
     }
 }

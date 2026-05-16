@@ -26,6 +26,29 @@ actor APIClient {
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .useDefaultKeys
+        // 백엔드 `NextResponse.json(...)`이 Date를 ISO8601 string으로 직렬화한다
+        // (예: `"2026-05-15T22:00:00.000Z"`). 기본 `.deferredToDate`로는 디코딩 실패.
+        // 일부 모델은 `xxxAtUnix` 같은 Double 키를 별도로 사용하니, ISO8601 외에
+        // Double(epoch)도 허용하는 커스텀 strategy를 둔다.
+        let iso = ISOWithFractional.formatter
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            if let unix = try? container.decode(Double.self) {
+                let ms = unix > 1_000_000_000_000
+                return Date(timeIntervalSince1970: ms ? unix / 1000 : unix)
+            }
+            let raw = try container.decode(String.self)
+            if let date = iso.date(from: raw) {
+                return date
+            }
+            if let date = ISO8601DateFormatter().date(from: raw) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unsupported date format: \(raw)",
+            )
+        }
         self.decoder = decoder
     }
 
@@ -96,6 +119,18 @@ actor APIClient {
             throw APIError.decoding(error)
         }
     }
+}
+
+/// ISO8601 fractional seconds 지원하는 formatter.
+/// `ISO8601DateFormatter`는 `Sendable`이 아니라 Swift 6 concurrency 검사에서
+/// static let 으로 두면 경고/에러. nonisolated(unsafe) 로 한 번만 생성하고
+/// dateDecodingStrategy closure는 동기 호출이라 안전.
+private enum ISOWithFractional {
+    nonisolated(unsafe) static let formatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
 }
 
 private struct APIErrorBody: Decodable {

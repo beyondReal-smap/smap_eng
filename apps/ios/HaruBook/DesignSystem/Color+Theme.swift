@@ -25,6 +25,7 @@ extension CefrLevel {
         case .a1: return .smapLevelA1
         case .a2: return .smapLevelA2
         case .b1: return .smapLevelB1
+        case .b2: return .smapLevelB2
         }
     }
 }

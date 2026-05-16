@@ -4,7 +4,11 @@ import UIKit
 @main
 struct HaruBookApp: App {
     @UIApplicationDelegateAdaptor(HaruBookAppDelegate.self) private var appDelegate
-    @State private var authState = AuthState()
+    // APIClient의 401 핸들러가 AuthState.shared.handleUnauthorized()를 호출하므로
+    // 환경에 주입하는 인스턴스도 반드시 동일 singleton 이어야 한다.
+    // 별도 `AuthState()` 인스턴스를 만들면 401 시 shared의 phase만 바뀌고
+    // RootView가 관찰하는 environment 인스턴스는 갱신되지 않아 LoginView로 복귀 못 함.
+    @State private var authState = AuthState.shared
 
     var body: some Scene {
         WindowGroup {
