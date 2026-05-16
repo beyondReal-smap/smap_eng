@@ -70,7 +70,7 @@ struct ReaderView: View {
         .padding(.top, 12)
     }
 
-    /// 본문 텍스트 크기 4단계 선택 메뉴. 헤더 우측 끝의 작은 Aa 아이콘으로 노출.
+    /// 본문 텍스트 크기 4단계 선택 메뉴. 헤더 우측에서 또렷하게 보이도록 primarySoft 배경 + 라벨까지.
     private var textScaleMenu: some View {
         Menu {
             Picker("본문 크기", selection: Binding(
@@ -82,15 +82,20 @@ struct ReaderView: View {
                 }
             }
         } label: {
-            HStack(spacing: 2) {
+            HStack(spacing: 5) {
                 Image(systemName: "textformat.size")
                     .font(.system(size: 13, weight: .semibold))
+                Text("크기")
+                    .font(Font.atozBold(13))
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
             }
-            .frame(width: 30, height: 28)
-            .foregroundStyle(Color.smapText)
-            .background(Color.smapSurface)
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .foregroundStyle(Color.smapPrimary)
+            .background(Color.smapPrimarySoft)
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
+            .overlay(Capsule().stroke(Color.smapPrimary.opacity(0.3), lineWidth: 1))
         }
         .accessibilityLabel("본문 텍스트 크기")
     }
@@ -120,9 +125,12 @@ struct ReaderView: View {
         .indexViewStyle(.page(backgroundDisplayMode: .never))
     }
 
-    /// 하단 통합 컨트롤바: [← 이전] [▶︎ 듣기] [Aa 한글] [다음 → / 퀴즈]
-    /// 메인 액션(듣기)은 가장 눈에 띄는 primary 캡슐. 보조 토글(한글)은 surface 캡슐.
-    /// 페이지 네비게이션은 원형 보조 버튼으로 좌우 끝에 둔다.
+    /// 하단 통합 컨트롤바.
+    ///
+    /// 4개의 균일한 캡슐을 한 줄에 배치 — 모두 같은 높이/너비로 묶어 단정한 느낌을 낸다.
+    /// 색 위계로 위상 구분: primary(듣기/다음·퀴즈) vs tonal-toggle(한글) vs outline(이전).
+    /// 상단에 얇은 Divider만 두고 배경은 단색 smapBackground — 머터리얼 블러가 책 본문과
+    /// 충돌해 산만하게 보였던 문제 제거.
     @ViewBuilder
     private var bottomBar: some View {
         let isLastPage = viewModel.currentIndex + 1 >= viewModel.passages.count
@@ -131,40 +139,51 @@ struct ReaderView: View {
         let isPreparing = audio.preparingPassageId == passage.id
             || viewModel.synthesizingPassageId == passage.id
 
-        HStack(spacing: 10) {
-            previousButton
+        VStack(spacing: 0) {
+            Divider().background(Color.smapBorder)
 
-            listenButton(isPlaying: isPlaying, isPreparing: isPreparing)
-
-            koreanToggle
-
-            if isLastPage {
-                quizButton
-            } else {
-                nextButton
+            HStack(spacing: 8) {
+                previousButton
+                listenButton(isPlaying: isPlaying, isPreparing: isPreparing)
+                koreanToggle
+                if isLastPage {
+                    quizButton
+                } else {
+                    nextButton
+                }
             }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        .background(Color.smapBackground)
     }
 
+    /// 모든 컨트롤이 동일한 48pt 높이와 캡슐 모양을 공유 — 한 줄에서 일관된 시각 단위로 보이게.
+    private static let controlHeight: CGFloat = 48
+
     private var previousButton: some View {
-        Button {
-            if viewModel.currentIndex > 0 {
+        let isDisabled = viewModel.currentIndex == 0
+        return Button {
+            if !isDisabled {
                 Task { await viewModel.reportPageChanged(to: viewModel.currentIndex - 1) }
             }
         } label: {
-            Image(systemName: "chevron.left")
-                .font(.system(size: 17, weight: .semibold))
-                .frame(width: 44, height: 44)
-                .background(Color.smapSurface)
-                .foregroundStyle(viewModel.currentIndex == 0 ? Color.smapMuted : Color.smapText)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .bold))
+                Text("이전")
+                    .font(Font.atozBold(14))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.controlHeight)
+            .foregroundStyle(isDisabled ? Color.smapMuted : Color.smapText)
+            .background(isDisabled ? Color.smapSurface.opacity(0.5) : Color.smapSurface)
+            .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .disabled(viewModel.currentIndex == 0)
+        .disabled(isDisabled)
         .accessibilityLabel("이전 문장")
     }
 
@@ -175,12 +194,17 @@ struct ReaderView: View {
                 Task { await viewModel.reportPageChanged(to: next) }
             }
         } label: {
-            Image(systemName: "chevron.right")
-                .font(.system(size: 17, weight: .semibold))
-                .frame(width: 44, height: 44)
-                .background(Color.smapPrimary)
-                .foregroundStyle(.white)
-                .clipShape(Circle())
+            HStack(spacing: 4) {
+                Text("다음")
+                    .font(Font.atozBold(14))
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.controlHeight)
+            .foregroundStyle(.white)
+            .background(Color.smapPrimary)
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("다음 문장")
@@ -192,18 +216,18 @@ struct ReaderView: View {
         } label: {
             HStack(spacing: 6) {
                 if isPreparing {
-                    ProgressView().tint(.white).scaleEffect(0.8)
+                    ProgressView().tint(.white).scaleEffect(0.75)
                 } else {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                Text(isPlaying ? "일시정지" : (isPreparing ? "준비 중" : "듣기"))
+                Text(isPlaying ? "정지" : (isPreparing ? "준비" : "듣기"))
                     .font(Font.atozBold(14))
             }
-            .padding(.horizontal, 14)
-            .frame(height: 44)
-            .background(Color.smapPrimary)
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.controlHeight)
             .foregroundStyle(.white)
+            .background(Color.smapPrimary)
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -214,16 +238,16 @@ struct ReaderView: View {
         Button {
             viewModel.toggleKorean()
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 Image(systemName: viewModel.showsKorean ? "character.book.closed.fill" : "character.book.closed")
                     .font(.system(size: 13, weight: .semibold))
                 Text("한글")
                     .font(Font.atozBold(14))
             }
-            .padding(.horizontal, 12)
-            .frame(height: 44)
-            .background(viewModel.showsKorean ? Color.smapPrimarySoft : Color.smapSurface)
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.controlHeight)
             .foregroundStyle(viewModel.showsKorean ? Color.smapPrimary : Color.smapText)
+            .background(viewModel.showsKorean ? Color.smapPrimarySoft : Color.smapSurface)
             .clipShape(Capsule())
             .overlay(
                 Capsule().stroke(
@@ -244,10 +268,11 @@ struct ReaderView: View {
                 Text("퀴즈")
                     .font(Font.atozBold(14))
             }
-            .padding(.horizontal, 14)
-            .frame(height: 44)
-            .background(Color.smapPrimary, in: Capsule())
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.controlHeight)
             .foregroundStyle(.white)
+            .background(Color.smapPrimary)
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
     }

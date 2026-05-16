@@ -8,13 +8,14 @@ enum ReaderTextScale: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// 본문 폰트 사이즈(`atozRegular`). 기본 .smapReader(22pt)와 동일한 medium을 기준으로 4단계.
+    /// 본문 폰트 사이즈(`atozRegular`). medium = 28pt를 기본값으로 — 어린이 학습 상황에서
+    /// 22pt는 너무 작다는 피드백을 반영. 더 작게/더 크게 양방향 옵션 유지.
     var fontSize: CGFloat {
         switch self {
-        case .small:  return 18
-        case .medium: return 22
-        case .large:  return 28
-        case .xlarge: return 34
+        case .small:  return 22
+        case .medium: return 28
+        case .large:  return 34
+        case .xlarge: return 40
         }
     }
 
@@ -78,6 +79,11 @@ final class ReaderViewModel {
     }
 
     func reportPageChanged(to newIndex: Int) async {
+        // 페이지 전환 시 한글 해석은 자동으로 닫는다 — 다음 문장은 영문부터 다시 만나도록 학습 흐름 유지.
+        // 사용자가 다시 필요하면 한글 토글 버튼으로 켤 수 있다.
+        if newIndex != currentIndex {
+            showsKorean = false
+        }
         currentIndex = newIndex
         guard !passages.isEmpty else { return }
         let total = max(passages.count, 1)
