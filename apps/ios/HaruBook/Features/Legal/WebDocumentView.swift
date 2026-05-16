@@ -17,6 +17,21 @@ struct WebDocumentView: UIViewRepresentable {
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        // 인앱 표시 시에는 네이티브 NavigationBar가 이미 타이틀을 그려주므로,
+        // 웹의 글로벌 헤더(랜딩 메뉴) + 약관 페이지 sticky 헤더를 모두 숨긴다.
+        // atDocumentStart로 주입해 첫 페인트에서 깜빡임 없이 적용된다.
+        let css = "header, [role=\"banner\"]{display:none!important;}"
+        let js = """
+        (function(){
+            var s=document.createElement('style');
+            s.setAttribute('data-injected','harubook-hide-header');
+            s.textContent=`\(css)`;
+            (document.head||document.documentElement).appendChild(s);
+        })();
+        """
+        let userScript = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        config.userContentController.addUserScript(userScript)
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.isOpaque = false

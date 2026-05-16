@@ -10,33 +10,50 @@ struct HomeRouter: View {
     @State private var selectedProfileId: Int? = SessionPreferences.shared.lastProfileId
     @State private var switching: Bool = false
 
+    /// MainTabView ↔ ProfilePickerView 사이를 if/else로 즉시 교체하면 화면이 깜빡 점프하는 인상.
+    /// ZStack + opacity transition + animation으로 cross-fade를 부드럽게 처리.
+    /// 탭 전환과 동일한 0.22s easeInOut 곡선을 사용해 모션 톤을 통일.
     var body: some View {
-        if let profileId = selectedProfileId, !switching {
-            MainTabView(
-                profileId: profileId,
-                onResetProfile: {
-                    // "프로필 전환" — 책장 유지 + ProfilePickerView 띄움. lastProfileId는 보존.
-                    switching = true
-                },
-                onSignOut: {
-                    selectedProfileId = nil
-                    switching = false
-                    SessionPreferences.shared.lastProfileId = nil
-                },
-            )
-        } else {
-            // switching=true 면 이전 책장으로 복귀 가능. lastProfileId가 없으면(첫 로그인)
-            // 백 버튼 자체가 생기지 않는다.
-            ProfilePickerView(
-                onSelect: { profile in
-                    selectedProfileId = profile.id
-                    SessionPreferences.shared.lastProfileId = profile.id
-                    switching = false
-                },
-                onCancel: switching && selectedProfileId != nil
-                    ? { switching = false }
-                    : nil,
-            )
+        ZStack {
+            if let profileId = selectedProfileId, !switching {
+                MainTabView(
+                    profileId: profileId,
+                    onResetProfile: {
+                        // "프로필 전환" — 책장 유지 + ProfilePickerView 띄움. lastProfileId는 보존.
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            switching = true
+                        }
+                    },
+                    onSignOut: {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            selectedProfileId = nil
+                            switching = false
+                            SessionPreferences.shared.lastProfileId = nil
+                        }
+                    },
+                )
+                .transition(.opacity)
+            } else {
+                // switching=true 면 이전 책장으로 복귀 가능. lastProfileId가 없으면(첫 로그인)
+                // 백 버튼 자체가 생기지 않는다.
+                ProfilePickerView(
+                    onSelect: { profile in
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            selectedProfileId = profile.id
+                            SessionPreferences.shared.lastProfileId = profile.id
+                            switching = false
+                        }
+                    },
+                    onCancel: switching && selectedProfileId != nil
+                        ? {
+                            withAnimation(.easeInOut(duration: 0.22)) {
+                                switching = false
+                            }
+                        }
+                        : nil,
+                )
+                .transition(.opacity)
+            }
         }
     }
 }
