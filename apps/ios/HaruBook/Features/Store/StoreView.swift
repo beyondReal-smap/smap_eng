@@ -16,13 +16,13 @@ struct StoreView: View {
             Color.smapBackground.ignoresSafeArea()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    header
+                VStack(spacing: 20) {
+                    hero
 
                     if viewModel.isLoading && viewModel.products.isEmpty {
                         ProgressView()
                             .tint(Color.smapPrimary)
-                            .frame(maxWidth: .infinity, minHeight: 120)
+                            .frame(maxWidth: .infinity, minHeight: 160)
                     } else if viewModel.products.isEmpty {
                         emptyError
                     } else {
@@ -33,13 +33,14 @@ struct StoreView: View {
 
                     if let message = viewModel.errorMessage {
                         Text(message)
-                            .font(.smapCaption)
+                            .font(.smapBody)
                             .foregroundStyle(Color.smapDanger)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
                     }
 
-                    Divider().padding(.vertical, 8)
-
                     restoreSection
+                        .padding(.top, 8)
                     policySection
                 }
                 .padding(.horizontal, 20)
@@ -54,41 +55,92 @@ struct StoreView: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Hero
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("별 한 개로 동화 한 권을 만들어요")
-                .font(.smapHeading)
-                .foregroundStyle(Color.smapText)
-            Text("결제는 Apple을 통해 안전하게 이루어지며, 영수증은 Apple ID 이메일로 발송됩니다.")
-                .font(.smapCaption)
-                .foregroundStyle(Color.smapMuted)
-                .fixedSize(horizontal: false, vertical: true)
+    /// 화면 상단의 큰 별 + 한 줄 슬로건 — 어린이 가족 서비스 톤. 단순 텍스트 헤더보다 시각 임팩트.
+    private var hero: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.smapPrimarySoft)
+                    .frame(width: 96, height: 96)
+                Image(systemName: "star.fill")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundStyle(Color.smapWarn)
+                    .shadow(color: Color.smapWarn.opacity(0.35), radius: 8, x: 0, y: 4)
+            }
+            VStack(spacing: 4) {
+                Text("별로 새 동화를 만들어요")
+                    .font(Font.atozBlack(22))
+                    .foregroundStyle(Color.smapText)
+                Text("별 한 개 = 새 동화 한 권")
+                    .font(Font.atozRegular(14))
+                    .foregroundStyle(Color.smapMuted)
+            }
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 4)
+        .padding(.bottom, 4)
     }
 
+    // MARK: - Product Card
+
     private func productCard(_ product: Product) -> some View {
+        let meta = StarPack.from(productId: product.id)
         let isPurchasing = viewModel.purchasingProductId == product.id
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(product.displayName)
-                    .font(.smapBodyEmphasis)
-                    .foregroundStyle(Color.smapText)
-                Spacer()
-                Text(product.displayPrice)
-                    .font(.smapHeading)
-                    .foregroundStyle(Color.smapPrimary)
+        let isHighlighted = meta?.isPopular == true
+
+        return VStack(alignment: .leading, spacing: 14) {
+            // 상단: 별 아이콘 + 개수 + (추천 배지) + 가격
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(isHighlighted ? Color.smapPrimary.opacity(0.18) : Color.smapPrimarySoft)
+                        .frame(width: 56, height: 56)
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 26, weight: .bold))
+                        .foregroundStyle(Color.smapWarn)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(meta?.title ?? product.displayName)
+                            .font(Font.atozBlack(20))
+                            .foregroundStyle(Color.smapText)
+                        if let badge = meta?.badgeLabel {
+                            Text(badge)
+                                .font(Font.atozBold(11))
+                                .foregroundStyle(Color.smapPrimary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.smapPrimarySoft, in: Capsule())
+                        }
+                    }
+                    if let stars = meta?.stars {
+                        Text("동화 \(stars)권 분량")
+                            .font(Font.atozRegular(13))
+                            .foregroundStyle(Color.smapMuted)
+                    }
+                }
+
+                Spacer(minLength: 4)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(product.displayPrice)
+                        .font(Font.atozBlack(20))
+                        .foregroundStyle(Color.smapText)
+                    if let perStar = meta?.perStarLabel(displayPrice: product.displayPrice) {
+                        Text(perStar)
+                            .font(Font.atozRegular(11))
+                            .foregroundStyle(Color.smapMuted)
+                    }
+                }
             }
 
-            Text(product.description)
-                .font(.smapCaption)
-                .foregroundStyle(Color.smapMuted)
-                .fixedSize(horizontal: false, vertical: true)
-
+            // 구매 버튼 — 추천 묶음만 filled 강조, 나머지는 tonal로 한 단계 낮춤.
             PrimaryButton(
                 title: isPurchasing ? "결제 중…" : "구매하기",
-                variant: .filled,
+                variant: isHighlighted ? .filled : .tonal,
                 isLoading: isPurchasing,
                 isEnabled: viewModel.purchasingProductId == nil,
             ) {
@@ -96,42 +148,65 @@ struct StoreView: View {
             }
         }
         .padding(18)
-        .background(Color.smapSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(
+            isHighlighted ? Color.smapPrimarySoft.opacity(0.5) : Color.smapSurface,
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.smapBorder, lineWidth: 1),
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(
+                    isHighlighted ? Color.smapPrimary.opacity(0.45) : Color.smapBorder,
+                    lineWidth: isHighlighted ? 1.5 : 1,
+                ),
+        )
+        .shadow(
+            color: isHighlighted ? Color.smapPrimary.opacity(0.12) : .clear,
+            radius: isHighlighted ? 10 : 0,
+            x: 0,
+            y: 4,
         )
     }
 
+    // MARK: - Footer
+
     private var restoreSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .center, spacing: 6) {
             Button {
                 Task { await viewModel.restore() }
             } label: {
-                Text("구매 복원")
-                    .font(.smapBodyEmphasis)
+                Label("구매 복원", systemImage: "arrow.clockwise")
+                    .font(Font.atozBold(14))
                     .foregroundStyle(Color.smapPrimary)
             }
             .buttonStyle(.plain)
             Text("기기 변경·재설치 후 미반영된 거래가 있다면 여기를 탭하세요.")
                 .font(.smapCaption)
                 .foregroundStyle(Color.smapMuted)
+                .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var policySection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("환불 정책")
-                .font(.smapBodyEmphasis)
-                .foregroundStyle(Color.smapText)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 12, weight: .bold))
+                Text("결제 안내")
+                    .font(Font.atozBold(13))
+            }
+            .foregroundStyle(Color.smapMuted)
+
             Text(
-                "별은 Consumable 상품으로, 사용한 후에는 환불이 어려울 수 있습니다. 환불은 Apple의 정책에 따르며, ‘설정 → Apple ID → 미디어 및 구매 → 구매 기록’ 화면에서 신청할 수 있습니다.",
+                "결제는 Apple App Store를 통해 안전하게 처리되며 영수증은 Apple ID 이메일로 발송됩니다. 별은 사용한 후에는 환불이 어려울 수 있고, 환불은 ‘설정 → Apple ID → 미디어 및 구매 → 구매 기록’에서 신청합니다.",
             )
             .font(.smapCaption)
             .foregroundStyle(Color.smapMuted)
             .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.smapMutedBg, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var emptyError: some View {
@@ -148,5 +223,40 @@ struct StoreView: View {
             .frame(maxWidth: 220)
         }
         .frame(maxWidth: .infinity, minHeight: 200)
+    }
+}
+
+// MARK: - StarPack metadata
+
+/// IAP product ID → 별 개수 / 추천 배지 / 단가 메타데이터.
+/// 서버 `src/lib/iap/products.ts`와 동기 유지.
+private struct StarPack {
+    let stars: Int
+    let title: String
+    let badgeLabel: String?
+    let isPopular: Bool
+
+    static func from(productId: String) -> StarPack? {
+        switch productId {
+        case "com.smap.harubook.star_small":
+            return StarPack(stars: 10, title: "별 10개", badgeLabel: nil, isPopular: false)
+        case "com.smap.harubook.star_medium":
+            return StarPack(stars: 60, title: "별 60개", badgeLabel: "가장 인기", isPopular: true)
+        case "com.smap.harubook.star_large":
+            return StarPack(stars: 130, title: "별 130개", badgeLabel: "가장 알뜰", isPopular: false)
+        default:
+            return nil
+        }
+    }
+
+    /// "별 1개당 ~원" — displayPrice에서 숫자만 추출해 단가 계산. 통화 기호/콤마 제거.
+    func perStarLabel(displayPrice: String) -> String? {
+        let digits = displayPrice.unicodeScalars.filter { CharacterSet.decimalDigits.contains($0) }
+        let digitString = String(String.UnicodeScalarView(digits))
+        guard let total = Int(digitString), stars > 0 else {
+            return nil
+        }
+        let perStar = Int((Double(total) / Double(stars)).rounded())
+        return "별 1개당 약 \(perStar)원"
     }
 }
