@@ -15,23 +15,26 @@ struct BookshelfView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    HStack(alignment: .lastTextBaseline) {
+                    HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("책장")
-                                .font(.smapDisplay)
+                                .font(Font.atozBlack(34))
                                 .foregroundStyle(Color.smapText)
                             Text("읽고 싶은 책을 골라봐요")
-                                .font(.smapBody)
+                                .font(Font.atozRegular(15))
                                 .foregroundStyle(Color.smapMuted)
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 8) {
-                            CreditBadge(balance: viewModel.credits?.balance)
+                            NavigationLink(value: StoreDestination()) {
+                                CreditBadge(balance: viewModel.credits?.balance)
+                            }
+                            .buttonStyle(.plain)
                             Button {
                                 onSwitchProfile()
                             } label: {
                                 Label("프로필 전환", systemImage: "arrow.triangle.2.circlepath")
-                                    .font(.smapCaption)
+                                    .font(Font.atozBold(13))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
                                     .background(Color.smapSurface)
@@ -69,6 +72,7 @@ struct BookshelfView: View {
                     content
                 }
                 .padding(.horizontal, 20)
+                .padding(.top, 16)
                 .padding(.bottom, 32)
             }
         }

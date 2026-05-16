@@ -2,12 +2,9 @@ import SwiftUI
 
 /// 로그인 + 프로필 선택 완료 후의 메인 화면. 4탭 구조.
 ///
-/// - 책장: 가장 깊은 라우팅(Reader/Quiz/CreateBook). 자체 NavigationStack + `path` 보유
-/// - 통계 / 단어장: 단일 화면. NavigationStack 만 감싸 타이틀 표시
-/// - 설정: SettingsView. 프로필 전환·로그아웃 콜백은 상위로 전파
-///
-/// 프로필 전환·로그아웃 시 `onResetProfile`을 호출하면 `HomeRouter`가 `selectedProfileId`를 nil로
-/// 되돌려 ProfilePickerView로 복귀한다.
+/// SwiftUI 기본 `TabView`는 탭 전환 시 시각적 transition이 없다(즉시 교체).
+/// 자체 ZStack switch + `.transition(.opacity)` 패턴으로 cross-fade 추가.
+/// 하단 탭바는 SwiftUI `Label` 기반 자체 구현 — 글꼴/색을 디자인 시스템과 일치.
 struct MainTabView: View {
     let profileId: Int
     var onResetProfile: () -> Void
@@ -23,24 +20,69 @@ struct MainTabView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            bookshelfTab
-                .tabItem { Label("책장", systemImage: "books.vertical.fill") }
-                .tag(Tab.bookshelf)
+        ZStack(alignment: .bottom) {
+            Color.smapBackground.ignoresSafeArea()
 
-            statsTab
-                .tabItem { Label("통계", systemImage: "chart.bar.xaxis") }
-                .tag(Tab.stats)
+            // 콘텐츠 — 탭 전환 시 opacity cross-fade.
+            ZStack {
+                switch selectedTab {
+                case .bookshelf:
+                    bookshelfTab.transition(.opacity)
+                case .stats:
+                    statsTab.transition(.opacity)
+                case .vocab:
+                    vocabTab.transition(.opacity)
+                case .settings:
+                    settingsTab.transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.22), value: selectedTab)
 
-            vocabTab
-                .tabItem { Label("단어장", systemImage: "character.book.closed") }
-                .tag(Tab.vocab)
-
-            settingsTab
-                .tabItem { Label("설정", systemImage: "gearshape") }
-                .tag(Tab.settings)
+            customTabBar
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
         }
-        .tint(.smapPrimary)
+    }
+
+    // MARK: - 자체 탭바
+
+    private var customTabBar: some View {
+        HStack(spacing: 4) {
+            tabButton(.bookshelf, label: "책장", icon: "books.vertical.fill")
+            tabButton(.stats, label: "통계", icon: "chart.bar.xaxis")
+            tabButton(.vocab, label: "단어장", icon: "character.book.closed")
+            tabButton(.settings, label: "설정", icon: "gearshape")
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(Color.smapSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.smapBorder, lineWidth: 1),
+        )
+        .shadow(color: Color.smapText.opacity(0.06), radius: 12, x: 0, y: 4)
+    }
+
+    private func tabButton(_ tab: Tab, label: String, icon: String) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                selectedTab = tab
+            }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                Text(label)
+                    .font(Font.atozBold(11))
+            }
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .foregroundStyle(isSelected ? Color.smapPrimaryForeground : Color.smapMuted)
+            .background(isSelected ? Color.smapPrimarySoft : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - 책장 탭
@@ -51,12 +93,12 @@ struct MainTabView: View {
                 profileId: profileId,
                 onSwitchProfile: { onResetProfile() },
             )
+            .safeAreaInset(edge: .bottom) { tabBarInsetSpacer }
             .navigationDestination(for: Book.self) { book in
                 ReaderView(book: book, profileId: profileId)
             }
             .navigationDestination(for: QuizDestination.self) { dest in
                 QuizView(book: dest.book, readingLogId: dest.readingLogId) {
-                    // Reader/Quiz 둘 다 pop.
                     bookshelfPath = NavigationPath()
                 }
             }
@@ -71,26 +113,25 @@ struct MainTabView: View {
                     onCancel: { bookshelfPath = NavigationPath() },
                 )
             }
+            .navigationDestination(for: StoreDestination.self) { _ in
+                StoreView()
+            }
         }
     }
-
-    // MARK: - 통계 탭
 
     private var statsTab: some View {
         NavigationStack {
             StatsDashboardView(profileId: profileId)
+                .safeAreaInset(edge: .bottom) { tabBarInsetSpacer }
         }
     }
-
-    // MARK: - 단어장 탭
 
     private var vocabTab: some View {
         NavigationStack {
             VocabDeckView(profileId: profileId)
+                .safeAreaInset(edge: .bottom) { tabBarInsetSpacer }
         }
     }
-
-    // MARK: - 설정 탭
 
     private var settingsTab: some View {
         NavigationStack {
@@ -98,6 +139,12 @@ struct MainTabView: View {
                 onSwitchProfile: { onResetProfile() },
                 onSignOut: { onResetProfile() },
             )
+            .safeAreaInset(edge: .bottom) { tabBarInsetSpacer }
         }
+    }
+
+    /// 자체 탭바 높이만큼 콘텐츠 하단에 공간을 확보 — 스크롤 영역이 탭바에 가려지지 않게.
+    private var tabBarInsetSpacer: some View {
+        Color.clear.frame(height: 72)
     }
 }

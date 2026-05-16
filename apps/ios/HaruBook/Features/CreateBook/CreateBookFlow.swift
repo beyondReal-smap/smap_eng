@@ -43,17 +43,21 @@ struct CreateBookFlow: View {
         }
         .navigationTitle("새 동화 만들기")
         .navigationBarTitleDisplayMode(.inline)
+        // NavigationStack 시스템 백버튼과 닫기 버튼이 겹쳐 보이지 않도록 숨김.
+        // 좌측엔 step 중간에만 "이전" 버튼을, 우측엔 항상 "닫기" 버튼을 둔다.
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                if viewModel.step == .genre || viewModel.step == .generating {
-                    Button("닫기") { onCancel() }
-                } else {
+                if viewModel.step != .genre && viewModel.step != .generating {
                     Button {
                         viewModel.goBack()
                     } label: {
                         Label("이전", systemImage: "chevron.backward")
                     }
                 }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("닫기") { onCancel() }
             }
         }
         .onChange(of: viewModel.createdBook) { _, book in

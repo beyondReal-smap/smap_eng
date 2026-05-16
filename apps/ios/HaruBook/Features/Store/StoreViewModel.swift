@@ -2,6 +2,9 @@ import Foundation
 import Observation
 import StoreKit
 
+/// HomeRouter NavigationStack 경로 값 — 책장 헤더의 별 잔액 카드 탭 시 사용.
+struct StoreDestination: Hashable {}
+
 /// 별 충전(IAP) ViewModel — StoreKit 2.
 ///
 /// 흐름:
