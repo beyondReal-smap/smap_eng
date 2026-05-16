@@ -15,24 +15,29 @@ struct SettingsView: View {
     @State private var pushManager = PushManager.shared
 
     var body: some View {
-        List {
-            accountSection
-            storeSection
-            notificationSection
-            parentsSection
-            legalSection
-            appInfoSection
-            dangerSection
+        ZStack(alignment: .top) {
+            Color.smapBackground.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 0) {
+                pageHeader
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                List {
+                    accountSection
+                    storeSection
+                    notificationSection
+                    parentsSection
+                    legalSection
+                    appInfoSection
+                    dangerSection
+                }
+                .environment(\.font, Font.atozRegular(17))
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+            }
         }
-        // List 안의 모든 Text/Label이 동일한 A2Z 폰트를 기본값으로 쓰게 한다.
-        // 각 row가 Font.smapBody/atozBold 등을 개별 명시하면 그 값이 우선.
-        .environment(\.font, Font.atozRegular(17))
+        .toolbar(.hidden, for: .navigationBar)
         .task { await pushManager.refreshAuthorizationStatus() }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Color.smapBackground.ignoresSafeArea())
-        .navigationTitle("설정")
-        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showDeleteSheet) {
             NavigationStack {
                 DeleteAccountView(onCompleted: {
@@ -41,6 +46,20 @@ struct SettingsView: View {
                 })
             }
         }
+    }
+
+    // MARK: - Header
+
+    private var pageHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("설정")
+                .font(Font.atozBlack(34))
+                .foregroundStyle(Color.smapText)
+            Text("계정과 알림, 약관을 관리해요")
+                .font(Font.atozRegular(15))
+                .foregroundStyle(Color.smapMuted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - 계정

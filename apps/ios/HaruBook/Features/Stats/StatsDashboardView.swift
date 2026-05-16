@@ -23,7 +23,8 @@ struct StatsDashboardView: View {
                 emptyError(message: "아직 학습 기록이 없어요. 책을 한 권 읽고 다시 와 주세요.")
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 28) {
+                    VStack(alignment: .leading, spacing: 24) {
+                        header
                         summarySection
                         levelSection
                         monthlySection
@@ -31,13 +32,25 @@ struct StatsDashboardView: View {
                         recentQuizSection
                     }
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 24)
+                    .padding(.vertical, 16)
                 }
             }
         }
-        .navigationTitle("학습 통계")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("학습 통계")
+                .font(Font.atozBlack(34))
+                .foregroundStyle(Color.smapText)
+            Text("아이의 영어 학습 흐름을 한눈에 봐요")
+                .font(Font.atozRegular(15))
+                .foregroundStyle(Color.smapMuted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
     }
 
     // MARK: - 누적 성취

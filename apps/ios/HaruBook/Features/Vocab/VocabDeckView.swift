@@ -20,13 +20,25 @@ struct VocabDeckView: View {
                 content
             }
         }
-        .navigationTitle("단어장")
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
+    }
+
+    private var pageHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("단어장")
+                .font(Font.atozBlack(34))
+                .foregroundStyle(Color.smapText)
+            Text("매일 만나는 영어 단어를 차곡차곡")
+                .font(Font.atozRegular(15))
+                .foregroundStyle(Color.smapMuted)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var content: some View {
         VStack(spacing: 16) {
+            pageHeader
             tabBar
 
             let deck = viewModel.deck
