@@ -15,7 +15,8 @@ struct BookshelfView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    HStack(alignment: .top) {
+                    // 1행: 타이틀 + 부제 (좌측) + 둥근 아이콘 액션 2개(우측)
+                    HStack(alignment: .center, spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("책장")
                                 .font(Font.atozBlack(34))
@@ -25,40 +26,41 @@ struct BookshelfView: View {
                                 .foregroundStyle(Color.smapMuted)
                         }
                         Spacer()
-                        VStack(alignment: .trailing, spacing: 8) {
-                            NavigationLink(value: StoreDestination()) {
-                                CreditBadge(balance: viewModel.credits?.balance)
-                            }
-                            .buttonStyle(.plain)
-                            Button {
-                                onSwitchProfile()
-                            } label: {
-                                Label("프로필 전환", systemImage: "arrow.triangle.2.circlepath")
-                                    .font(Font.atozBold(13))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color.smapSurface)
-                                    .foregroundStyle(Color.smapText)
-                                    .clipShape(Capsule())
-                                    .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
+                        Button {
+                            onSwitchProfile()
+                        } label: {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(Color.smapText)
+                                .frame(width: 44, height: 44)
+                                .background(Color.smapSurface)
+                                .clipShape(Circle())
+                                .overlay(Circle().stroke(Color.smapBorder, lineWidth: 1))
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("프로필 전환")
                     }
 
-                    HStack(spacing: 8) {
+                    // 2행: 새 동화 만들기(주요 CTA, full-width) + 별 잔액 카드(우측)
+                    HStack(spacing: 10) {
                         NavigationLink(value: CreateBookDestination(profileId: viewModel.profileId)) {
                             HStack(spacing: 8) {
                                 Image(systemName: "plus.circle.fill")
-                                Text("새 동화 만들기").font(.smapBodyEmphasis)
+                                    .font(.system(size: 18, weight: .semibold))
+                                Text("새 동화 만들기")
+                                    .font(Font.atozBold(16))
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 12)
-                            .background(Color.smapPrimary, in: Capsule())
-                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .background(Color.smapPrimary)
+                            .foregroundStyle(Color.smapPrimaryForeground)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        Spacer()
+
+                        NavigationLink(value: StoreDestination()) {
+                            CreditBadge(balance: viewModel.credits?.balance)
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     LevelFilterView(

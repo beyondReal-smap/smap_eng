@@ -51,28 +51,42 @@ struct BookCardView: View {
 }
 
 /// 커버 이미지가 없을 때(또는 로딩/실패) 보여줄 시각적 폴백.
-/// book.id를 시드로 6개 액센트 팔레트 중 하나를 선택해 책마다 톤이 다르게 보이도록 한다.
-/// 단조로운 코랄 단색에서 벗어나 웹 cover-art.tsx 정신을 단순화한 형태.
+/// book.id를 시드로 6 팔레트 × 10 아이콘 = 60 조합. 단조롭지 않게.
 private struct CoverPlaceholder: View {
     let book: Book
     let isLoading: Bool
 
     private static let palettes: [(start: Color, end: Color)] = [
-        (.smapPeach,  .smapGold),     // 노랑 ↔ 코랄
-        (.smapMint,   .smapAccent),   // 민트 ↔ 스카이
-        (.smapAccent, .smapLilac),    // 스카이 ↔ 라일락
-        (.smapRose,   .smapPeach),    // 로즈 ↔ 피치
-        (.smapLilac,  .smapMint),     // 라일락 ↔ 민트
-        (.smapGold,   .smapRose),     // 골드 ↔ 로즈
+        (.smapPeach,  .smapGold),
+        (.smapMint,   .smapAccent),
+        (.smapAccent, .smapLilac),
+        (.smapRose,   .smapPeach),
+        (.smapLilac,  .smapMint),
+        (.smapGold,   .smapRose),
+    ]
+
+    private static let icons: [String] = [
+        "book.fill",
+        "sparkles",
+        "leaf.fill",
+        "sun.max.fill",
+        "moon.fill",
+        "star.fill",
+        "heart.fill",
+        "pawprint.fill",
+        "music.note",
+        "paintbrush.fill",
     ]
 
     private var palette: (start: Color, end: Color) {
-        let idx = abs(book.id) % Self.palettes.count
-        return Self.palettes[idx]
+        Self.palettes[abs(book.id) % Self.palettes.count]
+    }
+
+    private var icon: String {
+        Self.icons[abs(book.id / 7) % Self.icons.count]
     }
 
     private var initial: String {
-        // 한글/영문 모두에서 자연스러운 첫 그래핌.
         guard let first = book.title.first else { return "📖" }
         return String(first)
     }
@@ -85,14 +99,21 @@ private struct CoverPlaceholder: View {
                 endPoint: .bottomTrailing,
             )
 
-            VStack(spacing: 10) {
-                if isLoading {
-                    ProgressView().tint(Color.smapText.opacity(0.5))
-                } else {
-                    Text(initial)
-                        .font(Font.atozBlack(56))
-                        .foregroundStyle(Color.smapText.opacity(0.85))
-                }
+            // 우상단에 흐릿한 큰 아이콘 — 시드 기반 데코.
+            Image(systemName: icon)
+                .font(.system(size: 80, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.45))
+                .rotationEffect(.degrees(-12))
+                .offset(x: 50, y: -32)
+                .clipped()
+
+            if isLoading {
+                ProgressView().tint(Color.smapText.opacity(0.5))
+            } else {
+                Text(initial)
+                    .font(Font.atozBlack(54))
+                    .foregroundStyle(Color.smapText.opacity(0.88))
+                    .shadow(color: Color.white.opacity(0.4), radius: 2, x: 0, y: 1)
             }
         }
     }
