@@ -748,11 +748,34 @@ const nextAuth = NextAuth({
   // DB에서 role을 직접 'user'로 바꾸고 싶다면 먼저 화이트리스트에서 제거해야 함.
   events: {
     async signIn({ user }) {
-      if (user?.id && isAdminEmail(user.email)) {
+      if (!user?.id) return;
+
+      if (isAdminEmail(user.email)) {
         await db
           .update(users)
           .set({ role: 'admin' })
           .where(eq(users.id, user.id));
+      }
+
+      // OAuth(Google/Kakao)는 NextAuth Adapter가 users 행만 만들고 프로필을 만들지 않는다.
+      // 이메일 가입/Apple Sign In과 동일하게 첫 ⭐ 프로필을 자동 생성해 가입 흐름을 통일.
+      // 기존 user(프로필 1개 이상)에는 영향 없음. soft-deleted 행도 검사에 포함해
+      // "한 번 만든 적 있는" user에게는 다시 ⭐를 추가하지 않는다.
+      const existing = await db
+        .select({ id: profiles.id })
+        .from(profiles)
+        .where(eq(profiles.userId, user.id))
+        .limit(1);
+
+      if (existing.length === 0) {
+        const firstName = (user.name ?? '').trim().split(/\s+/)[0];
+        const childName = firstName.length > 0 ? firstName : '하루';
+        await db.insert(profiles).values({
+          userId: user.id,
+          name: childName,
+          age: 7,
+          avatar: '⭐',
+        });
       }
     },
   },

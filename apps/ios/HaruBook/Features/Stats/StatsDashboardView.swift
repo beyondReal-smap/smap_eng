@@ -15,30 +15,50 @@ struct StatsDashboardView: View {
         ZStack {
             Color.smapBackground.ignoresSafeArea()
 
-            if viewModel.isLoading && viewModel.summary == nil {
-                ProgressView().tint(Color.smapPrimary)
-            } else if let error = viewModel.error, viewModel.summary == nil {
-                emptyError(message: error)
-            } else if viewModel.summary == nil {
-                emptyError(message: "아직 학습 기록이 없어요. 책을 한 권 읽고 다시 와 주세요.")
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        header
-                        summarySection
-                        levelSection
-                        monthlySection
-                        vocabSection
-                        recentQuizSection
-                    }
+            // 설정 화면과 동일하게 헤더를 ScrollView 바깥의 상단 고정 영역에 배치 — 스크롤 시에도
+            // 어떤 화면인지 명확히 보이도록.
+            VStack(alignment: .leading, spacing: 0) {
+                header
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
-                    .padding(.bottom, 32)
-                }
+                    .padding(.bottom, 12)
+
+                contentRegion
             }
         }
         .toolbar(.hidden, for: .navigationBar)
         .task { await viewModel.load() }
+    }
+
+    /// 헤더 아래 본문 영역 — 로딩/에러/empty/실제 통계 분기. 헤더는 상단 고정이라 이 안에 포함 안 함.
+    @ViewBuilder
+    private var contentRegion: some View {
+        if viewModel.isLoading && viewModel.summary == nil {
+            Spacer(minLength: 0)
+            ProgressView().tint(Color.smapPrimary)
+                .frame(maxWidth: .infinity)
+            Spacer(minLength: 0)
+        } else if let error = viewModel.error, viewModel.summary == nil {
+            Spacer(minLength: 0)
+            emptyError(message: error)
+            Spacer(minLength: 0)
+        } else if viewModel.summary == nil {
+            Spacer(minLength: 0)
+            emptyError(message: "아직 학습 기록이 없어요. 책을 한 권 읽고 다시 와 주세요.")
+            Spacer(minLength: 0)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    summarySection
+                    levelSection
+                    monthlySection
+                    vocabSection
+                    recentQuizSection
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 32)
+            }
+        }
     }
 
     private var header: some View {
