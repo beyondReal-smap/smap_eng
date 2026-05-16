@@ -5,8 +5,11 @@ import SwiftUI
 ///
 /// 크기는 시스템 폰트 시절과 비교해 손글씨 폰트의 시각적 무게/높이 차이를 보정해 살짝 키운다.
 extension Font {
+    /// 메인 탭 4개의 페이지 헤더 (책장/통계/단어장/설정).
     static let smapDisplay      = Font.atozBlack(34)
-    static let smapTitle        = Font.atozBlack(26)
+    /// 하위 페이지(Email/Onboarding/PIN/DeleteAccount/Store 등)의 페이지 헤더.
+    /// 메인 탭과 시각 계층을 유지하면서도 일관된 무게감을 갖도록 28pt.
+    static let smapTitle        = Font.atozBlack(28)
     static let smapHeading      = Font.atozBold(22)
     static let smapBody         = Font.atozRegular(17)
     static let smapBodyEmphasis = Font.atozBold(17)

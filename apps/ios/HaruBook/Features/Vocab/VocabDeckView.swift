@@ -88,18 +88,19 @@ struct VocabDeckView: View {
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                         if let badge = badgeCount(for: t), badge > 0 {
+                            // 배지가 3자리(589 등)가 되어도 셀 높이가 늘어나지 않게
+                            // frame(height: 18)로 고정하고 padding은 horizontal만.
                             Text("\(badge)")
                                 .font(Font.atozBold(11))
                                 .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
+                                .frame(height: 18)
                                 .background(viewModel.tab == t ? Color.white.opacity(0.25) : Color.smapPrimarySoft)
                                 .foregroundStyle(viewModel.tab == t ? Color.white : Color.smapPrimaryForeground)
                                 .clipShape(Capsule())
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .padding(.horizontal, 10)
                     .background(viewModel.tab == t ? Color.smapPrimary : Color.smapSurface)
                     .foregroundStyle(viewModel.tab == t ? Color.smapPrimaryForeground : Color.smapText)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
