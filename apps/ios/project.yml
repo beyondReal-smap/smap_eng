@@ -9,6 +9,14 @@ options:
   xcodeVersion: "26.0"
   groupSortPosition: top
 
+# Firebase Cloud Messaging — APNs 직접 통신 대신 FCM 으로 통일.
+# 같은 Firebase 프로젝트(`harubook-fb4af`)를 iOS·Android 가 공유하므로 백엔드도 단일 FCM 모듈로
+# 발송한다(src/lib/push/fcm.ts). FirebaseMessaging 만 의존 — Analytics 등 다른 모듈은 미사용.
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: "11.0.0"
+
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -26,6 +34,9 @@ targets:
       - path: HaruBook
         excludes:
           - "**/.DS_Store"
+    dependencies:
+      - package: Firebase
+        product: FirebaseMessaging
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.smap.harubook
@@ -65,6 +76,9 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
         ITSAppUsesNonExemptEncryption: false
+        # FCM 메시지를 백그라운드/서스펜드 상태에서 받기 위해 remote-notification 모드 활성화.
+        UIBackgroundModes:
+          - remote-notification
         # 웹 랜딩/메인과 동일한 손글씨 폰트(A2Z). 9 웨이트 중 핵심 3개만 번들.
         UIAppFonts:
           - AtoZ-4Regular.ttf

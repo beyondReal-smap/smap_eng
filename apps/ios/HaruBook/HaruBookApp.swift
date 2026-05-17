@@ -1,5 +1,8 @@
+import FirebaseCore
+import FirebaseMessaging
 import SwiftUI
 import UIKit
+import UserNotifications
 
 @main
 struct HaruBookApp: App {
@@ -48,30 +51,56 @@ struct HaruBookApp: App {
     }
 }
 
-/// APNs device token 수신을 위해 UIKit AppDelegate를 SwiftUI App에 연결.
-final class HaruBookAppDelegate: NSObject, UIApplicationDelegate {
+/// SwiftUI App 에 UIKit AppDelegate 를 연결 — FCM 토큰 수신 + APNs token 위임.
+///
+/// Firebase Messaging 흐름:
+///   1. FirebaseApp.configure() — `GoogleService-Info.plist` 자동 로드
+///   2. APNs 권한 + registerForRemoteNotifications → didRegisterForRemoteNotifications 콜백
+///      → Messaging.apnsToken = data (FCM 이 APNs 와 페어링)
+///   3. Messaging.delegate = self → didReceiveRegistrationToken 으로 FCM 토큰 수신
+///      → PushManager.applyFcmToken 으로 백엔드 등록
+final class HaruBookAppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNotificationCenterDelegate {
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil,
     ) -> Bool {
-        true
+        FirebaseApp.configure()
+        Messaging.messaging().delegate = self
+        UNUserNotificationCenter.current().delegate = self
+        return true
     }
 
+    /// APNs 가 발급한 device token 을 Firebase Messaging 에 전달 → FCM 이 페어링 후 토큰 발급.
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data,
     ) {
-        Task { @MainActor in
-            await PushManager.shared.applyDeviceToken(deviceToken)
-        }
+        Messaging.messaging().apnsToken = deviceToken
     }
 
     func application(
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error,
     ) {
-        // 권한이 거절된 경우에도 호출됨 — 사용자 흐름 차단 없음.
-        print("[push] register failed: \(error.localizedDescription)")
+        // APNs 등록 실패. 사용자 흐름 차단 없음 — 다음 앱 시작 시 다시 시도.
+        print("[push] APNs register failed: \(error.localizedDescription)")
+    }
+
+    /// FCM 토큰 수신/갱신. 백엔드 `/api/push/register` 로 전송.
+    nonisolated func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let token = fcmToken else { return }
+        Task { @MainActor in
+            await PushManager.shared.applyFcmToken(token)
+        }
+    }
+
+    /// 포그라운드에서도 알림 표시(시스템 기본은 무음 처리).
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void,
+    ) {
+        completionHandler([.banner, .sound, .badge])
     }
 }
 
