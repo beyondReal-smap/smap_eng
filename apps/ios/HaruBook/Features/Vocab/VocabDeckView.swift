@@ -188,7 +188,8 @@ struct VocabDeckView: View {
                                     .padding(.horizontal, 7)
                                     .frame(height: 18)
                                     .background(viewModel.tab == t ? Color.white.opacity(0.25) : Color.smapPrimarySoft)
-                                    .foregroundStyle(viewModel.tab == t ? Color.white : Color.smapPrimaryForeground)
+                                    // 비선택 시 smapPrimarySoft 배경 위 — smapOnPrimarySoft 사용해야 다크에서 보임.
+                                    .foregroundStyle(viewModel.tab == t ? Color.white : Color.smapOnPrimarySoft)
                                     .clipShape(Capsule())
                             }
                         }

@@ -102,7 +102,9 @@ struct MainTabView: View {
                     .font(Font.atozBold(11))
             }
             .frame(maxWidth: .infinity, minHeight: 48)
-            .foregroundStyle(isSelected ? Color.smapPrimaryForeground : Color.smapMuted)
+            // 선택 시 배경 smapPrimarySoft (파스텔/어두운 코랄). 텍스트는 그 위에 대비되는
+            // smapOnPrimarySoft 사용 — primaryForeground(deep coral ink)를 쓰면 다크에서 안 보임.
+            .foregroundStyle(isSelected ? Color.smapOnPrimarySoft : Color.smapMuted)
             .background(isSelected ? Color.smapPrimarySoft : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }

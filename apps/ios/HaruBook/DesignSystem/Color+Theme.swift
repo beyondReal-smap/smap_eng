@@ -17,6 +17,14 @@ extension Color {
         light: Color(hex: 0xFFE2D8),  // 파스텔 코랄 (tonal CTA)
         dark:  Color(hex: 0x4A2D26),  // 어두운 코랄 톤
     )
+    /// `smapPrimarySoft` 배경 위에 사용하는 텍스트/아이콘 색.
+    /// `smapPrimaryForeground`(코랄 #FFB39A 배경 위 deep ink) 를 그대로 쓰면 다크에서
+    /// 어두운 코랄 bg(#4A2D26) + 어두운 잉크(#3D1A0F) 가 명도 차이 거의 없어 안 보임.
+    /// tonal/outline 버튼, 선택된 탭, badge 등 코랄이 아닌 파스텔 코랄/투명 배경 위 텍스트에 사용.
+    static let smapOnPrimarySoft = Color(
+        light: Color(hex: 0x5B2C1F),  // 파스텔 코랄 bg 위 deep coral ink (라이트는 기존 동일)
+        dark:  Color(hex: 0xFFD1BD),  // 어두운 코랄 bg 위 밝은 코랄 톤
+    )
 
     // MARK: - Surface / 배경
     static let smapBackground = Color(

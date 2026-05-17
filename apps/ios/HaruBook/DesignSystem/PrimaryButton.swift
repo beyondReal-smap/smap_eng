@@ -68,8 +68,16 @@ struct PrimaryButton: View {
 
     private var foreground: Color {
         if let foregroundOverride { return foregroundOverride }
-        // Soft Coral Peach 배경/외곽선 위 deep coral ink 글자 (웹과 동일).
-        return .smapPrimaryForeground
+        switch variant {
+        case .filled:
+            // Soft Coral Peach fill(#FFB39A) 위 deep coral ink — 라이트/다크 모두 대비 충분.
+            return .smapPrimaryForeground
+        case .tonal, .outline:
+            // tonal: 파스텔/어두운 코랄 bg, outline: 투명(페이지 배경) bg.
+            // primaryForeground(deep ink) 는 다크에서 어두운 코랄/배경과 명도 차이가 거의 없어 안 보임.
+            // smapOnPrimarySoft는 라이트에서는 deep ink, 다크에서는 밝은 코랄로 양쪽 가독성 확보.
+            return .smapOnPrimarySoft
+        }
     }
 
     private var borderColor: Color {
