@@ -22,9 +22,25 @@ struct IntakeQuestionsResponse: Decodable {
 /// `/api/books` POST 시 보낼 인테이크 페이로드.
 ///
 /// 답변을 건너뛴 질문은 `text: nil` 로 정규화 (백엔드는 null 허용).
+/// 주의: 기본 `Encodable`은 nil optional의 key를 생략(`undefined`)하지만 서버 zod는
+/// `.nullable()`만 허용해 `undefined`를 거절한다. 커스텀 `encode(to:)`로 명시 `null` 전송.
 struct IntakeAnswer: Encodable, Hashable, Sendable {
     let questionId: String
     let text: String?
+
+    enum CodingKeys: String, CodingKey {
+        case questionId, text
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(questionId, forKey: .questionId)
+        if let text {
+            try container.encode(text, forKey: .text)
+        } else {
+            try container.encodeNil(forKey: .text)
+        }
+    }
 }
 
 struct IntakePayload: Encodable, Sendable {
