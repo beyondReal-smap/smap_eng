@@ -11,6 +11,8 @@ struct PinPadView: View {
 
     @FocusState private var focused: Bool
     @State private var shakeOffset: CGFloat = 0
+    /// 모션 민감 사용자에게는 PIN 오답 흔들기 애니메이션을 생략 — 부모가 햅틱으로 피드백 보강.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let length = 4
 
@@ -71,6 +73,8 @@ struct PinPadView: View {
     }
 
     private func shake() {
+        // 모션 민감자는 흔들기 자체를 생략. shake 호출 자리에 햅틱이 함께 트리거되므로 피드백은 유지.
+        if reduceMotion { return }
         let damping: [(CGFloat, Double)] = [
             (-12, 0.05),
             (12, 0.05),

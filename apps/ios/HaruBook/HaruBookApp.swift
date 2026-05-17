@@ -97,6 +97,7 @@ final class HaruBookAppDelegate: NSObject, UIApplicationDelegate {
 
 struct RootView: View {
     @Environment(AuthState.self) private var auth
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var splashFinished = false
 
     /// SplashView 최소 노출 시간 — Keychain bootstrap이 거의 즉시 끝나면 깜빡임이
@@ -119,7 +120,7 @@ struct RootView: View {
             async let bootstrap: Void = runBootstrapIfNeeded()
             async let delay: Void = sleep(seconds: Self.minimumSplashSeconds)
             _ = await (bootstrap, delay)
-            withAnimation(.easeOut(duration: 0.35)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
                 splashFinished = true
             }
         }
@@ -157,6 +158,7 @@ struct RootView: View {
 /// 시스템 launch screen(`LaunchBackground` = #FBFAF9)에서 SwiftUI로 매끄럽게 이어진다.
 private struct SplashView: View {
     @State private var appeared = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // 웹 globals.css 의 body 라디얼 그라디언트와 동일한 톤(근사 sRGB).
     // 디자인 시스템 토큰과 의미가 일치하는 색은 토큰 사용 — 자동 다크 적응.
@@ -235,7 +237,7 @@ private struct SplashView: View {
             .padding(.horizontal, 24)
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.45).delay(0.05)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.45).delay(0.05)) {
                 appeared = true
             }
         }

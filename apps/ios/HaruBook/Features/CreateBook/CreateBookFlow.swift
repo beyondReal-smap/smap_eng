@@ -5,6 +5,8 @@ struct CreateBookFlow: View {
     @State private var viewModel: CreateBookViewModel
     let onCreated: (Book) -> Void
     let onCancel: () -> Void
+    /// 모션 민감 사용자에게는 단계 전환 좌우 슬라이드를 페이드만으로 단순화.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(profileId: Int, ageHint: Int, onCreated: @escaping (Book) -> Void, onCancel: @escaping () -> Void) {
         _viewModel = State(initialValue: CreateBookViewModel(profileId: profileId, ageHint: ageHint))
@@ -24,14 +26,16 @@ struct CreateBookFlow: View {
                     currentStep
                         .id(viewModel.step)
                         .transition(
-                            .asymmetric(
-                                insertion: .move(edge: .trailing).combined(with: .opacity),
-                                removal: .move(edge: .leading).combined(with: .opacity),
-                            ),
+                            reduceMotion
+                                ? .opacity
+                                : .asymmetric(
+                                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity),
+                                ),
                         )
                 }
                 .frame(maxHeight: .infinity)
-                .animation(.easeInOut(duration: 0.28), value: viewModel.step)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: viewModel.step)
             }
         }
         .navigationTitle("새 동화 만들기")

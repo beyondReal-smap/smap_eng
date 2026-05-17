@@ -3,6 +3,8 @@ import SwiftUI
 /// 단어장 메인 화면 — 3탭(오늘/모르는/전체) + 플래시카드 + SRS 평가.
 struct VocabDeckView: View {
     @State private var viewModel: VocabViewModel
+    /// 모션 민감 사용자에게는 탭 전환 페이드 애니메이션 생략.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(profileId: Int) {
         _viewModel = State(initialValue: VocabViewModel(profileId: profileId))
@@ -173,7 +175,7 @@ struct VocabDeckView: View {
             HStack(spacing: 8) {
                 ForEach(VocabViewModel.Tab.allCases) { t in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) { viewModel.tab = t }
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { viewModel.tab = t }
                     } label: {
                         HStack(spacing: 6) {
                             Text(t.label)

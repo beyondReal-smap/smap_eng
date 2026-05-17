@@ -11,6 +11,8 @@ struct VocabCardView: View {
     let isSpeaking: Bool
     let onSpeak: () -> Void
     let onFlip: () -> Void
+    /// 모션 민감 사용자에게는 카드 뒤집기 3D 회전 애니메이션을 즉시 컷으로 대체.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -23,7 +25,7 @@ struct VocabCardView: View {
             axis: (x: 0, y: 1, z: 0),
             perspective: 0.6,
         )
-        .animation(.easeInOut(duration: 0.4), value: isFlipped)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: isFlipped)
         .frame(maxWidth: .infinity, minHeight: 240)
         .padding(28)
         .background(Color.smapSurface)
