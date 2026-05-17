@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -38,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -96,10 +99,13 @@ fun ProfilePickerScreen(
                 message = state.error.orEmpty(),
                 onRetry = viewModel::load,
             )
+            // iOS ProfilePickerView.emptyState 패리티 — 프로필 0명 일 때 큰 PersonAdd 아이콘 +
+            // "첫 프로필을 추가해 주세요" 안내 + 캡슐 CTA 한 개. 강제 모달은 사용자 부담.
+            state.profiles.isEmpty() -> EmptyState(onAdd = { creating = true })
             else -> ProfileGrid(
                 profiles = state.profiles,
                 onSelect = onSelect,
-                onLongPress = { pendingDelete = it },
+                onOptionsRequest = { pendingDelete = it },
                 onAdd = { creating = true },
             )
         }
@@ -122,10 +128,10 @@ fun ProfilePickerScreen(
     pendingDelete?.let { p ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("${p.name} 삭제", style = SmapHeadingStyle, color = SmapText) },
+            title = { Text("프로필을 삭제할까요?", style = SmapHeadingStyle, color = SmapText) },
             text = {
                 Text(
-                    "프로필을 삭제해도 책과 학습 기록은 보존돼요. 같은 이름으로 다시 만들면 이어 보입니다.",
+                    "${p.name} 프로필이 목록에서 사라져요. 만든 책과 학습 기록은 보존돼요.",
                     style = SmapBodyStyle,
                     color = SmapMuted,
                 )
@@ -177,7 +183,7 @@ private fun ErrorBlock(message: String, onRetry: () -> Unit) {
 private fun ProfileGrid(
     profiles: List<Profile>,
     onSelect: (Profile) -> Unit,
-    onLongPress: (Profile) -> Unit,
+    onOptionsRequest: (Profile) -> Unit,
     onAdd: () -> Unit,
 ) {
     LazyVerticalGrid(
@@ -191,7 +197,7 @@ private fun ProfileGrid(
             ProfileCard(
                 profile = profile,
                 onClick = { onSelect(profile) },
-                onLongPress = { onLongPress(profile) },
+                onOptionsRequest = { onOptionsRequest(profile) },
             )
         }
         item(key = "__add__") {
@@ -204,35 +210,116 @@ private fun ProfileGrid(
 private fun ProfileCard(
     profile: Profile,
     onClick: () -> Unit,
-    onLongPress: () -> Unit,
+    onOptionsRequest: () -> Unit,
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 180.dp)
             .pointerInput(profile.id) {
-                detectTapGestures(onTap = { onClick() }, onLongPress = { onLongPress() })
+                // long-press 도 옵션 진입 — iOS contextMenu 패리티.
+                detectTapGestures(onTap = { onClick() }, onLongPress = { onOptionsRequest() })
             }
             .background(SmapSurface, RoundedCornerShape(24.dp))
-            .border(1.dp, SmapBorder, RoundedCornerShape(24.dp))
-            .padding(vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .border(1.dp, SmapBorder, RoundedCornerShape(24.dp)),
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .background(SmapPrimarySoft, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                val avatar = profile.avatar
+                if (!avatar.isNullOrEmpty()) {
+                    Text(text = avatar, style = SmapDisplayStyle)
+                } else {
+                    Text(text = profile.name.take(1), style = SmapDisplayStyle, color = SmapPrimary)
+                }
+            }
+            Text(profile.name, style = SmapBodyEmphasisStyle, color = SmapText)
+        }
+        // iOS ProfilePickerView 우상단 ⋯ Menu 패리티 — long-press 없이도 한 번 탭으로 옵션 진입.
         Box(
             modifier = Modifier
-                .size(96.dp)
-                .background(SmapPrimarySoft, CircleShape),
+                .align(Alignment.TopEnd)
+                .padding(top = 10.dp, end = 10.dp)
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(SmapSurface)
+                .border(1.dp, SmapBorder, CircleShape)
+                .clickable(onClick = onOptionsRequest),
             contentAlignment = Alignment.Center,
         ) {
-            val avatar = profile.avatar
-            if (!avatar.isNullOrEmpty()) {
-                Text(text = avatar, style = SmapDisplayStyle)
-            } else {
-                Text(text = profile.name.take(1), style = SmapDisplayStyle, color = SmapPrimaryForeground)
-            }
+            Icon(
+                imageVector = Icons.Filled.MoreHoriz,
+                contentDescription = "${profile.name} 옵션",
+                tint = SmapMuted,
+                modifier = Modifier.size(16.dp),
+            )
         }
-        Text(profile.name, style = SmapBodyEmphasisStyle, color = SmapText)
+    }
+}
+
+/** iOS ProfilePickerView.emptyState 패리티 — 큰 person 아이콘 + 안내 + 캡슐 CTA. */
+@Composable
+private fun EmptyState(onAdd: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.PersonAdd,
+            contentDescription = null,
+            tint = SmapPrimary,
+            modifier = Modifier.size(64.dp),
+        )
+        Spacer(Modifier.size(20.dp))
+        Text(
+            text = "첫 프로필을 추가해 주세요",
+            style = SmapHeadingStyle,
+            color = SmapText,
+        )
+        Spacer(Modifier.size(6.dp))
+        Text(
+            text = "아이의 이름과 나이를 알려주면\n그에 맞는 영어 동화를 만들어 드려요.",
+            style = SmapBodyStyle,
+            color = SmapMuted,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.size(24.dp))
+        // 캡슐 CTA — 책장의 "새 동화 만들기" 와 동일한 톤·모양.
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier
+                .heightIn(min = 52.dp)
+                .clip(CircleShape)
+                .background(SmapPrimary)
+                .clickable(onClick = onAdd)
+                .padding(horizontal = 28.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Add,
+                contentDescription = null,
+                tint = SmapPrimaryForeground,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = stringResource(R.string.profile_add),
+                style = SmapBodyEmphasisStyle,
+                color = SmapPrimaryForeground,
+            )
+        }
     }
 }
 

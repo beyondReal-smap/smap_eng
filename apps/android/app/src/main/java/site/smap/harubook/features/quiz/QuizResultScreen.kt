@@ -8,30 +8,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Celebration
-import androidx.compose.material.icons.filled.SentimentSatisfied
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import site.smap.harubook.designsystem.A2zFontFamily
 import site.smap.harubook.designsystem.PrimaryButton
 import site.smap.harubook.designsystem.PrimaryButtonVariant
 import site.smap.harubook.designsystem.SmapBackground
-import site.smap.harubook.designsystem.SmapBodyStyle
 import site.smap.harubook.designsystem.SmapDisplayStyle
 import site.smap.harubook.designsystem.SmapHeadingStyle
 import site.smap.harubook.designsystem.SmapMuted
 import site.smap.harubook.designsystem.SmapPrimary
-import site.smap.harubook.designsystem.SmapPrimaryForeground
-import site.smap.harubook.designsystem.SmapPrimarySoft
 import site.smap.harubook.designsystem.SmapText
 
+/**
+ * 퀴즈 결과 화면 — iOS `QuizResultView.swift` 패리티.
+ *
+ * 큰 이모지(점수별 4단계) + 4단계 헤드라인 + 큰 점수(56sp 코랄) + 퍼센트 점수 + 두 버튼.
+ * 이전엔 2단계 헤드라인 + 일반 아이콘 + 격려 메시지 위주라 iOS 의 시각적 임팩트가 없었다.
+ */
 @Composable
 fun QuizResultScreen(
     score: Int,
@@ -39,55 +38,52 @@ fun QuizResultScreen(
     onRestart: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val perfect = score == total
+    val percentage = if (total > 0) ((score.toDouble() / total.toDouble()) * 100).toInt() else 0
+
+    val (emoji, headline) = when {
+        percentage == 100 -> "🌟" to "완벽해요!"
+        percentage in 80..99 -> "🎉" to "아주 잘했어요!"
+        percentage in 60..79 -> "👍" to "조금만 더 연습해 보아요"
+        else -> "💪" to "다시 한 번 도전!"
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(SmapBackground)
-            .padding(horizontal = 24.dp, vertical = 40.dp),
+            .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        androidx.compose.foundation.layout.Box(
-            modifier = Modifier
-                .size(120.dp)
-                .background(SmapPrimarySoft, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = if (perfect) Icons.Filled.Celebration else Icons.Filled.SentimentSatisfied,
-                contentDescription = null,
-                tint = SmapPrimary,
-                modifier = Modifier.size(64.dp),
-            )
-        }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.weight(1f))
 
+        // iOS 88pt 이모지 패리티.
+        Text(text = emoji, fontSize = 88.sp)
+
+        Spacer(Modifier.height(20.dp))
+        Text(text = headline, style = SmapDisplayStyle, color = SmapText)
+
+        Spacer(Modifier.height(20.dp))
+        // 큰 점수 — 56sp heavy rounded 코랄. iOS 와 동일한 시각적 위계.
         Text(
-            text = if (perfect) "완벽해요!" else "잘했어요!",
-            style = SmapDisplayStyle,
-            color = SmapText,
+            text = "$score / $total",
+            fontSize = 56.sp,
+            fontWeight = FontWeight.Black,
+            fontFamily = A2zFontFamily,
+            color = SmapPrimary,
         )
         Spacer(Modifier.height(6.dp))
-        Text(
-            text = "${score} / ${total} 문제 정답",
-            style = SmapHeadingStyle,
-            color = SmapPrimaryForeground,
-        )
+        Text(text = "${percentage}점", style = SmapHeadingStyle, color = SmapMuted)
 
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = if (perfect) "모든 문제를 맞혔어요. 정말 멋져요!" else "다시 도전하면 더 잘할 수 있을 거예요.",
-            style = SmapBodyStyle,
-            color = SmapMuted,
-            textAlign = TextAlign.Center,
-        )
+        Spacer(Modifier.weight(1f))
 
-        Spacer(Modifier.height(28.dp))
-
-        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             PrimaryButton(title = "다시 풀기", variant = PrimaryButtonVariant.Tonal, onClick = onRestart)
-            PrimaryButton(title = "책장으로", onClick = onClose)
+            PrimaryButton(title = "책장으로 돌아가기", onClick = onClose)
         }
+        Spacer(Modifier.height(32.dp))
     }
 }
