@@ -13,10 +13,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import site.smap.harubook.core.audio.AudioPlayer
+import site.smap.harubook.core.models.Book
 import site.smap.harubook.core.models.BookDetail
 import site.smap.harubook.core.models.Passage
 import site.smap.harubook.core.models.ReadingLogResponse
+import site.smap.harubook.core.models.VocabularyEntry
 import site.smap.harubook.core.networking.ApiClient
+import site.smap.harubook.core.srs.SrsGrade
+import site.smap.harubook.core.srs.SrsStore
 
 /**
  * 본문 텍스트 크기. SharedPreferences로 사용자 전역 선호도 영속화.
@@ -48,6 +52,7 @@ enum class ReaderTextScale(val sp: Int, val label: String, val previewSp: Int) {
 
 data class ReaderUiState(
     val passages: List<Passage> = emptyList(),
+    val vocabulary: List<VocabularyEntry> = emptyList(),
     val currentIndex: Int = 0,
     val showsKorean: Boolean = false,
     val isLoadingDetail: Boolean = true,
@@ -56,6 +61,8 @@ data class ReaderUiState(
     val readingLogId: Int? = null,
     val synthesizingPassageId: Int? = null,
     val generatingScenePassageId: Int? = null,
+    /** 사용자가 본문에서 탭한 vocab. null이면 popover 닫힘. */
+    val selectedVocab: VocabularyEntry? = null,
 )
 
 /**
@@ -77,6 +84,7 @@ class ReaderViewModel(
     private val _state = MutableStateFlow(ReaderUiState(textScale = ReaderTextScale.load(appContext)))
     val state: StateFlow<ReaderUiState> = _state.asStateFlow()
 
+    private val srs: SrsStore = SrsStore.create(appContext, profileId)
     private var hasReportedFinish = false
 
     fun bootstrap() {
@@ -182,12 +190,26 @@ class ReaderViewModel(
         }
     }
 
+    fun selectVocab(entry: VocabularyEntry) {
+        _state.update { it.copy(selectedVocab = entry) }
+    }
+
+    fun dismissVocab() {
+        _state.update { it.copy(selectedVocab = null) }
+    }
+
+    fun gradeVocab(entry: VocabularyEntry, grade: SrsGrade) {
+        srs.grade(entry.word, grade)
+        _state.update { it.copy(selectedVocab = null) }
+    }
+
     private suspend fun loadDetail() {
         try {
             val detail: BookDetail = ApiClient.get(path = "/api/books/$bookId")
             _state.update {
                 it.copy(
                     passages = detail.passages.sortedBy { p -> p.orderIndex },
+                    vocabulary = detail.book.vocabulary.orEmpty(),
                     isLoadingDetail = false,
                 )
             }

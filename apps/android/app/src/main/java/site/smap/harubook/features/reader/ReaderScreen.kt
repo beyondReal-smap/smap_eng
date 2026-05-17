@@ -40,7 +40,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import site.smap.harubook.core.audio.AudioPlayer
+import site.smap.harubook.core.models.VocabularyEntry
+import site.smap.harubook.core.srs.SrsGrade
 import site.smap.harubook.designsystem.PrimaryButton
 import site.smap.harubook.designsystem.PrimaryButtonVariant
 import site.smap.harubook.designsystem.SmapBackground
@@ -110,10 +114,12 @@ fun ReaderScreen(
                     val passage = state.passages.getOrNull(index) ?: return@HorizontalPager
                     PassageView(
                         passage = passage,
+                        vocabulary = state.vocabulary,
                         showsKorean = state.showsKorean,
                         isPlaying = audio.nowPlayingPassageId == passage.id,
                         textScale = state.textScale,
                         generatingScene = state.generatingScenePassageId == passage.id,
+                        onVocabSelected = viewModel::selectVocab,
                     )
                 }
 
@@ -127,6 +133,49 @@ fun ReaderScreen(
                     onToggleKorean = viewModel::toggleKorean,
                     onRequestScene = { viewModel.requestSceneImage(state.currentIndex) },
                     onOpenQuiz = { onOpenQuiz(bookId, state.readingLogId) },
+                )
+            }
+        }
+    }
+
+    state.selectedVocab?.let { entry ->
+        VocabPopoverSheet(
+            entry = entry,
+            onDismiss = viewModel::dismissVocab,
+            onGrade = { grade -> viewModel.gradeVocab(entry, grade) },
+        )
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun VocabPopoverSheet(
+    entry: VocabularyEntry,
+    onDismiss: () -> Unit,
+    onGrade: (SrsGrade) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = SmapBackground) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(entry.word, style = SmapBodyEmphasisStyle, color = SmapPrimary)
+            Text(entry.meaning, style = SmapBodyStyle, color = SmapText)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                PrimaryButton(
+                    title = "몰라요",
+                    variant = PrimaryButtonVariant.Outline,
+                    onClick = { onGrade(SrsGrade.Again) },
+                    modifier = Modifier.weight(1f),
+                )
+                PrimaryButton(
+                    title = "알아요",
+                    onClick = { onGrade(SrsGrade.Good) },
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
