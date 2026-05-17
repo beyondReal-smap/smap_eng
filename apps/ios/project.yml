@@ -42,6 +42,10 @@ targets:
         excludes:
           - "**/.DS_Store"
     dependencies:
+      # Xcode 26.4 explicit modules 빌드에서는 transitive 의존이 자동 연결되지 않으므로
+      # HaruBookApp.swift 가 `import FirebaseCore` 하는 만큼 product 도 명시해야 한다.
+      - package: Firebase
+        product: FirebaseCore
       - package: Firebase
         product: FirebaseMessaging
     settings:
