@@ -6,6 +6,10 @@ struct BadgeLabel: View {
 
     enum Tone {
         case primary, neutral, warn, danger
+        /// 통계 LevelRow / 책장 필터 칩과 동일한 레벨별 파스텔(A1 초록, A2 파랑, B1 주황, B2 분홍).
+        /// CEFR 배지를 앱 전반에서 한 가지 색 체계로 통일하기 위한 톤. 이전엔 책 카드/리더는 코랄(.primary),
+        /// 통계는 레벨 색으로 갈려 사용자가 "안 맞다"고 지적했다.
+        case level(CefrLevel)
     }
 
     var body: some View {
@@ -24,6 +28,7 @@ struct BadgeLabel: View {
         case .neutral: return Color.smapText.opacity(0.08)
         case .warn: return Color.smapWarn.opacity(0.18)
         case .danger: return Color.smapDanger.opacity(0.18)
+        case .level(let lvl): return lvl.color
         }
     }
 
@@ -35,6 +40,8 @@ struct BadgeLabel: View {
         case .neutral: return .smapText
         case .warn: return .smapWarn
         case .danger: return .smapDanger
+        // 레벨 파스텔(밝은 톤) 위에는 본문 텍스트 색이 충분한 대비를 가진다.
+        case .level: return .smapText
         }
     }
 }

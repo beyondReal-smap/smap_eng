@@ -57,7 +57,7 @@ struct ReaderView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 BadgeLabel(text: "\(viewModel.book.age)세", tone: .neutral)
-                BadgeLabel(text: viewModel.book.cefr.label, tone: .primary)
+                BadgeLabel(text: viewModel.book.cefr.label, tone: .level(viewModel.book.cefr))
                 Spacer()
                 if !viewModel.passages.isEmpty {
                     Text("\(viewModel.currentIndex + 1) / \(viewModel.passages.count)")
