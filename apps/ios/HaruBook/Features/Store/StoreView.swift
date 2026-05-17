@@ -167,7 +167,9 @@ struct StoreView: View {
             if let badge = meta?.badgeLabel {
                 Text(badge)
                     .font(Font.atozBold(11))
-                    .foregroundStyle(.white)
+                    // 코랄 fill(#FFB39A) 위 흰 텍스트는 WCAG 4.5:1 미달(약 1.7:1)로 사실상 안 보임.
+                    // ReaderView 도 같은 패턴을 primaryForeground(deep coral ink)로 교정 — 동일 적용.
+                    .foregroundStyle(Color.smapPrimaryForeground)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(Color.smapPrimary, in: Capsule())

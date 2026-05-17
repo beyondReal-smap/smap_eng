@@ -1,11 +1,5 @@
 import SwiftUI
 import UIKit
-import OSLog
-
-/// 앱 전역 푸시 관련 로그. Console.app 에서 subsystem=com.smap.harubook category=push 로 필터.
-/// print 보다 `os.Logger`가 디버그/릴리스 모두에서 일관된 메타데이터(시간/PID/스레드)를 남기고,
-/// 민감 데이터는 `privacy:` 옵션으로 자동 마스킹 가능.
-private let pushLogger = Logger(subsystem: "com.smap.harubook", category: "push")
 
 @main
 struct HaruBookApp: App {
@@ -97,7 +91,7 @@ final class HaruBookAppDelegate: NSObject, UIApplicationDelegate {
     ) {
         // 권한이 거절된 경우에도 호출됨 — 사용자 흐름 차단 없음.
         // localizedDescription 은 시스템 메시지(공개 안전)로 .public 마킹.
-        pushLogger.warning("register failed: \(error.localizedDescription, privacy: .public)")
+        AppLog.push.warning("register failed: \(error.localizedDescription, privacy: .public)")
     }
 }
 

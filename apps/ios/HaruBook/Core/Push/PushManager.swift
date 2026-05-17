@@ -69,7 +69,7 @@ final class PushManager {
             )
         } catch {
             // 등록 실패 시에도 사용자 흐름은 막지 않는다. 다음 앱 시작 시 다시 호출됨.
-            print("[push] register failed: \(error)")
+            AppLog.push.warning("register failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -86,7 +86,7 @@ final class PushManager {
                 ),
             )
         } catch {
-            print("[push] unregister failed: \(error)")
+            AppLog.push.warning("unregister failed: \(error.localizedDescription, privacy: .public)")
         }
         registeredToken = nil
     }
