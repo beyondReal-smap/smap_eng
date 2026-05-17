@@ -1,0 +1,12 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+        Compose가 실제 테마/색을 그리지만, Activity 시작 시 잠깐 보이는 스플래시 배경과
+        시스템 윈도우(상단 상태바) 색을 위해 최소 한 개의 AppCompat 호환 테마가 필요하다.
+        Compose 자체에는 영향을 주지 않는다.
+    -->
+    <style name="Theme.HaruBook" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/smap_background</item>
+        <item name="android:statusBarColor">@color/smap_background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+    </style>
+</resources>

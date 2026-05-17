@@ -1,0 +1,4 @@
+<resources>
+    <!-- iOS smapBackground (#FBFAF9) 미러. Compose 외 시스템 윈도우 영역에서만 사용. -->
+    <color name="smap_background">#FBFAF9</color>
+</resources>
