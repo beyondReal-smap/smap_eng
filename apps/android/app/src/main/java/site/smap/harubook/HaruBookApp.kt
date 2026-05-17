@@ -1,6 +1,7 @@
 package site.smap.harubook
 
 import android.app.Application
+import site.smap.harubook.core.audio.AudioPlayer
 import site.smap.harubook.core.auth.AuthState
 
 /**
@@ -10,5 +11,6 @@ class HaruBookApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AuthState.init(applicationContext)
+        AudioPlayer.init(applicationContext)
     }
 }

@@ -8,6 +8,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
@@ -23,6 +24,7 @@ import io.ktor.http.contentType
 import io.ktor.http.takeFrom
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import site.smap.harubook.core.auth.AuthState
 
@@ -39,7 +41,20 @@ object ApiClient {
         explicitNulls = false
     }
 
-    private val client = HttpClient(OkHttp) {
+    /**
+     * 서버 zod schema 가 명시 null 을 요구하는 경우(예: IntakeAnswer.text = null) 사용.
+     * 기본 [json] 은 `explicitNulls = false` 라 nullable 필드가 null 이면 키 자체가 누락되어
+     * 서버 z.nullable().required() 가 "undefined" 로 인식해 400 검증 실패가 난다.
+     */
+    val jsonExplicitNulls: Json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        explicitNulls = true
+        encodeDefaults = true
+    }
+
+    @PublishedApi
+    internal val client = HttpClient(OkHttp) {
         expectSuccess = false
         install(ContentNegotiation) { json(json) }
         install(Logging) { level = LogLevel.INFO }
@@ -128,7 +143,57 @@ object ApiClient {
         throw ApiError.Transport(e)
     }
 
-    private fun buildUrl(path: String, query: Map<String, String>): Url {
+    /**
+     * 명시 null 직렬화 + 사용자 정의 timeout 으로 POST. LLM 책 생성 같은 1~2분 지연 호출용.
+     *
+     * 본문은 [bodySerializer] + [jsonExplicitNulls] 로 직접 String 직렬화 후 raw 전송한다.
+     * 응답은 reified [R] 로 [json] (관대 모드)에 의해 디코딩.
+     */
+    suspend inline fun <T, reified R> postExplicitNulls(
+        path: String,
+        body: T,
+        bodySerializer: KSerializer<T>,
+        timeoutMillis: Long = 180_000,
+    ): R {
+        val payload = jsonExplicitNulls.encodeToString(bodySerializer, body)
+        val response = try {
+            client.request {
+                this.method = HttpMethod.Post
+                url { takeFrom(buildUrl(path, emptyMap())) }
+                AuthState.peekAccessToken()?.let { token ->
+                    header(HttpHeaders.Authorization, "Bearer $token")
+                }
+                contentType(ContentType.Application.Json)
+                setBody(payload)
+                timeout { requestTimeoutMillis = timeoutMillis }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiError) {
+            throw e
+        } catch (e: Throwable) {
+            throw ApiError.Transport(e)
+        }
+
+        if (response.status.value == 401) {
+            AuthState.handleUnauthorized()
+            throw ApiError.Unauthorized
+        }
+        if (response.status.value !in 200..299) {
+            val text = runCatching { response.bodyAsText() }.getOrDefault("")
+            throw ApiError.Http(response.status.value, response.status.description, text.take(200))
+        }
+
+        return try {
+            json.decodeFromString<R>(response.bodyAsText())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            throw ApiError.Decoding(e)
+        }
+    }
+
+    fun buildUrl(path: String, query: Map<String, String>): Url {
         val builder = URLBuilder().takeFrom(AppConfig.API_BASE_URL)
         val segments = path.trim('/').split('/').filter { it.isNotEmpty() }
         builder.appendPathSegments(segments)
