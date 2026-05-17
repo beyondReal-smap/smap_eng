@@ -112,13 +112,16 @@ private fun PassageBody(
         tokens.forEach { token ->
             val match = if (token.isWord) vocabMap[normalizeVocabKey(token.text)] else null
             if (match != null) {
+                // Compose Modifier chain 평가: 왼쪽이 외측. `.clickable.padding(8dp)` 는 clickable
+                // 영역이 padding 까지 포함하도록 외측에 두고, 내부 padding 으로 시각 여백을 확보해
+                // 글자 hit 영역을 글자 자체보다 ~8dp 넓힌다.
                 Text(
                     text = token.text,
                     style = bodyStyle.copy(textDecoration = TextDecoration.Underline),
                     color = SmapPrimary,
                     modifier = Modifier
                         .clickable { onVocabSelected(match) }
-                        .padding(horizontal = 1.dp),
+                        .padding(vertical = 6.dp, horizontal = 2.dp),
                 )
             } else {
                 Text(text = token.text, style = bodyStyle, color = SmapText)
