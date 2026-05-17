@@ -1,3 +1,5 @@
+import FirebaseCore
+import FirebaseMessaging
 import SwiftUI
 import UIKit
 
@@ -48,13 +50,22 @@ struct HaruBookApp: App {
     }
 }
 
-/// APNs device token 수신을 위해 UIKit AppDelegate를 SwiftUI App에 연결.
-final class HaruBookAppDelegate: NSObject, UIApplicationDelegate {
+/// APNs device token 수신 + FCM 초기화/토큰 새로고침을 SwiftUI App에 연결.
+///
+/// FCM 통합 흐름:
+///   1) didFinishLaunching → FirebaseApp.configure()
+///   2) Messaging.delegate = self
+///   3) APNs token 수신 → PushManager.applyDeviceToken (APNs → FCM 교환)
+///   4) Firebase가 FCM token을 새로 발급/갱신할 때 → messaging(_:didReceiveRegistrationToken:)
+final class HaruBookAppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil,
     ) -> Bool {
-        true
+        // GoogleService-Info.plist를 번들에서 읽어 Firebase 초기화. 1회만 호출돼야 한다.
+        FirebaseApp.configure()
+        Messaging.messaging().delegate = self
+        return true
     }
 
     func application(
@@ -72,6 +83,21 @@ final class HaruBookAppDelegate: NSObject, UIApplicationDelegate {
     ) {
         // 권한이 거절된 경우에도 호출됨 — 사용자 흐름 차단 없음.
         print("[push] register failed: \(error.localizedDescription)")
+    }
+
+    // MARK: - MessagingDelegate
+
+    /// Firebase가 FCM registration token을 새로 발급/갱신할 때 호출.
+    /// 앱 재설치, 데이터 삭제, 새 디바이스 등에서 트리거된다.
+    ///
+    /// `MessagingDelegate` 프로토콜이 nonisolated context로 정의되어 있어 Swift 6 strict
+    /// concurrency 환경에서 메서드를 nonisolated로 명시하지 않으면 격리 위반 에러가 난다.
+    /// 본문에서 MainActor.run으로 PushManager(MainActor 격리)에 진입.
+    nonisolated func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let fcmToken else { return }
+        Task { @MainActor in
+            await PushManager.shared.applyFcmTokenRefresh(fcmToken)
+        }
     }
 }
 

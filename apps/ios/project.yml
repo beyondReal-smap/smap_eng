@@ -18,6 +18,13 @@ settings:
     SUPPORTS_MACCATALYST: NO
     DEVELOPMENT_TEAM: ZVXXRV5MTP
 
+packages:
+  # Firebase iOS SDK — FCM 토큰 발급에 FirebaseMessaging만 사용.
+  # FirebaseCore는 product가 아니라 라이브러리이므로 명시 안 해도 transitively 따라온다.
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 11.0.0
+
 targets:
   HaruBook:
     type: application
@@ -26,6 +33,9 @@ targets:
       - path: HaruBook
         excludes:
           - "**/.DS_Store"
+    dependencies:
+      - package: Firebase
+        product: FirebaseMessaging
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.smap.harubook
