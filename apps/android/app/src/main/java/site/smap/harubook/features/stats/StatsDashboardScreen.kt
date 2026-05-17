@@ -230,39 +230,110 @@ private fun StatGrid(items: List<Pair<String, String>>) {
     }
 }
 
+/**
+ * 월간 학습 흔적 — iOS [MonthlyFootprintView.swift] 미러.
+ *
+ * 헤더(YYYY년 N월 / N일 학습) + 요일 행 + 7열 그리드.
+ * 셀 상태: active 는 [SmapPrimary] + 흰 글씨, inactive day 는 옅은 분홍 배경,
+ * leading blank(달 시작 이전 빈자리)는 카드 배경이 그대로 드러나도록 흰색 처리.
+ * 이전엔 모든 셀을 같은 분홍 배경으로 그려 빈칸·날짜 칸 구분이 안 됐다.
+ */
 @Composable
 private fun MonthFootprint(thisMonth: String, activeDays: Set<String>) {
     val cells = buildMonthGrid(thisMonth, activeDays)
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(7),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    val (year, month) = parseYearMonth(thisMonth)
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(260.dp)
             .background(SmapSurface, RoundedCornerShape(16.dp))
             .border(1.dp, SmapBorder, RoundedCornerShape(16.dp))
-            .padding(14.dp),
-        userScrollEnabled = false,
+            .padding(16.dp),
     ) {
-        items(cells) { cell ->
-            Box(
-                modifier = Modifier
-                    .background(
-                        if (cell.active) SmapPrimary else SmapPrimarySoft.copy(alpha = 0.45f),
-                        RoundedCornerShape(6.dp),
-                    )
-                    .size(28.dp),
-                contentAlignment = Alignment.Center,
-            ) {
+        // 헤더: 연/월 + 학습 일수.
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "%04d년 %d월".format(year, month),
+                style = SmapBodyEmphasisStyle,
+                color = SmapText,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = "${activeDays.size}일 학습",
+                style = SmapCaptionStyle,
+                color = SmapMuted,
+            )
+        }
+
+        // 요일 헤더 — iOS firstWeekday=1(Sunday) 패리티.
+        androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth()) {
+            listOf("일", "월", "화", "수", "목", "금", "토").forEach { d ->
                 Text(
-                    text = cell.day?.toString().orEmpty(),
+                    text = d,
                     style = SmapCaptionStyle,
-                    color = if (cell.active) Color.White else SmapMuted,
+                    color = SmapMuted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
+
+        // 7열 그리드 — chunked 로 행 구성. LazyVerticalGrid 의 고정 height 자르기 회피.
+        cells.chunked(7).forEach { row ->
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                row.forEach { cell ->
+                    MonthCell(cell, modifier = Modifier.weight(1f))
+                }
+                // 마지막 행이 7개 미만이면 weight 로 자리 채워 정렬 유지.
+                repeat(7 - row.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun MonthCell(cell: MonthGridCell, modifier: Modifier = Modifier) {
+    if (cell.day == null) {
+        // leading blank: 카드 흰 배경 그대로 드러냄 — 분홍 칠 X.
+        Spacer(modifier = modifier.height(28.dp))
+        return
+    }
+    Box(
+        modifier = modifier
+            .height(28.dp)
+            .background(
+                color = if (cell.active) SmapPrimary else SmapPrimarySoft.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(6.dp),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = cell.day.toString(),
+            style = SmapCaptionStyle,
+            color = if (cell.active) Color.White else SmapMuted,
+        )
+    }
+}
+
+/** "YYYY-MM" 파싱. 실패 시 현재 연/월로 폴백 — iOS parseMonth 패리티. */
+private fun parseYearMonth(s: String): Pair<Int, Int> {
+    val parts = s.split("-")
+    if (parts.size == 2) {
+        val y = parts[0].toIntOrNull()
+        val m = parts[1].toIntOrNull()
+        if (y != null && m != null) return y to m
+    }
+    val now = java.time.LocalDate.now()
+    return now.year to now.monthValue
 }
 
 @Composable
