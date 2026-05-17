@@ -41,6 +41,15 @@ struct HaruBookApp: App {
         WindowGroup {
             RootView()
                 .environment(authState)
+                // FIXME(a11y/dark-mode): 시스템 다크 모드 강제 무시. `Color+Theme.swift`의 토큰이
+                // 라이트 단일 hex로만 정의되어 있어, 이 한 줄만 제거하면 시스템 다크에서
+                //   - 라이트 색 배경(smapBackground 0xFBFAF9) + 다크 시스템 컴포넌트(키보드/메뉴)
+                // 가 섞여 외관이 깨진다. 진정한 다크 지원하려면 선행 작업 필요:
+                //   1) Color+Theme.swift 모든 토큰을 Asset Catalog .colorset (Any/Dark) 로 마이그레이션
+                //      또는 `Color(light:dark:)` 헬퍼 도입
+                //   2) 디자이너로부터 다크 팔레트 결정 (Warm Canvas 대응 다크 표면, 코랄 액센트 명도 조정)
+                //   3) 라이트/다크 양쪽 모든 화면 시각 검수
+                // 별도 작업으로 분리. 이 주석을 제거하기 전까지 라이트 강제 유지.
                 .preferredColorScheme(.light)
                 .tint(.smapPrimary)
                 .task { await PushManager.shared.refreshAuthorizationStatus() }
