@@ -12,6 +12,13 @@ struct HomeRouter: View {
     /// 프로필 목록을 HomeRouter 수명주기 동안 유지. 책장 사용 중에도 미리 로드해 두어,
     /// 프로필 전환 시 카드가 비어 있다가 늦게 채워지지 않고 슬라이드와 함께 즉시 등장한다.
     @State private var profileViewModel = ProfileViewModel()
+    /// VoiceOver/접근성: 모션 민감도 사용자에게는 좌우 슬라이드 전환을 즉시 컷으로 대체.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// reduceMotion=true 면 nil(즉시 컷), 아니면 push와 가까운 0.32s easeInOut.
+    private var transitionAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.32)
+    }
 
     /// MainTabView ↔ ProfilePickerView 사이를 책장 → 리더뷰 push와 동일한 좌우 슬라이드로 연결.
     ///
@@ -29,26 +36,26 @@ struct HomeRouter: View {
                     currentProfile: profileViewModel.profiles.first(where: { $0.id == profileId }),
                     onResetProfile: {
                         // "프로필 전환" — 책장 유지 + ProfilePickerView 띄움. lastProfileId는 보존.
-                        withAnimation(.easeInOut(duration: 0.32)) {
+                        withAnimation(transitionAnimation) {
                             switching = true
                         }
                     },
                     onSignOut: {
-                        withAnimation(.easeInOut(duration: 0.32)) {
+                        withAnimation(transitionAnimation) {
                             selectedProfileId = nil
                             switching = false
                             SessionPreferences.shared.lastProfileId = nil
                         }
                     },
                 )
-                .transition(.move(edge: .leading))
+                .transition(reduceMotion ? .opacity : .move(edge: .leading))
             } else {
                 // switching=true 면 이전 책장으로 복귀 가능. lastProfileId가 없으면(첫 로그인)
                 // 백 버튼 자체가 생기지 않는다.
                 ProfilePickerView(
                     viewModel: profileViewModel,
                     onSelect: { profile in
-                        withAnimation(.easeInOut(duration: 0.32)) {
+                        withAnimation(transitionAnimation) {
                             selectedProfileId = profile.id
                             SessionPreferences.shared.lastProfileId = profile.id
                             switching = false
@@ -56,13 +63,13 @@ struct HomeRouter: View {
                     },
                     onCancel: switching && selectedProfileId != nil
                         ? {
-                            withAnimation(.easeInOut(duration: 0.32)) {
+                            withAnimation(transitionAnimation) {
                                 switching = false
                             }
                         }
                         : nil,
                 )
-                .transition(.move(edge: .trailing))
+                .transition(reduceMotion ? .opacity : .move(edge: .trailing))
             }
         }
         // 책장 사용 중에도 백그라운드에서 프로필 목록을 한 번 받아둔다 — 첫 진입은 ProfilePickerView가

@@ -71,7 +71,8 @@ struct MonthlyFootprintView: View {
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .frame(maxWidth: .infinity, minHeight: 28)
             .background(active ? Color.smapPrimary : Color.smapPrimarySoft.opacity(0.4))
-            .foregroundStyle(active ? Color.white : Color.smapMuted)
+            // active: 코랄 fill 위 흰 텍스트는 WCAG 1.7:1 미달 → deep coral ink로 교정.
+            .foregroundStyle(active ? Color.smapPrimaryForeground : Color.smapMuted)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 

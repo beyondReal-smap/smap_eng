@@ -17,12 +17,17 @@ struct MainTabView: View {
 
     @State private var selectedTab: Tab = .bookshelf
     @State private var bookshelfPath = NavigationPath()
+    /// VoiceOver 사용자의 모션 민감도 존중. true면 탭 전환/탭바 노출 애니메이션을 생략.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    enum Tab: Hashable {
+    enum Tab: Hashable, CaseIterable {
         case bookshelf
         case stats
         case vocab
         case settings
+
+        /// VoiceOver `accessibilityValue` 용 1-based 인덱스 ("탭 N / 4").
+        var position: Int { (Self.allCases.firstIndex(of: self) ?? 0) + 1 }
     }
 
     /// 책장에서 destination이 push되면(예: ReaderView/QuizView/StoreView) 자체 탭바를 숨겨
@@ -48,16 +53,16 @@ struct MainTabView: View {
                     settingsTab.transition(.opacity)
                 }
             }
-            .animation(.easeInOut(duration: 0.22), value: selectedTab)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: selectedTab)
 
             if !hidesTabBar {
                 customTabBar
                     .padding(.horizontal, 16)
                     .padding(.bottom, 4)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(reduceMotion ? .identity : .move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.22), value: hidesTabBar)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: hidesTabBar)
     }
 
     // MARK: - 자체 탭바
@@ -86,7 +91,7 @@ struct MainTabView: View {
             if !isSelected {
                 Haptic.play(.lightTap)
             }
-            withAnimation(.easeInOut(duration: 0.22)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                 selectedTab = tab
             }
         } label: {
@@ -97,11 +102,20 @@ struct MainTabView: View {
                     .font(Font.atozBold(11))
             }
             .frame(maxWidth: .infinity, minHeight: 48)
-            .foregroundStyle(isSelected ? Color.smapPrimaryForeground : Color.smapMuted)
+            // 선택 시 배경 smapPrimarySoft (파스텔/어두운 코랄). 텍스트는 그 위에 대비되는
+            // smapOnPrimarySoft 사용 — primaryForeground(deep coral ink)를 쓰면 다크에서 안 보임.
+            .foregroundStyle(isSelected ? Color.smapOnPrimarySoft : Color.smapMuted)
             .background(isSelected ? Color.smapPrimarySoft : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+        // 표준 TabView가 자동으로 부여하는 "tab N of 4, selected" 트레이트를 커스텀 Button에 명시 부여.
+        // 없으면 VoiceOver는 "책장, 버튼"만 읽어 탭 컨테이너인지/현재 어느 탭인지 알 수 없다.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityValue("탭 \(tab.position) / \(Tab.allCases.count)")
+        .accessibilityHint(isSelected ? "" : "두 번 탭하여 \(label) 화면으로 이동")
     }
 
     // MARK: - 책장 탭

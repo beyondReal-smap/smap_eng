@@ -18,7 +18,10 @@ struct LevelFilterView: View {
                         onChange()
                     }
                     .font(Font.atozBold(13))
-                    .foregroundStyle(Color.smapPrimaryForeground)
+                    // 페이지 배경(smapBackground) 위 액션 텍스트 — 코랄 primary 단색이 라이트/다크
+                    // 모두에서 자연스러운 강조이자 가독성 보장. primaryForeground(deep ink)는
+                    // 코랄 fill 위에서만 쓰는 색이라 다크 일반 배경에서는 거의 안 보임.
+                    .foregroundStyle(Color.smapPrimary)
                 }
             }
 

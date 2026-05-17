@@ -8,6 +8,8 @@ struct PassageView: View {
     let showsKorean: Bool
     let isPlaying: Bool
     let textScale: ReaderTextScale
+    /// 모션 민감 사용자에게는 한글 카드 등장/사라짐의 scale 효과를 fade 만으로 단순화.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -23,17 +25,21 @@ struct PassageView: View {
 
                 if showsKorean, let textKo = passage.textKo, !textKo.isEmpty {
                     koreanCard(textKo: textKo)
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
-                            removal: .opacity,
-                        ))
+                        .transition(
+                            reduceMotion
+                                ? .opacity
+                                : .asymmetric(
+                                    insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
+                                    removal: .opacity,
+                                ),
+                        )
                 }
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
             // 한글 카드의 등장/사라짐 transition이 부드럽게 보이도록 부모에서 animation 트리거.
-            .animation(.easeInOut(duration: 0.25), value: showsKorean)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: showsKorean)
         }
         .scrollIndicators(.hidden)
     }

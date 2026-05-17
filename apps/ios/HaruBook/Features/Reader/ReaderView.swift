@@ -214,8 +214,9 @@ struct ReaderView: View {
             .frame(maxWidth: .infinity)
             .frame(height: Self.controlHeight)
             // 듣기/퀴즈와 같은 primary fill을 쓰면 컨트롤바에 코랄 톤이 과해진다.
-            // 다음 이동은 자연스러운 흐름이지 강조 대상이 아니므로 tonal(primarySoft + primaryForeground)로 한 단계 낮춤.
-            .foregroundStyle(Color.smapPrimaryForeground)
+            // 다음 이동은 자연스러운 흐름이지 강조 대상이 아니므로 tonal(primarySoft + onPrimarySoft)로
+            // 한 단계 낮춤. primaryForeground(deep coral ink)는 코랄 배경 전용이라 다크 tonal에서 안 보임.
+            .foregroundStyle(Color.smapOnPrimarySoft)
             .background(Color.smapPrimarySoft)
             .clipShape(Capsule())
             .overlay(Capsule().stroke(Color.smapPrimary.opacity(0.25), lineWidth: 1))

@@ -96,6 +96,8 @@ private struct QuestionCard: View {
     /// TextField가 현재 포커스를 받았는지 추적해 외곽선/배경을 강조한다.
     /// 어린이/부모가 어디를 두드렸는지 즉시 알 수 있게 — 이전엔 옅은 코랄 배경뿐이라 변화 시각 단서 부족.
     @FocusState private var isFocused: Bool
+    /// 모션 민감 사용자에게는 focus 시각 강조 트랜지션을 즉시 적용.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -119,7 +121,7 @@ private struct QuestionCard: View {
                             lineWidth: isFocused ? 2 : 1,
                         ),
                 )
-                .animation(.easeInOut(duration: 0.18), value: isFocused)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isFocused)
 
             if let chips = question.suggestionChips, !chips.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {

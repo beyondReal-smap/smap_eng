@@ -55,7 +55,8 @@ targets:
           - arm64
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        UIUserInterfaceStyle: Light
+        # UIUserInterfaceStyle 미지정 → 시스템 다크 모드 자동 추종. 라이트 강제는 Color+Theme.swift
+        # 토큰이 light/dark 쌍으로 적응형이라 더 이상 필요 없음.
         # URL scheme은 백엔드 parseMobileRedirect (smapeng: 만 허용)와 동기화 유지.
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor

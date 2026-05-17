@@ -214,8 +214,8 @@ final class VocabViewModel {
             player.play()
             self.audioPlayer = player
         } catch {
-            // 발음 실패는 사용자 흐름을 막지 않는다. 콘솔만.
-            print("[vocab] speak failed: \(error)")
+            // 발음 실패는 사용자 흐름을 막지 않는다. 로그만.
+            AppLog.vocab.warning("speak failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

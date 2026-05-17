@@ -62,7 +62,8 @@ struct LoginView: View {
                         startAppleSignIn()
                     }
 
-                    // Google 공식 sign-in 가이드: 흰 배경 + 연한 회색 외곽선 + 검정 텍스트.
+                    // Google 공식 sign-in 가이드: 라이트는 흰 배경 + #1F1F1F 텍스트 + #DADCE0 외곽선,
+                    // 다크는 #131314 배경 + #E3E3E3 텍스트 + #5F6368 외곽선 (Google 브랜드 표준).
                     // GoogleG 자산은 4색(빨강/파랑/노랑/초록) SVG. .renderingMode(.original)로
                     // PrimaryButton 내부 foregroundStyle 영향을 받지 않고 원본 색 유지.
                     PrimaryButton(
@@ -71,9 +72,9 @@ struct LoginView: View {
                         variant: .filled,
                         isLoading: inFlightProvider == "google",
                         isEnabled: inFlightProvider == nil && !appleSignInBusy,
-                        backgroundOverride: Color.white,
-                        foregroundOverride: Color(hex: 0x1F1F1F),
-                        borderOverride: Color(hex: 0xDADCE0),
+                        backgroundOverride: Color(light: .white, dark: Color(hex: 0x131314)),
+                        foregroundOverride: Color(light: Color(hex: 0x1F1F1F), dark: Color(hex: 0xE3E3E3)),
+                        borderOverride: Color(light: Color(hex: 0xDADCE0), dark: Color(hex: 0x5F6368)),
                         fontOverride: Font.atozBold(17),
                     ) {
                         Task { await signIn(provider: "google") }
@@ -105,21 +106,34 @@ struct LoginView: View {
                     }
                 }
 
-                if let error = auth.lastError {
-                    Text(error)
-                        .font(Font.atozRegular(13))
-                        .foregroundStyle(Color.smapDanger)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 12)
+                // 에러 영역 자리 예약 — auth.lastError 가 nil/non-nil 토글될 때 위/아래 콘텐츠가
+                // 점프하지 않도록 항상 최소 44pt 공간 확보. 빈 자리는 Color.clear 라 VoiceOver
+                // 발화/터치 영향 없음.
+                Group {
+                    if let error = auth.lastError {
+                        Text(error)
+                            .font(Font.atozRegular(13))
+                            .foregroundStyle(Color.smapDanger)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 12)
+                    } else {
+                        Color.clear
+                    }
                 }
+                .frame(minHeight: 44, alignment: .top)
 
                 // SwiftUI Text는 마크다운 링크를 자동 파싱한다.
                 // 커스텀 스킴 `smap://legal/{terms,privacy}`를 openURL 환경값에서 가로채
                 // 외부 Safari가 아닌 인앱 sheet로 표시한다(App Store 2.3.7/5.1.1).
+                // 폰트 14pt + lineSpacing 2 — 약관/링크 영역은 사용자가 한 번은 읽고 결정해야 하는
+                // 정보. 13pt는 동적 폰트 미적용 환경에서 시각 가독성·VoiceOver 외 사용자에게도 부담.
+                // 마크다운 링크([이용약관]/[개인정보처리방침])는 SwiftUI Text가 자동으로 Link 트레이트를
+                // 부여하므로 VoiceOver 로터의 Links에서 발견된다.
                 Text(
                     "로그인하면 [이용약관](smap://legal/terms)과 [개인정보처리방침](smap://legal/privacy)에 동의한 것으로 간주합니다.",
                 )
-                .font(Font.atozRegular(13))
+                .font(Font.atozRegular(14))
+                .lineSpacing(2)
                 .foregroundStyle(Color.smapMuted)
                 .tint(.smapPrimary)
                 .multilineTextAlignment(.center)
