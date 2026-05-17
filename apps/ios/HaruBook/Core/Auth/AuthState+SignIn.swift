@@ -14,7 +14,7 @@ extension AuthState {
             )
 
             guard let code = extractExchangeCode(from: callbackURL) else {
-                lastError = "콜백에서 인증 코드를 찾을 수 없습니다."
+                lastError = "로그인을 완료하지 못했어요. 다시 시도해 주세요."
                 return
             }
 
@@ -35,7 +35,7 @@ extension AuthState {
                nsError.code == 1 {
                 lastError = nil
             } else {
-                lastError = "로그인 실패: \(error.localizedDescription)"
+                lastError = error.localizedDescription
             }
         }
     }

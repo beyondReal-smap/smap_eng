@@ -16,11 +16,12 @@ extension AuthState {
             )
             applyExchange(response)
             return true
-        } catch APIError.http(_, _, let message) {
-            lastError = message ?? "이메일 또는 비밀번호가 올바르지 않습니다."
+        } catch let apiError as APIError {
+            // APIError가 도메인 code(`invalid_credentials` 등)와 HTTP status를 친화 문구로 매핑한다.
+            lastError = apiError.localizedDescription
             return false
         } catch {
-            lastError = "로그인 실패: \(error.localizedDescription)"
+            lastError = error.localizedDescription
             return false
         }
     }
@@ -55,14 +56,17 @@ extension AuthState {
             )
             applyExchange(response)
             return .success
-        } catch APIError.http(let status, let code, let message) {
+        } catch APIError.http(let status, let code, _) {
             if status == 409 || code == "duplicate_email" {
                 return .duplicateEmail
             }
-            lastError = message ?? "가입에 실패했어요. 입력값을 확인해 주세요."
-            return .failure(lastError ?? "")
+            // 중복이 아닌 경우는 APIError가 매핑한 친화 문구를 그대로 사용.
+            let mapped = APIError.http(status: status, code: code, message: nil).errorDescription
+                ?? "가입에 실패했어요. 입력값을 확인해 주세요."
+            lastError = mapped
+            return .failure(mapped)
         } catch {
-            lastError = "가입 실패: \(error.localizedDescription)"
+            lastError = error.localizedDescription
             return .failure(lastError ?? "")
         }
     }

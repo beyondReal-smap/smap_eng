@@ -44,9 +44,10 @@ final class QuizViewModel {
             )
             // `orderIndex` 오름차순으로 정렬.
             quizzes = response.quizzes.sorted(by: { $0.orderIndex < $1.orderIndex })
-            phase = quizzes.isEmpty ? .error("퀴즈를 가져오지 못했습니다.") : .answering
+            phase = quizzes.isEmpty ? .error("퀴즈가 아직 준비되지 않았어요.") : .answering
         } catch {
-            phase = .error("퀴즈 로드 실패: \(error.localizedDescription)")
+            // QuizView가 자체 헤더 없이 메시지만 노출하므로 친화 문구 그대로.
+            phase = .error(error.localizedDescription)
         }
     }
 

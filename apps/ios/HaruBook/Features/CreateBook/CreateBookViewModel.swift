@@ -99,7 +99,10 @@ final class CreateBookViewModel {
             )
             intakeQuestions = response.questions
         } catch {
-            intakeError = "질문을 불러오지 못했어요: \(error.localizedDescription)"
+            // APIError.localizedDescription이 이미 사용자 친화 문구를 반환하므로 그대로 표시.
+            // prefix를 붙이면 "질문을 불러오지 못했어요: 입력값을 다시 확인해 주세요." 같은 어색한
+            // 이중 메시지가 된다.
+            intakeError = error.localizedDescription
         }
     }
 
@@ -156,7 +159,9 @@ final class CreateBookViewModel {
                 )
             }
         } catch {
-            generationError = "동화 생성에 실패했어요: \(error.localizedDescription)"
+            // GeneratingStep이 이미 "동화 생성에 실패했어요" 타이틀을 표시하므로 본문은
+            // APIError가 매핑한 친화 메시지만(예: "별이 부족해요. ...") 그대로 노출.
+            generationError = error.localizedDescription
         }
     }
 

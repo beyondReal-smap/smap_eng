@@ -8,6 +8,7 @@ import {
   BookOpen,
   Coins,
   CreditCard,
+  Send,
   ArrowLeft,
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ const ITEMS = [
   { href: '/admin/books', label: '책 모니터링', icon: BookOpen },
   { href: '/admin/credits', label: '크레딧', icon: Coins },
   { href: '/admin/subscriptions', label: '구독 현황', icon: CreditCard },
+  { href: '/admin/push', label: '푸시 발송', icon: Send },
 ] as const;
 
 export function AdminNav() {

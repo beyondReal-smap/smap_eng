@@ -40,7 +40,7 @@ struct StatsDashboardView: View {
             Spacer(minLength: 0)
         } else if let error = viewModel.error, viewModel.summary == nil {
             Spacer(minLength: 0)
-            emptyError(message: error)
+            errorState(message: error)
             Spacer(minLength: 0)
         } else if viewModel.summary == nil {
             Spacer(minLength: 0)
@@ -281,6 +281,23 @@ struct StatsDashboardView: View {
                 .foregroundStyle(Color.smapMuted)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
+        }
+    }
+
+    private func errorState(message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.smapDanger)
+            Text(message)
+                .font(.smapBody)
+                .foregroundStyle(Color.smapDanger)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            PrimaryButton(title: "다시 시도", variant: .tonal) {
+                Task { await viewModel.load() }
+            }
+            .padding(.horizontal, 32)
         }
     }
 }

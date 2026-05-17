@@ -79,7 +79,12 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
                 // 다른 passage가 들어오면서 취소 — silent
             } catch {
                 self.preparingPassageId = nil
-                self.lastError = "오디오 재생 실패: \(error.localizedDescription)"
+                // APIError가 매핑한 친화 문구를 우선 사용. 그 외 시스템 오류는 일반 문구.
+                if let apiError = error as? APIError, let desc = apiError.errorDescription {
+                    self.lastError = desc
+                } else {
+                    self.lastError = "음성을 재생하지 못했어요. 잠시 후 다시 시도해 주세요."
+                }
             }
         }
     }

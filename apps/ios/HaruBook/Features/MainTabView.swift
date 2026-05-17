@@ -102,6 +102,11 @@ struct MainTabView: View {
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.plain)
+        // 색 강조만으로는 VoiceOver 사용자가 현재 선택된 탭을 알 수 없다.
+        // isSelected trait를 부여하면 "선택됨, 책장, 탭" 형태로 읽어준다.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     // MARK: - 책장 탭
