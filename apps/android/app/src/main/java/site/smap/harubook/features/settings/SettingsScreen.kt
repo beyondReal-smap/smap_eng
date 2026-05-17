@@ -91,14 +91,17 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SmapBackground)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(top = 20.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .background(SmapBackground),
     ) {
-        // 헤더 — iOS pageHeader 패리티.
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+        // 헤더 — iOS pageHeader 패리티. ScrollView 바깥에 두어 상단 고정.
+        // 이전엔 verticalScroll 안에 있어 본문과 함께 스크롤되어 헤더가 사라졌다.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp, bottom = 8.dp),
+        ) {
             Text(stringResource(R.string.settings_title), style = SmapDisplayStyle, color = SmapText)
             Text(
                 stringResource(R.string.settings_subtitle),
@@ -107,6 +110,14 @@ fun SettingsScreen(
             )
         }
 
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
         // 계정 섹션 — 프로필 전환 + 로그아웃.
         SectionHeader(text = stringResource(R.string.settings_section_account), icon = Icons.Filled.Person, color = SmapText)
         SettingsRow(
@@ -219,6 +230,7 @@ fun SettingsScreen(
         InfoRow(stringResource(R.string.settings_app_info_contact), BusinessInfo.EMAIL)
 
         Spacer(Modifier.height(4.dp))
+        }
     }
 }
 

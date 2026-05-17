@@ -83,24 +83,30 @@ fun StatsDashboardScreen(profileId: Int) {
 @Composable
 private fun StatsContent(state: StatsUiState) {
     val summary = state.summary!!
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SmapBackground)
-            .padding(horizontal = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+            .background(SmapBackground),
     ) {
-        // iOS StatsDashboardView.header 패리티 — 타이틀 + 부제. 이전엔 타이틀만 있어
-        // "아이의 영어 학습 흐름을 한눈에 봐요" 라는 보조 문구가 빠져 있었다.
-        item {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 20.dp),
-            ) {
-                Text(stringResource(R.string.stats_title), style = SmapDisplayStyle, color = SmapText)
-                Text(stringResource(R.string.stats_subtitle), style = SmapBodyStyle, color = SmapMuted)
-            }
+        // iOS StatsDashboardView 패리티 — 헤더는 ScrollView 바깥에 두어 상단 고정.
+        // 이전엔 LazyColumn 의 첫 item 으로 들어가 본문과 함께 스크롤되어 헤더가 사라졌다.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp, bottom = 12.dp),
+        ) {
+            Text(stringResource(R.string.stats_title), style = SmapDisplayStyle, color = SmapText)
+            Text(stringResource(R.string.stats_subtitle), style = SmapBodyStyle, color = SmapMuted)
         }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
         // 누적 성취 — iOS 와 동일 4개 카드. 이전엔 섹션 제목이 빠져 있었다.
         item {
             SectionTitle(stringResource(R.string.stats_section_summary))
@@ -144,6 +150,7 @@ private fun StatsContent(state: StatsUiState) {
             RecentQuizSection(books = state.books, stats = state.stats)
         }
         item { Spacer(Modifier.height(12.dp)) }
+        }
     }
 }
 
