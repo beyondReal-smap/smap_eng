@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import site.smap.harubook.core.models.Book
 import site.smap.harubook.designsystem.AuthenticatedAsyncImage
@@ -70,11 +71,32 @@ fun BookCard(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(book.title, style = SmapBodyEmphasisStyle, color = SmapText, maxLines = 2)
+            // 긴 제목은 2줄 후 …(ellipsis)으로 표기 — iOS `.lineLimit(2)` 패리티.
+            // 이전엔 maxLines 만 지정 + overflow=Clip(기본값) 이라 줄임표 없이 잘렸다.
+            Text(
+                text = book.title,
+                style = SmapBodyEmphasisStyle,
+                color = SmapText,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                BadgeChip(text = book.cefr.label, background = book.cefr.tint, foreground = SmapText)
+                // CEFR 배지는 앱 전반에서 통계 LevelRow 와 동일한 레벨별 파스텔로 통일 —
+                // 책 카드/리더/통계가 모두 같은 색 체계를 공유한다. iOS BadgeLabel(tone: .level) 패리티.
+                BadgeChip(
+                    text = book.cefr.label,
+                    background = book.cefr.tint,
+                    foreground = SmapText,
+                )
                 book.topic?.takeIf { it.isNotEmpty() }?.let { topic ->
-                    BadgeChip(text = topic, background = SmapMutedBg, foreground = SmapText)
+                    // topic 이 길면 한 줄 + … — 카드 비대칭/세로 부풀림 방지. iOS `.lineLimit(1)` 패리티.
+                    BadgeChip(
+                        text = topic,
+                        background = SmapMutedBg,
+                        foreground = SmapText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }

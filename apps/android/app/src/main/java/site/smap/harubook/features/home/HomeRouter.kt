@@ -82,6 +82,7 @@ fun HomeRouter() {
                 bookshelfContent = {
                     BookshelfScreen(
                         profileId = profile.id,
+                        currentProfile = profile,
                         onSwitchProfile = gotoPicker,
                         onOpenBook = { bookId -> nav.navigate("reader/$bookId") },
                         onCreateBook = { nav.navigate(CREATE_BOOK_ROUTE) },

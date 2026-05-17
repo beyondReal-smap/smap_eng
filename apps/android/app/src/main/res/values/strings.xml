@@ -15,7 +15,7 @@
 
     <string name="bookshelf_title">책장</string>
     <string name="bookshelf_subtitle">읽고 싶은 책을 골라봐요</string>
-    <string name="bookshelf_create">새 책 만들기</string>
+    <string name="bookshelf_create">새 동화 만들기</string>
     <string name="filter_age">연령</string>
     <string name="filter_level">레벨</string>
     <string name="filter_reset">필터 초기화</string>
