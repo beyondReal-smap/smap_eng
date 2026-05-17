@@ -163,9 +163,12 @@ struct ProfilePickerView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Spacer()
+            // 장식 아이콘 — 아래 텍스트("첫 프로필을 추가해 주세요")가 동일한 정보를 전달하므로
+            // 중복 발화 방지를 위해 VoiceOver 트리에서 숨김.
             Image(systemName: "person.crop.circle.badge.plus")
                 .font(.system(size: 64, weight: .light))
                 .foregroundStyle(Color.smapPrimary)
+                .accessibilityHidden(true)
             VStack(spacing: 6) {
                 Text("첫 프로필을 추가해 주세요")
                     .font(Font.atozBold(20))
@@ -250,6 +253,10 @@ private struct AddProfileCard: View {
         .padding(.vertical, 18)
         .background(Color.smapPrimarySoft)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        // Image + Text 두 요소가 분리되어 "plus.circle.fill 이미지, 프로필 추가, 버튼"으로
+        // 길게 발화됨. combine + 명시 라벨로 단순화. button trait은 외부 Button label에서 자동.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("프로필 추가")
     }
 }
 

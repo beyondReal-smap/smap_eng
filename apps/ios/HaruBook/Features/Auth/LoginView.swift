@@ -105,13 +105,21 @@ struct LoginView: View {
                     }
                 }
 
-                if let error = auth.lastError {
-                    Text(error)
-                        .font(Font.atozRegular(13))
-                        .foregroundStyle(Color.smapDanger)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 12)
+                // 에러 영역 자리 예약 — auth.lastError 가 nil/non-nil 토글될 때 위/아래 콘텐츠가
+                // 점프하지 않도록 항상 최소 44pt 공간 확보. 빈 자리는 Color.clear 라 VoiceOver
+                // 발화/터치 영향 없음.
+                Group {
+                    if let error = auth.lastError {
+                        Text(error)
+                            .font(Font.atozRegular(13))
+                            .foregroundStyle(Color.smapDanger)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 12)
+                    } else {
+                        Color.clear
+                    }
                 }
+                .frame(minHeight: 44, alignment: .top)
 
                 // SwiftUI Text는 마크다운 링크를 자동 파싱한다.
                 // 커스텀 스킴 `smap://legal/{terms,privacy}`를 openURL 환경값에서 가로채
