@@ -17,7 +17,10 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "site.smap.harubook.android"
+        // Firebase Console 에 등록된 Android 앱 package_name 과 일치해야 google-services 플러그인이
+        // 빌드 시 자산을 정상 인식한다. iOS Bundle ID(`com.smap.harubook`) 와 동일하지만 Firebase 는
+        // 플랫폼별로 별도 mobilesdk_app_id 를 부여해 식별하므로 ID 공유에 문제 없음.
+        applicationId = "com.smap.harubook"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -28,7 +31,9 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
-            applicationIdSuffix = ".debug"
+            // applicationIdSuffix 제거 — google-services.json 은 단일 package_name 만 등록되어
+            // `.debug` 접미사가 붙으면 매칭 실패한다. Firebase Console 에 `.debug` 패키지를
+            // 별도 앱으로 등록하면 suffix 복원 가능.
         }
         release {
             isMinifyEnabled = false
