@@ -46,6 +46,8 @@ object AuthState {
 
         if (!token.isNullOrEmpty() && expiresAt != null && expiresAt > nowSec) {
             _phase.value = Phase.SignedIn
+            // 콜드 스타트 시 last_seen_at 갱신 + 새 FCM 토큰이면 자동 재등록.
+            runCatching { site.smap.harubook.core.push.PushManager.refresh() }
         } else {
             if (token != null) runCatching { prefs.clear() }
             _phase.value = Phase.SignedOut
@@ -57,6 +59,8 @@ object AuthState {
 
     fun signOut() {
         runCatching { prefs.clear() }
+        // FCM 토큰을 서버에서 해제 — 푸시 발송 대상에서 제외. 비동기 fire-and-forget.
+        runCatching { site.smap.harubook.core.push.PushManager.unregister() }
         _phase.value = Phase.SignedOut
     }
 
@@ -98,6 +102,8 @@ object AuthState {
         prefs.expiresAtUnix = response.expiresAtUnix
         lastError = null
         _phase.value = Phase.SignedIn
+        // 로그인 직후 FCM 토큰을 서버에 등록 — 백그라운드/실패는 soft fail.
+        runCatching { site.smap.harubook.core.push.PushManager.refresh() }
     }
 
     /** 이메일+비밀번호 로그인. 실패 시 [lastError] 채움, false 반환. */

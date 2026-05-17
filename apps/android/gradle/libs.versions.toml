@@ -15,6 +15,9 @@ browser = "1.8.0"
 security-crypto = "1.1.0-alpha06"
 media3 = "1.5.0"
 coil = "2.7.0"
+firebase-bom = "33.7.0"
+google-services = "4.4.2"
+play-billing = "7.1.1"
 junit = "4.13.2"
 
 [libraries]
@@ -50,6 +53,10 @@ media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", versi
 
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebase-bom" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
+play-billing = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "play-billing" }
+
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 
@@ -58,3 +65,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "google-services" }

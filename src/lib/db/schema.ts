@@ -391,6 +391,9 @@ export type IapEnvironment = (typeof IAP_ENVIRONMENTS)[number];
 export const IAP_STATUSES = ['verified', 'refunded'] as const;
 export type IapStatus = (typeof IAP_STATUSES)[number];
 
+export const IAP_PLATFORMS = ['ios', 'android'] as const;
+export type IapPlatform = (typeof IAP_PLATFORMS)[number];
+
 export const iapTransactions = mysqlTable(
   'iap_transactions',
   {
@@ -398,9 +401,16 @@ export const iapTransactions = mysqlTable(
     userId: varchar('user_id', { length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    /** StoreKit 2 transactionId. 같은 영수증 재전송 시 INSERT 거절 → grantCredits 스킵. */
-    transactionId: varchar('transaction_id', { length: 64 }).notNull().unique(),
-    /** iOS Product ID — com.smap.harubook.star_{small,medium,large}. */
+    platform: varchar('platform', { length: 16, enum: IAP_PLATFORMS })
+      .notNull()
+      .default('ios'),
+    /**
+     * iOS: StoreKit 2 transactionId(숫자 문자열, ~20자).
+     * Android: Play Billing purchaseToken(base64, 가변 ~300자).
+     * 양쪽 모두 같은 컬럼에 들어가며 UNIQUE 제약으로 멱등 보장.
+     */
+    transactionId: varchar('transaction_id', { length: 255 }).notNull().unique(),
+    /** Product ID — com.smap.harubook.star_{small,medium,large} (iOS·Android 공통). */
     productId: varchar('product_id', { length: 128 }).notNull(),
     stars: int('stars').notNull(),
     environment: varchar('environment', { length: 16, enum: IAP_ENVIRONMENTS }).notNull(),
@@ -415,9 +425,12 @@ export const iapTransactions = mysqlTable(
   (t) => [index('iap_tx_user_idx').on(t.userId, t.createdAt)],
 );
 
-// APNs device token — iOS 푸시 발송 대상.
+// 푸시 디바이스 토큰 — iOS APNs / Android FCM 공용.
 export const PUSH_ENVIRONMENTS = ['production', 'sandbox'] as const;
 export type PushEnvironment = (typeof PUSH_ENVIRONMENTS)[number];
+
+export const PUSH_PLATFORMS = ['ios', 'android'] as const;
+export type PushPlatform = (typeof PUSH_PLATFORMS)[number];
 
 export const pushTokens = mysqlTable(
   'push_tokens',
@@ -426,8 +439,12 @@ export const pushTokens = mysqlTable(
     userId: varchar('user_id', { length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    /** APNs device token (hex). 같은 기기 1행만. */
-    deviceToken: varchar('device_token', { length: 200 }).notNull().unique(),
+    /** APNs device token(hex 64자) 또는 FCM registration token(가변, 베이스64url). */
+    deviceToken: varchar('device_token', { length: 255 }).notNull().unique(),
+    platform: varchar('platform', { length: 16, enum: PUSH_PLATFORMS })
+      .notNull()
+      .default('ios'),
+    /** iOS 만 의미 있음(production/sandbox). Android 는 항상 'production'. */
     environment: varchar('environment', { length: 16, enum: PUSH_ENVIRONMENTS })
       .notNull()
       .default('production'),

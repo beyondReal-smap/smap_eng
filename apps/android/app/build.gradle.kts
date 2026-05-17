@@ -5,6 +5,13 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// FCM 자산(google-services.json) 이 있을 때만 google-services 플러그인 적용.
+// 자산은 시크릿이라 커밋 금지 — Firebase Console > 프로젝트 설정에서 다운로드해 app/ 에 배치.
+// 자산이 없으면 빌드는 통과하지만 FirebaseMessaging.getToken() 이 IllegalStateException 으로 실패한다.
+if (file("google-services.json").exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+}
+
 android {
     namespace = "site.smap.harubook"
     compileSdk = 35
@@ -93,6 +100,13 @@ dependencies {
 
     implementation(libs.media3.exoplayer)
     implementation(libs.coil.compose)
+
+    // Firebase Cloud Messaging — google-services 플러그인이 google-services.json 을 읽어 자동 설정.
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+
+    // Google Play Billing v6 — Consumable IAP.
+    implementation(libs.play.billing)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

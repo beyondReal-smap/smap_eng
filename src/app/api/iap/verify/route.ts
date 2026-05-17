@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { iapTransactions } from '@/lib/db/schema';
+import { iapTransactions, type IapPlatform } from '@/lib/db/schema';
 import { requireUserIdForApi } from '@/lib/auth/session';
 import { grantCredits } from '@/lib/billing/credits';
 import { handleApiError } from '../../_lib/errors';
@@ -11,6 +11,10 @@ import {
   verifyAppleTransactionJws,
 } from '@/lib/iap/apple-verifier';
 import {
+  GooglePlayIapError,
+  verifyGooglePlayProductPurchase,
+} from '@/lib/iap/google-verifier';
+import {
   isKnownIapProduct,
   starsForIapProduct,
 } from '@/lib/iap/products';
@@ -18,73 +22,94 @@ import { sendPushToUser } from '@/lib/push/send';
 
 export const runtime = 'nodejs';
 
-const VerifyRequest = z.object({
-  jws: z.string().min(1),
-});
+const VerifyRequest = z.discriminatedUnion('platform', [
+  // 기존 iOS 클라이언트는 platform 필드 없이 jws 만 보낸다 → optional default 'ios'.
+  z.object({
+    platform: z.literal('ios').default('ios'),
+    jws: z.string().min(1),
+  }),
+  z.object({
+    platform: z.literal('android'),
+    productId: z.string().min(1).max(128),
+    purchaseToken: z.string().min(1).max(2048),
+  }),
+]);
 
 /**
- * iOS가 StoreKit 2 Transaction을 완료한 직후 호출.
+ * StoreKit 2 / Play Billing Consumable 구매 영수증 검증.
  *
- *   POST /api/iap/verify
- *   { "jws": "<Transaction.jwsRepresentation>" }
+ *   iOS:     { "platform": "ios"|undefined, "jws": "<Transaction.jwsRepresentation>" }
+ *   Android: { "platform": "android", "productId": "...", "purchaseToken": "..." }
  *
- * 서버 처리:
- *   1) Apple JWS 서명/체인 검증 (`verifyAppleTransactionJws`)
- *   2) productId 화이트리스트 확인 → 별 수량 산출
- *   3) `iap_transactions` INSERT (transaction_id UNIQUE → 중복 시 idempotent 응답)
- *   4) 신규 INSERT 시에만 `grantCredits` 호출
- *   5) 응답: { granted: true|false, balance?, stars? } → iOS는 `Transaction.finish()`
- *
- * 응답이 200이면 iOS는 무조건 `Transaction.finish()`를 호출해야 한다 — granted=false도
- * "이미 처리된 거래"라는 의미라 finish 가능.
+ * 검증 → 화이트리스트 → INSERT(UNIQUE transaction_id) → grantCredits → 푸시.
+ * 응답 `granted=false` 는 "이미 처리된 거래"라는 의미라 클라이언트는 큐에서 제거(finish/consume).
  */
 export async function POST(req: NextRequest) {
   try {
     const userId = await requireUserIdForApi();
-    const { jws } = VerifyRequest.parse(await req.json());
+    const parsed = VerifyRequest.parse(await req.json());
 
-    const bundleId = process.env.APPLE_SIGN_IN_CLIENT_ID;
-    if (!bundleId) {
-      return NextResponse.json(
-        { error: 'iap_not_configured' },
-        { status: 500 },
-      );
-    }
+    let platform: IapPlatform;
+    let productId: string;
+    let transactionId: string;
+    let environment: 'production' | 'sandbox';
+    let signedAt: Date | null;
 
-    let payload;
-    try {
-      payload = await verifyAppleTransactionJws(jws, bundleId);
-    } catch (err) {
-      if (err instanceof AppleIapError) {
-        console.warn('[iap-verify] reject', err.code);
-        return NextResponse.json(
-          { error: err.code },
-          { status: 400 },
+    if (parsed.platform === 'android') {
+      try {
+        const result = await verifyGooglePlayProductPurchase(
+          parsed.productId,
+          parsed.purchaseToken,
         );
+        platform = 'android';
+        productId = result.productId;
+        transactionId = result.transactionId;
+        environment = 'production';
+        signedAt = result.signedDate ? new Date(result.signedDate) : null;
+      } catch (err) {
+        if (err instanceof GooglePlayIapError) {
+          console.warn('[iap-verify] android reject', err.code);
+          return NextResponse.json({ error: err.code }, { status: err.status ?? 400 });
+        }
+        throw err;
       }
-      throw err;
+    } else {
+      const bundleId = process.env.APPLE_SIGN_IN_CLIENT_ID;
+      if (!bundleId) {
+        return NextResponse.json({ error: 'iap_not_configured' }, { status: 500 });
+      }
+      try {
+        const payload = await verifyAppleTransactionJws(parsed.jws, bundleId);
+        platform = 'ios';
+        productId = payload.productId;
+        transactionId = payload.transactionId;
+        environment = payload.environment === 'Sandbox' ? 'sandbox' : 'production';
+        signedAt = payload.signedDate ? new Date(payload.signedDate) : null;
+      } catch (err) {
+        if (err instanceof AppleIapError) {
+          console.warn('[iap-verify] ios reject', err.code);
+          return NextResponse.json({ error: err.code }, { status: 400 });
+        }
+        throw err;
+      }
     }
 
-    if (!isKnownIapProduct(payload.productId)) {
+    if (!isKnownIapProduct(productId)) {
       return NextResponse.json(
-        { error: 'unknown_product', productId: payload.productId },
+        { error: 'unknown_product', productId },
         { status: 400 },
       );
     }
-    const stars = starsForIapProduct(payload.productId);
+    const stars = starsForIapProduct(productId);
     if (stars === null) {
-      return NextResponse.json(
-        { error: 'unknown_product' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'unknown_product' }, { status: 400 });
     }
 
-    // 같은 transactionId의 동시 요청을 직렬화 — INSERT가 unique 제약으로 한쪽만 통과한다.
-    // FOR UPDATE 잠금으로 SELECT-INSERT race도 차단.
+    // 같은 transactionId 의 동시 요청을 직렬화 — INSERT 가 UNIQUE 로 한쪽만 통과한다.
     const isNew = await db.transaction(async (tx) => {
       const existing = (await tx.execute(
         sql`SELECT id FROM ${iapTransactions}
-            WHERE transaction_id = ${payload.transactionId}
+            WHERE transaction_id = ${transactionId}
             FOR UPDATE`,
       )) as unknown as [Array<{ id: number }>, unknown];
       if (existing[0]?.length > 0) {
@@ -92,34 +117,29 @@ export async function POST(req: NextRequest) {
       }
       await tx.insert(iapTransactions).values({
         userId,
-        transactionId: payload.transactionId,
-        productId: payload.productId,
+        platform,
+        transactionId,
+        productId,
         stars,
-        environment:
-          payload.environment === 'Sandbox' ? 'sandbox' : 'production',
-        signedAt: payload.signedDate
-          ? new Date(payload.signedDate)
-          : null,
+        environment,
+        signedAt,
         status: 'verified',
       });
       return true;
     });
 
     if (!isNew) {
-      // 이미 처리됨 — 멱등 응답. iOS는 그래도 finish() 해야 한다.
       return NextResponse.json({ granted: false, idempotent: true });
     }
 
     try {
       const result = await grantCredits(userId, stars);
 
-      // 결제 완료 푸시 — fire-and-forget. 푸시 실패가 클라이언트 응답을 막지 않게.
-      // (앱이 포그라운드일 가능성이 크지만, 다른 가족 디바이스에서도 잔액 변동을 안내.)
       void sendPushToUser(userId, {
         title: '별 충전이 완료됐어요',
         body: `별 ${stars}개가 추가됐어요. 동화를 만들어 보세요.`,
         sound: 'default',
-        custom: { kind: 'iap_purchase', stars, productId: payload.productId },
+        custom: { kind: 'iap_purchase', stars, productId },
       }).catch((err) => {
         console.warn('[iap-verify] push failed', err);
       });
@@ -128,12 +148,11 @@ export async function POST(req: NextRequest) {
         granted: true,
         balance: result.balance,
         stars,
-        productId: payload.productId,
+        productId,
       });
     } catch (err) {
-      // INSERT는 성공했지만 grantCredits 실패 — 운영 보정 대상.
       console.error('[iap-verify] grant failed after insert', {
-        transactionId: payload.transactionId,
+        transactionId,
         userId,
         err,
       });

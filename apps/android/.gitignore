@@ -16,3 +16,9 @@ local.properties
 # 캡처/로그
 *.hprof
 captures/
+
+# Firebase — google-services.json 은 시크릿(server key 포함)이라 커밋 금지.
+# Firebase Console > 프로젝트 설정 > 일반 > Android 앱 > google-services.json 다운로드
+# 후 apps/android/app/ 에 배치한다.
+google-services.json
+app/google-services.json
