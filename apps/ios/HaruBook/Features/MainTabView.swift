@@ -125,6 +125,7 @@ struct MainTabView: View {
             .navigationDestination(for: CreateBookDestination.self) { dest in
                 CreateBookFlow(
                     profileId: dest.profileId,
+                    ageHint: dest.ageHint,
                     onCreated: { book in
                         var newPath = NavigationPath()
                         newPath.append(book)

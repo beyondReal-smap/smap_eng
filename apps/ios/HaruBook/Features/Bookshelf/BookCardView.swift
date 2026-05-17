@@ -17,8 +17,8 @@ struct BookCardView: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
+                // 자녀 나이는 프로필 자체에 표시되므로 책 카드에서는 제거. CEFR 레벨 + 주제만 노출.
                 HStack(spacing: 6) {
-                    BadgeLabel(text: "\(book.age)세", tone: .neutral)
                     BadgeLabel(text: book.cefr.label, tone: .primary)
                     if let topic = book.topic, !topic.isEmpty {
                         BadgeLabel(text: topic, tone: .neutral)

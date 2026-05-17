@@ -3,12 +3,15 @@ import Foundation
 struct Profile: Codable, Identifiable, Hashable, Sendable {
     let id: Int
     let name: String
+    /// 자녀 나이 (5~10). 서버 zod schema가 필수로 받으니 옵셔널 아닌 Int. 누락 시 7(서버 default).
+    let age: Int
     let avatar: String?
     let createdAt: Date?
 
-    init(id: Int, name: String, avatar: String? = nil, createdAt: Date? = nil) {
+    init(id: Int, name: String, age: Int = 7, avatar: String? = nil, createdAt: Date? = nil) {
         self.id = id
         self.name = name
+        self.age = age
         self.avatar = avatar
         self.createdAt = createdAt
     }
@@ -17,6 +20,7 @@ struct Profile: Codable, Identifiable, Hashable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try c.decode(Int.self, forKey: .id)
         self.name = try c.decode(String.self, forKey: .name)
+        self.age = try c.decodeIfPresent(Int.self, forKey: .age) ?? 7
         self.avatar = try c.decodeIfPresent(String.self, forKey: .avatar)
         // 백엔드 createdAt은 unix sec 또는 ISO 또는 누락 가능. 누락 시 nil.
         if let unix = try? c.decodeIfPresent(Double.self, forKey: .createdAt) {

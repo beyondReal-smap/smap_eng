@@ -37,6 +37,9 @@ final class CreateBookViewModel {
     }
 
     let profileId: Int
+    /// 자녀 프로필의 실제 나이 — BookshelfView에서 currentProfile.age로 주입.
+    /// LLM 프롬프트 level.age에 그대로 전달되어 책 어휘/문장 난이도 산정에 사용.
+    let ageHint: Int
 
     var step: Step = .genre
     var genre: Genre? = nil
@@ -51,8 +54,9 @@ final class CreateBookViewModel {
     var generationError: String? = nil
     var createdBook: Book? = nil
 
-    init(profileId: Int) {
+    init(profileId: Int, ageHint: Int) {
         self.profileId = profileId
+        self.ageHint = ageHint
     }
 
     // MARK: - Step transitions
@@ -158,10 +162,8 @@ final class CreateBookViewModel {
 
     // MARK: - Helpers
 
-    /// 프로필 나이는 백엔드가 profileId로부터 직접 조회하므로, level.age는 클라이언트에서
-    /// 보내도 백엔드가 신뢰하지 않는다. Phase 1+ 흐름을 유지하되 실제로 필수 필드라 임의 값(7)을 보낸다.
-    /// 추후 `GET /api/profiles/[id]` 를 통해 정확한 age를 동기화하는 게 깔끔.
-    private func ageFromProfile() -> Int { 7 }
+    /// 책 생성 시 LLM에 전달할 자녀 나이. BookshelfView에서 currentProfile.age로 주입된 값.
+    private func ageFromProfile() -> Int { ageHint }
 }
 
 // MARK: - Wire types

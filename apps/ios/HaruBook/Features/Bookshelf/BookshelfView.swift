@@ -118,7 +118,11 @@ struct BookshelfView: View {
     /// 새 동화 만들기 + 별 잔액 — 옆의 CreditBadge / 위쪽 헤더의 "프로필 전환"이 모두 Capsule이라 통일.
     private var actionsRow: some View {
         HStack(spacing: 10) {
-            NavigationLink(value: CreateBookDestination(profileId: viewModel.profileId)) {
+            NavigationLink(value: CreateBookDestination(
+                profileId: viewModel.profileId,
+                // currentProfile의 실제 나이를 그대로 사용. 첫 진입 등으로 nil이면 7세 안전 폴백.
+                ageHint: currentProfile?.age ?? 7,
+            )) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 18, weight: .semibold))
@@ -188,6 +192,8 @@ struct BookshelfView: View {
 }
 
 /// CreateBookFlow destination — NavigationStack value.
+/// ageHint는 자녀 프로필의 실제 나이 — CreateBookViewModel로 forwarding되어 LLM 책 생성에 사용된다.
 struct CreateBookDestination: Hashable {
     let profileId: Int
+    let ageHint: Int
 }

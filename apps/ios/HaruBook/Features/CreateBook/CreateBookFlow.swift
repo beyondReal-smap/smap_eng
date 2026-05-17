@@ -6,8 +6,8 @@ struct CreateBookFlow: View {
     let onCreated: (Book) -> Void
     let onCancel: () -> Void
 
-    init(profileId: Int, onCreated: @escaping (Book) -> Void, onCancel: @escaping () -> Void) {
-        _viewModel = State(initialValue: CreateBookViewModel(profileId: profileId))
+    init(profileId: Int, ageHint: Int, onCreated: @escaping (Book) -> Void, onCancel: @escaping () -> Void) {
+        _viewModel = State(initialValue: CreateBookViewModel(profileId: profileId, ageHint: ageHint))
         self.onCreated = onCreated
         self.onCancel = onCancel
     }
