@@ -130,7 +130,11 @@ struct SettingsView: View {
                 EmptyView()
             }
         } header: {
-            sectionHeader("알림", icon: "bell.fill", color: Color(hex: 0x5288C6))
+            sectionHeader(
+                "알림",
+                icon: "bell.fill",
+                color: Color(light: Color(hex: 0x5288C6), dark: Color(hex: 0x7BA6D9)),
+            )
         } footer: {
             Text("새 동화가 완성되거나 보호자 리포트가 준비되면 알려드릴게요.")
                 .font(Font.atozRegular(13))
@@ -207,7 +211,11 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            sectionHeader("단어 복습 알림", icon: "alarm.waves.left.and.right.fill", color: Color(hex: 0x8A6300))
+            sectionHeader(
+                "단어 복습 알림",
+                icon: "alarm.waves.left.and.right.fill",
+                color: Color(light: Color(hex: 0x8A6300), dark: Color(hex: 0xC9A754)),
+            )
         } footer: {
             Text(dailyReminder.isEnabled
                 ? "매일 \(timeLabel)에 단어 복습 알림을 보내드려요."

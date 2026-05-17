@@ -62,7 +62,8 @@ struct LoginView: View {
                         startAppleSignIn()
                     }
 
-                    // Google 공식 sign-in 가이드: 흰 배경 + 연한 회색 외곽선 + 검정 텍스트.
+                    // Google 공식 sign-in 가이드: 라이트는 흰 배경 + #1F1F1F 텍스트 + #DADCE0 외곽선,
+                    // 다크는 #131314 배경 + #E3E3E3 텍스트 + #5F6368 외곽선 (Google 브랜드 표준).
                     // GoogleG 자산은 4색(빨강/파랑/노랑/초록) SVG. .renderingMode(.original)로
                     // PrimaryButton 내부 foregroundStyle 영향을 받지 않고 원본 색 유지.
                     PrimaryButton(
@@ -71,9 +72,9 @@ struct LoginView: View {
                         variant: .filled,
                         isLoading: inFlightProvider == "google",
                         isEnabled: inFlightProvider == nil && !appleSignInBusy,
-                        backgroundOverride: Color.white,
-                        foregroundOverride: Color(hex: 0x1F1F1F),
-                        borderOverride: Color(hex: 0xDADCE0),
+                        backgroundOverride: Color(light: .white, dark: Color(hex: 0x131314)),
+                        foregroundOverride: Color(light: Color(hex: 0x1F1F1F), dark: Color(hex: 0xE3E3E3)),
+                        borderOverride: Color(light: Color(hex: 0xDADCE0), dark: Color(hex: 0x5F6368)),
                         fontOverride: Font.atozBold(17),
                     ) {
                         Task { await signIn(provider: "google") }

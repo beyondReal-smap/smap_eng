@@ -47,15 +47,31 @@ struct VocabCardView: View {
     }
 
     /// 카드 좌상단 학습 상태 칩 — 새/다시 학습/학습 중을 색으로 즉시 구분. 마스터는 deck에서 빠지므로 표시 없음.
+    /// 칩 fg/bg 는 라이트/다크 적응형 — 라이트는 톤다운 파스텔 배경에 짙은 텍스트, 다크는 어두운 톤 배경에 밝은 텍스트.
     @ViewBuilder
     private var stateChip: some View {
         switch cardState {
         case .new:
-            chip(label: "NEW", icon: "sparkles", fg: Color(hex: 0x1E6FB8), bg: Color(hex: 0xE2F0FB))
+            chip(
+                label: "NEW",
+                icon: "sparkles",
+                fg: Color(light: Color(hex: 0x1E6FB8), dark: Color(hex: 0x7BA6D9)),
+                bg: Color(light: Color(hex: 0xE2F0FB), dark: Color(hex: 0x2C3E54)),
+            )
         case .relearning:
-            chip(label: "다시 학습", icon: "arrow.counterclockwise", fg: Color.smapDanger, bg: Color(hex: 0xFDE2DD))
+            chip(
+                label: "다시 학습",
+                icon: "arrow.counterclockwise",
+                fg: Color.smapDanger,  // 토큰이 이미 적응형
+                bg: Color(light: Color(hex: 0xFDE2DD), dark: Color(hex: 0x5C4039)),
+            )
         case .learning:
-            chip(label: "Lv.\(level)", icon: "graduationcap.fill", fg: Color(hex: 0x8A6300), bg: Color(hex: 0xFCEDC1))
+            chip(
+                label: "Lv.\(level)",
+                icon: "graduationcap.fill",
+                fg: Color(light: Color(hex: 0x8A6300), dark: Color(hex: 0xC9A754)),
+                bg: Color(light: Color(hex: 0xFCEDC1), dark: Color(hex: 0x5C4830)),
+            )
         case .mastered:
             EmptyView()
         }

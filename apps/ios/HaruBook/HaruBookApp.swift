@@ -24,7 +24,13 @@ struct HaruBookApp: App {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithTransparentBackground()
         appearance.backgroundColor = .clear
-        let charcoal = UIColor(red: 0x34/255, green: 0x34/255, blue: 0x33/255, alpha: 1)
+        // trait collection이 다크로 바뀔 때 UINavigationBar가 자동으로 재해석하도록 dynamic UIColor 사용.
+        // 라이트: Charcoal #343433 / 다크: Warm Off-White #E8E7E3 — Color.smapText 토큰의 UIKit 대응.
+        let charcoal = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0xE8/255, green: 0xE7/255, blue: 0xE3/255, alpha: 1)
+                : UIColor(red: 0x34/255, green: 0x34/255, blue: 0x33/255, alpha: 1)
+        }
         if let inlineFont = UIFont(name: "A2Z-Bold", size: 17) {
             appearance.titleTextAttributes = [.font: inlineFont, .foregroundColor: charcoal]
         }
@@ -50,16 +56,10 @@ struct HaruBookApp: App {
         WindowGroup {
             RootView()
                 .environment(authState)
-                // FIXME(a11y/dark-mode): 시스템 다크 모드 강제 무시. `Color+Theme.swift`의 토큰이
-                // 라이트 단일 hex로만 정의되어 있어, 이 한 줄만 제거하면 시스템 다크에서
-                //   - 라이트 색 배경(smapBackground 0xFBFAF9) + 다크 시스템 컴포넌트(키보드/메뉴)
-                // 가 섞여 외관이 깨진다. 진정한 다크 지원하려면 선행 작업 필요:
-                //   1) Color+Theme.swift 모든 토큰을 Asset Catalog .colorset (Any/Dark) 로 마이그레이션
-                //      또는 `Color(light:dark:)` 헬퍼 도입
-                //   2) 디자이너로부터 다크 팔레트 결정 (Warm Canvas 대응 다크 표면, 코랄 액센트 명도 조정)
-                //   3) 라이트/다크 양쪽 모든 화면 시각 검수
-                // 별도 작업으로 분리. 이 주석을 제거하기 전까지 라이트 강제 유지.
-                .preferredColorScheme(.light)
+                // 시스템 다크 모드 자동 추종. 모든 색은 Color+Theme.swift 토큰에서 라이트/다크
+                // 쌍으로 정의 — UINavigationBarAppearance / UITabBarAppearance 도 dynamic UIColor 사용.
+                // 다크 팔레트는 라이트 hue 유지 + lightness 반전 기반 보수적 안이라 디자이너 정밀
+                // 검수 후 두 번째 hex 인자만 조정 권장.
                 .tint(.smapPrimary)
                 .task { await PushManager.shared.refreshAuthorizationStatus() }
                 // 첫 진입은 위 .task가, 백그라운드 복귀는 onChange가 처리.
@@ -165,13 +165,24 @@ private struct SplashView: View {
     @State private var appeared = false
 
     // 웹 globals.css 의 body 라디얼 그라디언트와 동일한 톤(근사 sRGB).
-    private static let canvas = Color(hex: 0xFBFAF9)
-    private static let glowYellow = Color(hex: 0xF5E5C2)
-    private static let glowSky = Color(hex: 0xC2D9F5)
-    private static let glowCoral = Color(hex: 0xF5D0C2)
-    private static let charcoal = Color(hex: 0x343433)
-    private static let graphite = Color(hex: 0x474645)
-    private static let coral = Color(hex: 0xFFB39A) // Soft Coral Peach — primary
+    // 디자인 시스템 토큰과 의미가 일치하는 색은 토큰 사용 — 자동 다크 적응.
+    // glow 3종은 라디얼 글로우 전용 톤이라 별도 정의 + Color(light:dark:) 로 다크 대응.
+    private static let canvas = Color.smapBackground
+    private static let glowYellow = Color(
+        light: Color(hex: 0xF5E5C2),
+        dark:  Color(hex: 0x554831),
+    )
+    private static let glowSky = Color(
+        light: Color(hex: 0xC2D9F5),
+        dark:  Color(hex: 0x3A4A5C),
+    )
+    private static let glowCoral = Color(
+        light: Color(hex: 0xF5D0C2),
+        dark:  Color(hex: 0x5C463A),
+    )
+    private static let charcoal = Color.smapText
+    private static let graphite = Color.smapMuted
+    private static let coral = Color.smapPrimary // Soft Coral Peach — primary
 
     var body: some View {
         ZStack {
