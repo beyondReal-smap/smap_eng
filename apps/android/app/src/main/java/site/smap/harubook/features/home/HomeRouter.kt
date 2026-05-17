@@ -1,6 +1,11 @@
 package site.smap.harubook.features.home
 
 import android.content.Context
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +59,25 @@ fun HomeRouter() {
 
     val initialRoute = if (selectedProfile != null) BOOKSHELF_ROUTE else PROFILE_PICKER_ROUTE
 
-    NavHost(navController = nav, startDestination = initialRoute) {
+    // iOS NavigationStack push 패리티: 새 화면은 우→좌로 슬라이드 인, 이전 화면은
+    // 살짝 좌로 밀리며 페이드. 뒤로 갈 때는 반대. 350ms easeOut 톤이 iOS 와 가장 유사.
+    // 이전엔 Compose Navigation 기본(즉시 교체)이라 화면 전환이 뚝 끊기는 느낌이었다.
+    NavHost(
+        navController = nav,
+        startDestination = initialRoute,
+        enterTransition = {
+            slideInHorizontally(animationSpec = tween(350)) { it } + fadeIn(tween(350))
+        },
+        exitTransition = {
+            slideOutHorizontally(animationSpec = tween(350)) { -it / 3 } + fadeOut(tween(350))
+        },
+        popEnterTransition = {
+            slideInHorizontally(animationSpec = tween(350)) { -it / 3 } + fadeIn(tween(350))
+        },
+        popExitTransition = {
+            slideOutHorizontally(animationSpec = tween(350)) { it } + fadeOut(tween(350))
+        },
+    ) {
         composable(PROFILE_PICKER_ROUTE) {
             ProfilePickerScreen(onSelect = { profile ->
                 selectedProfile = profile

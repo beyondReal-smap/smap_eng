@@ -1,5 +1,7 @@
 package site.smap.harubook.features.home
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -51,7 +53,10 @@ fun MainTabScaffold(
     onOpenStore: () -> Unit,
     bookshelfContent: @Composable () -> Unit,
 ) {
-    var selectedTab by remember(profileId) { mutableStateOf(HomeTab.Bookshelf) }
+    // rememberSaveable — NavHost 가 BOOKSHELF_ROUTE 를 다시 그릴 때(예: Settings → Parents 진입 후
+    // popBackStack 으로 복귀) 탭 상태가 초기값으로 리셋되지 않도록 보존. 이전엔 remember(profileId)
+    // 라 라우트 재진입마다 Bookshelf 탭으로 돌아가버려 "설정에서 뒤로 가면 책장으로 간다" 문제 발생.
+    var selectedTab by rememberSaveable(profileId) { mutableStateOf(HomeTab.Bookshelf) }
 
     Scaffold(
         bottomBar = {
@@ -81,15 +86,23 @@ fun MainTabScaffold(
                 .padding(innerPadding)
                 .background(SmapBackground),
         ) {
-            when (selectedTab) {
-                HomeTab.Bookshelf -> bookshelfContent()
-                HomeTab.Stats -> StatsDashboardScreen(profileId = profileId)
-                HomeTab.Vocab -> VocabDeckScreen(profileId = profileId)
-                HomeTab.Settings -> SettingsScreen(
-                    onSwitchProfile = onSwitchProfile,
-                    onOpenParents = onOpenParents,
-                    onOpenStore = onOpenStore,
-                )
+            // iOS TabView 패리티: 탭 사이를 짧은 cross-fade 로 부드럽게 연결. 이전엔 when 분기로
+            // 즉시 교체라 탭 전환이 뚝 끊겨 보였다. 200ms 는 iOS 의 자연스러운 톤과 일치.
+            Crossfade(
+                targetState = selectedTab,
+                animationSpec = tween(durationMillis = 200),
+                label = "main-tab",
+            ) { tab ->
+                when (tab) {
+                    HomeTab.Bookshelf -> bookshelfContent()
+                    HomeTab.Stats -> StatsDashboardScreen(profileId = profileId)
+                    HomeTab.Vocab -> VocabDeckScreen(profileId = profileId)
+                    HomeTab.Settings -> SettingsScreen(
+                        onSwitchProfile = onSwitchProfile,
+                        onOpenParents = onOpenParents,
+                        onOpenStore = onOpenStore,
+                    )
+                }
             }
         }
     }
