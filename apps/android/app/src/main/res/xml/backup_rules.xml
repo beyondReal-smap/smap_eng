@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<full-backup-content>
-    <!-- 토큰은 EncryptedSharedPreferences에 저장하지만 백업은 비활성화 (보안). -->
-</full-backup-content>
