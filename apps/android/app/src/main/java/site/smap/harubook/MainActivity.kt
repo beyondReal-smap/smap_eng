@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -19,19 +18,15 @@ import site.smap.harubook.core.auth.AuthState
 import site.smap.harubook.core.auth.OAuthCoordinator
 import site.smap.harubook.designsystem.HaruBookTheme
 import site.smap.harubook.designsystem.SmapBackground
-import site.smap.harubook.designsystem.SmapBodyStyle
-import site.smap.harubook.designsystem.SmapText
+import site.smap.harubook.designsystem.SmapPrimary
+import site.smap.harubook.features.auth.LoginScreen
+import site.smap.harubook.features.home.HomeRouter
 
-/**
- * 단일 Activity. AuthState.phase 에 따라 LoginScreen ↔ HomeRouter 분기 (이후 Phase에서 추가).
- * 현재는 Phase 1~2 범위라 phase 표시만 한다.
- */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         intent?.let(::routeIntent)
-
         setContent {
             HaruBookTheme { RootScaffold() }
         }
@@ -63,9 +58,9 @@ private fun RootScaffold() {
         contentAlignment = Alignment.Center,
     ) {
         when (phase) {
-            AuthState.Phase.Loading -> CircularProgressIndicator()
-            AuthState.Phase.SignedOut -> Text("로그인 화면 (Phase 3)", style = SmapBodyStyle, color = SmapText)
-            AuthState.Phase.SignedIn -> Text("홈 화면 (Phase 3)", style = SmapBodyStyle, color = SmapText)
+            AuthState.Phase.Loading -> CircularProgressIndicator(color = SmapPrimary)
+            AuthState.Phase.SignedOut -> LoginScreen()
+            AuthState.Phase.SignedIn -> HomeRouter()
         }
     }
 }

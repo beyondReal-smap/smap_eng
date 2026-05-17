@@ -100,6 +100,74 @@ object AuthState {
         _phase.value = Phase.SignedIn
     }
 
+    /** 이메일+비밀번호 로그인. 실패 시 [lastError] 채움, false 반환. */
+    suspend fun signInWithEmail(email: String, password: String): Boolean {
+        return try {
+            val response: MobileExchangeResponse = ApiClient.post(
+                path = "/api/auth/mobile/password",
+                body = PasswordRequest(email = email, password = password),
+                requiresAuth = false,
+            )
+            applyExchange(response)
+            true
+        } catch (e: site.smap.harubook.core.networking.ApiError.Http) {
+            lastError = "이메일 또는 비밀번호가 올바르지 않습니다."
+            false
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            lastError = "로그인 실패: ${e.message ?: e::class.java.simpleName}"
+            false
+        }
+    }
+
+    sealed class SignupOutcome {
+        data object Success : SignupOutcome()
+        data object DuplicateEmail : SignupOutcome()
+        data class Failure(val message: String) : SignupOutcome()
+    }
+
+    /** 이메일 회원가입. 서버가 가입+기본 프로필+토큰을 즉시 발급한다. */
+    suspend fun signUp(
+        childName: String,
+        email: String,
+        password: String,
+        agreeAge: Boolean,
+        agreeTerms: Boolean,
+        agreePrivacy: Boolean,
+    ): SignupOutcome {
+        return try {
+            val response: MobileExchangeResponse = ApiClient.post(
+                path = "/api/auth/mobile/signup",
+                body = SignupRequest(
+                    childName = childName,
+                    email = email,
+                    password = password,
+                    agreeAge = agreeAge,
+                    agreeTerms = agreeTerms,
+                    agreePrivacy = agreePrivacy,
+                ),
+                requiresAuth = false,
+            )
+            applyExchange(response)
+            SignupOutcome.Success
+        } catch (e: site.smap.harubook.core.networking.ApiError.Http) {
+            if (e.status == 409 || e.code == "duplicate_email") {
+                SignupOutcome.DuplicateEmail
+            } else {
+                val msg = "가입에 실패했어요. 입력값을 확인해 주세요."
+                lastError = msg
+                SignupOutcome.Failure(msg)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            val msg = "가입 실패: ${e.message ?: e::class.java.simpleName}"
+            lastError = msg
+            SignupOutcome.Failure(msg)
+        }
+    }
+
     private fun buildStartUrl(provider: String, challenge: String): Uri =
         Uri.parse("${AppConfig.API_BASE_URL}/api/auth/mobile/start").buildUpon()
             .appendQueryParameter("provider", provider)
@@ -121,4 +189,20 @@ data class MobileExchangeResponse(
     val accessToken: String,
     val expiresAtUnix: Long,
     val issuedAtUnix: Long? = null,
+)
+
+@Serializable
+internal data class PasswordRequest(
+    val email: String,
+    val password: String,
+)
+
+@Serializable
+internal data class SignupRequest(
+    val childName: String,
+    val email: String,
+    val password: String,
+    val agreeAge: Boolean,
+    val agreeTerms: Boolean,
+    val agreePrivacy: Boolean,
 )
