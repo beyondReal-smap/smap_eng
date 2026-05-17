@@ -39,6 +39,7 @@ import site.smap.harubook.R
 import site.smap.harubook.designsystem.PrimaryButton
 import site.smap.harubook.designsystem.PrimaryButtonVariant
 import site.smap.harubook.designsystem.SmapBackground
+import site.smap.harubook.designsystem.SmapBadgeStyle
 import site.smap.harubook.designsystem.SmapBodyEmphasisStyle
 import site.smap.harubook.designsystem.SmapBodyStyle
 import site.smap.harubook.designsystem.SmapBorder
@@ -51,6 +52,7 @@ import site.smap.harubook.designsystem.SmapPrimarySoft
 import site.smap.harubook.designsystem.SmapSurface
 import site.smap.harubook.designsystem.SmapText
 import site.smap.harubook.designsystem.SmapTitleStyle
+import site.smap.harubook.designsystem.tint
 
 @Composable
 fun StatsDashboardScreen(profileId: Int) {
@@ -108,21 +110,7 @@ private fun StatsContent(state: StatsUiState) {
         item {
             SectionTitle("레벨별 독서량")
             Spacer(Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                levelStats(state.books, state.stats).forEach { row ->
-                    Text(
-                        text = "${row.level.label} · ${row.count}권 · 완독 ${row.finished}" +
-                            (row.averageAccuracy?.let { " · ${(it * 100).toInt()}%" } ?: ""),
-                        style = SmapBodyStyle,
-                        color = SmapText,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(SmapSurface, RoundedCornerShape(12.dp))
-                            .border(1.dp, SmapBorder, RoundedCornerShape(12.dp))
-                            .padding(14.dp),
-                    )
-                }
-            }
+            LevelDistribution(rows = levelStats(state.books, state.stats))
         }
         item {
             SectionTitle(stringResource(R.string.stats_this_month))
@@ -143,6 +131,78 @@ private fun StatsContent(state: StatsUiState) {
             )
         }
         item { Spacer(Modifier.height(12.dp)) }
+    }
+}
+
+/**
+ * iOS `StatsDashboardView.levelSection` 미러.
+ * 각 행: 레벨 배지(파스텔 컬러) + 진행 막대(가장 큰 count 기준 비율) + 상세 텍스트.
+ * 전체는 흰 카드 + 1dp 외곽선으로 묶음.
+ */
+@Composable
+private fun LevelDistribution(rows: List<LevelStatRow>) {
+    val maxCount = rows.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SmapSurface, RoundedCornerShape(16.dp))
+            .border(1.dp, SmapBorder, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        rows.forEach { row ->
+            LevelRow(row = row, maxCount = maxCount)
+        }
+    }
+}
+
+@Composable
+private fun LevelRow(row: LevelStatRow, maxCount: Int) {
+    androidx.compose.foundation.layout.Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        // 레벨 배지 — 파스텔 컬러 배경.
+        Text(
+            text = row.level.label,
+            style = SmapBadgeStyle,
+            color = SmapText,
+            modifier = Modifier
+                .background(row.level.tint, RoundedCornerShape(6.dp))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+        )
+
+        // 진행 막대 — 회색 트랙 + 레벨 색 채움.
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(18.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp)
+                    .background(SmapBorder.copy(alpha = 0.4f), RoundedCornerShape(6.dp)),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(row.count.toFloat() / maxCount.toFloat())
+                    .height(18.dp)
+                    .background(row.level.tint, RoundedCornerShape(6.dp)),
+            )
+        }
+
+        // 상세 텍스트.
+        Text(
+            text = buildString {
+                append("${row.count}권 · 완독 ${row.finished}")
+                row.averageAccuracy?.let { append(" · ${(it * 100).toInt()}%") }
+            },
+            style = SmapCaptionStyle,
+            color = SmapMuted,
+            maxLines = 1,
+        )
     }
 }
 
