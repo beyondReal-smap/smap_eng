@@ -274,6 +274,10 @@ struct SettingsView: View {
                 row(title: "고객 문의", value: BusinessInfo.email)
             }
             .buttonStyle(.plain)
+            // row()의 combine 라벨("고객 문의, hwai.core@gmail.com")만 들리면 동작이 모호.
+            // Link 외부에서 명시 라벨 + hint로 행동 의도와 대상 이메일을 분리해 전달.
+            .accessibilityLabel("고객 문의 이메일 보내기")
+            .accessibilityHint(BusinessInfo.email)
         } header: {
             sectionHeader("앱 정보", icon: "info.circle.fill", color: .smapMuted)
         }
@@ -325,6 +329,10 @@ struct SettingsView: View {
                 .foregroundStyle(Color.smapMuted)
                 .multilineTextAlignment(.trailing)
         }
+        // title/value Text가 별개 요소라 VoiceOver가 "서비스, 하루책" 두 번 읽음.
+        // combine으로 한 셀에 묶고 쉼표로 자연스러운 발화 순서 보장.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(value)")
     }
 
     private var appVersion: String {

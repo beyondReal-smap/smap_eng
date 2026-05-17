@@ -228,6 +228,11 @@ private struct ProfileCard: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(Color.smapBorder, lineWidth: 1)
         )
+        // VoiceOver는 기본적으로 avatar(이모지) Text와 이름 Text를 별도로 읽어 "🦊, 지우" 두 번
+        // 발화. combine으로 한 셀로 묶고 자연스러운 라벨 부여. button trait는 외부 Button label로
+        // 사용될 때 자동 부여되므로 추가 불필요.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(profile.name) 프로필")
     }
 }
 

@@ -116,10 +116,15 @@ struct LoginView: View {
                 // SwiftUI Text는 마크다운 링크를 자동 파싱한다.
                 // 커스텀 스킴 `smap://legal/{terms,privacy}`를 openURL 환경값에서 가로채
                 // 외부 Safari가 아닌 인앱 sheet로 표시한다(App Store 2.3.7/5.1.1).
+                // 폰트 14pt + lineSpacing 2 — 약관/링크 영역은 사용자가 한 번은 읽고 결정해야 하는
+                // 정보. 13pt는 동적 폰트 미적용 환경에서 시각 가독성·VoiceOver 외 사용자에게도 부담.
+                // 마크다운 링크([이용약관]/[개인정보처리방침])는 SwiftUI Text가 자동으로 Link 트레이트를
+                // 부여하므로 VoiceOver 로터의 Links에서 발견된다.
                 Text(
                     "로그인하면 [이용약관](smap://legal/terms)과 [개인정보처리방침](smap://legal/privacy)에 동의한 것으로 간주합니다.",
                 )
-                .font(Font.atozRegular(13))
+                .font(Font.atozRegular(14))
+                .lineSpacing(2)
                 .foregroundStyle(Color.smapMuted)
                 .tint(.smapPrimary)
                 .multilineTextAlignment(.center)

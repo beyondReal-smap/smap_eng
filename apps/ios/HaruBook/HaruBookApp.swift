@@ -9,6 +9,9 @@ struct HaruBookApp: App {
     // 별도 `AuthState()` 인스턴스를 만들면 401 시 shared의 phase만 바뀌고
     // RootView가 관찰하는 environment 인스턴스는 갱신되지 않아 LoginView로 복귀 못 함.
     @State private var authState = AuthState.shared
+    /// 백그라운드 → active 복귀 시점에 푸시 권한 상태를 재조회하기 위해 관찰.
+    /// 사용자가 설정 앱에서 권한을 바꾼 뒤 돌아왔을 때 SettingsView 등이 최신 상태를 반영하려면 필요.
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // NavigationBar 타이틀(SwiftUI Text가 아니라 UIKit NavigationBar)의 폰트도 A2Z로.
@@ -53,6 +56,13 @@ struct HaruBookApp: App {
                 .preferredColorScheme(.light)
                 .tint(.smapPrimary)
                 .task { await PushManager.shared.refreshAuthorizationStatus() }
+                // 첫 진입은 위 .task가, 백그라운드 복귀는 onChange가 처리.
+                // SwiftUI 첫 호출 시 onChange는 트리거되지 않으므로 중복 호출 없음.
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .active {
+                        Task { await PushManager.shared.refreshAuthorizationStatus() }
+                    }
+                }
         }
     }
 }
