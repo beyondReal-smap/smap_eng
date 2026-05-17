@@ -42,16 +42,16 @@ fun GeneratingStep(
         if (isGenerating) {
             CircularProgressIndicator(color = SmapPrimary, strokeWidth = 3.dp)
             Spacer(Modifier.height(24.dp))
-            Text("동화를 만들고 있어요", style = SmapTitleStyle, color = SmapText)
+            Text("동화를 만들고 있어요…", style = SmapTitleStyle, color = SmapText)
             Spacer(Modifier.height(8.dp))
             Text(
-                "잠시만 기다려 주세요. 길어야 1~2분 정도 걸려요.",
+                "OpenAI가 이야기를 짓는 데 30초 ~ 2분 정도 걸려요.\n잠시만 기다려 주세요.",
                 style = SmapBodyStyle,
                 color = SmapMuted,
                 textAlign = TextAlign.Center,
             )
         } else if (!error.isNullOrBlank()) {
-            Text("앗, 잠시 문제가 있었어요", style = SmapTitleStyle, color = SmapText)
+            Text("동화 생성에 실패했어요", style = SmapTitleStyle, color = SmapText)
             Spacer(Modifier.height(8.dp))
             Text(error, style = SmapBodyStyle, color = SmapDanger, textAlign = TextAlign.Center)
             Spacer(Modifier.height(20.dp))

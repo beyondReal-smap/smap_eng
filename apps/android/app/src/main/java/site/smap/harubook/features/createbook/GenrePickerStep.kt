@@ -32,8 +32,8 @@ fun GenrePickerStep(onSelect: (CreateBookViewModel.Genre) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("어떤 책을 만들까요?", style = SmapTitleStyle, color = SmapText)
-            Text("이야기는 상상력을, 정보책은 새로운 지식을 키워줘요.", style = SmapBodyStyle, color = SmapMuted)
+            Text("어떤 종류의 책을 만들까요?", style = SmapTitleStyle, color = SmapText)
+            Text("좋아하는 쪽을 골라주세요.", style = SmapBodyStyle, color = SmapMuted)
         }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CreateBookViewModel.Genre.entries.forEach { genre ->

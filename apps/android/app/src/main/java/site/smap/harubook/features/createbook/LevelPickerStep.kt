@@ -41,7 +41,7 @@ fun LevelPickerStep(
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("어떤 레벨로 만들까요?", style = SmapTitleStyle, color = SmapText)
             Text(
-                "${genre?.label ?: "장르"} · CEFR 4단계 중 선택",
+                "아이의 영어 수준에 맞게 골라주세요. 나중에 다시 바꿀 수 있어요.",
                 style = SmapBodyStyle,
                 color = SmapMuted,
             )

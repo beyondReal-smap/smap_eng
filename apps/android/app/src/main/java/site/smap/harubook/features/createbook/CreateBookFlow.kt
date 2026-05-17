@@ -1,5 +1,12 @@
 package site.smap.harubook.features.createbook
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -79,26 +86,47 @@ fun CreateBookFlow(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
         )
 
+        // iOS CreateBookFlow 의 .asymmetric transition + .easeInOut(0.28) 패리티 —
+        // 다음 단계로 갈 때(forward): 새 화면이 우→좌 슬라이드 인, 이전이 좌로 슬라이드 아웃.
+        // 뒤로 갈 때(backward, goBack): 새 화면이 좌→우, 이전이 우로 — 방향 반전.
+        // 이전엔 when 분기로 즉시 교체라 단계가 뚝 끊겨 보였다.
         Box(modifier = Modifier.weight(1f)) {
-            when (state.step) {
-                CreateBookViewModel.Step.Genre -> GenrePickerStep(onSelect = viewModel::selectGenre)
-                CreateBookViewModel.Step.Level -> LevelPickerStep(
-                    genre = state.genre,
-                    selected = state.cefr,
-                    onSelect = viewModel::selectLevel,
-                )
-                CreateBookViewModel.Step.Intake -> IntakeStep(
-                    state = state,
-                    onUpdateAnswer = viewModel::updateAnswer,
-                    onSelectChip = viewModel::selectChip,
-                    onGenerate = viewModel::generate,
-                )
-                CreateBookViewModel.Step.Generating -> GeneratingStep(
-                    isGenerating = state.isGenerating,
-                    error = state.generationError,
-                    onRetry = viewModel::generate,
-                    onCancel = onCancel,
-                )
+            AnimatedContent(
+                targetState = state.step,
+                transitionSpec = {
+                    val forward = targetState.ordinal > initialState.ordinal
+                    val spec = tween<Float>(durationMillis = 280)
+                    val intSpec = tween<androidx.compose.ui.unit.IntOffset>(durationMillis = 280)
+                    if (forward) {
+                        (slideInHorizontally(animationSpec = intSpec) { it } + fadeIn(spec)) togetherWith
+                            (slideOutHorizontally(animationSpec = intSpec) { -it } + fadeOut(spec))
+                    } else {
+                        (slideInHorizontally(animationSpec = intSpec) { -it } + fadeIn(spec)) togetherWith
+                            (slideOutHorizontally(animationSpec = intSpec) { it } + fadeOut(spec))
+                    }
+                },
+                label = "create-book-step",
+            ) { step ->
+                when (step) {
+                    CreateBookViewModel.Step.Genre -> GenrePickerStep(onSelect = viewModel::selectGenre)
+                    CreateBookViewModel.Step.Level -> LevelPickerStep(
+                        genre = state.genre,
+                        selected = state.cefr,
+                        onSelect = viewModel::selectLevel,
+                    )
+                    CreateBookViewModel.Step.Intake -> IntakeStep(
+                        state = state,
+                        onUpdateAnswer = viewModel::updateAnswer,
+                        onSelectChip = viewModel::selectChip,
+                        onGenerate = viewModel::generate,
+                    )
+                    CreateBookViewModel.Step.Generating -> GeneratingStep(
+                        isGenerating = state.isGenerating,
+                        error = state.generationError,
+                        onRetry = viewModel::generate,
+                        onCancel = onCancel,
+                    )
+                }
             }
         }
     }

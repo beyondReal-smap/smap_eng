@@ -54,8 +54,8 @@ fun IntakeStep(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("어떤 이야기로 만들까요?", style = SmapTitleStyle, color = SmapText)
-            Text("질문에 답하면 더 맞춤형 동화가 만들어져요. 모든 답은 선택입니다.", style = SmapBodyStyle, color = SmapMuted)
+            Text("아이가 좋아하는 걸 알려주세요", style = SmapTitleStyle, color = SmapText)
+            Text("선택지를 눌러도 되고, 직접 적어도 좋아요. 건너뛰어도 괜찮아요.", style = SmapBodyStyle, color = SmapMuted)
         }
 
         Box(modifier = Modifier.weight(1f)) {
