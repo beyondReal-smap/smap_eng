@@ -351,6 +351,72 @@ async function findUserByEmailPassword(input: {
   return valid ? { id: credentialUser.id } : null;
 }
 
+/**
+ * 개발/QA 전용 — 이메일로 모바일 access_token을 발급한다.
+ *
+ * iOS `--mock-auth` 런치 아규먼트로 진입한 시뮬레이터/UITest가 OAuth WebView를 우회하여
+ * 실제 사용자 계정으로 인증된 것과 동일한 세션을 얻기 위한 진입점.
+ *
+ * 가드 3중 — 셋 모두 충족해야 토큰 발급. 하나라도 어긋나면 404로 응답해
+ * 엔드포인트의 존재 자체를 운영 클라이언트에 노출하지 않는다.
+ *   1. `ALLOW_DEV_AUTH=1` env (운영 기본값 미설정)
+ *   2. `DEV_AUTH_EMAILS` 콤마 화이트리스트에 요청 이메일 포함
+ *   3. `X-Dev-Auth-Secret` 헤더 == `DEV_AUTH_SECRET` env (timing-safe 비교)
+ */
+async function handleMobileDevIssue(req: Request): Promise<Response> {
+  if (process.env.ALLOW_DEV_AUTH !== '1') {
+    return jsonError('not_found', 404);
+  }
+
+  const expectedSecret = process.env.DEV_AUTH_SECRET ?? '';
+  const providedSecret = req.headers.get('x-dev-auth-secret') ?? '';
+  if (expectedSecret.length === 0) return jsonError('not_found', 404);
+
+  const expectedBuf = Buffer.from(expectedSecret);
+  const providedBuf = Buffer.from(providedSecret);
+  // timingSafeEqual은 길이 다르면 예외 — 사전 비교로 가드.
+  if (expectedBuf.length !== providedBuf.length) {
+    return jsonError('not_found', 404);
+  }
+  if (!timingSafeEqual(expectedBuf, providedBuf)) {
+    return jsonError('not_found', 404);
+  }
+
+  const allowList = (process.env.DEV_AUTH_EMAILS ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+
+  const body = await parseJsonBody(req);
+  const rawEmail = body && typeof body === 'object' && 'email' in body
+    ? String((body as { email: unknown }).email ?? '')
+    : '';
+  const email = normalizeEmail(rawEmail);
+  if (!email) return jsonError('invalid_email', 400);
+  if (!allowList.includes(email)) return jsonError('not_found', 404);
+
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  if (!user) return jsonError('user_not_found', 404);
+
+  const token = await insertMobileToken(
+    user.id,
+    'access_token',
+    MOBILE_ACCESS_TOKEN_TTL_MS,
+  );
+  const now = new Date();
+  return appendNoStore(
+    NextResponse.json({
+      accessToken: token.raw,
+      expiresAtUnix: toUnixSeconds(token.expiresAt),
+      issuedAtUnix: toUnixSeconds(now),
+    }),
+  );
+}
+
 async function handleMobilePassword(req: Request): Promise<Response> {
   const body = await parseJsonBody(req);
   const parsed = LoginSchema.safeParse(body);
@@ -799,6 +865,7 @@ export const handlers = {
     if (isMobileAuthPath(req, 'signup')) return handleMobileSignup(req);
     if (isMobileAuthPath(req, 'apple')) return handleMobileApple(req);
     if (isMobileAuthPath(req, 'exchange')) return handleMobileExchange(req);
+    if (isMobileAuthPath(req, 'dev-issue')) return handleMobileDevIssue(req);
     return baseHandlers.POST(req);
   },
 };
