@@ -425,7 +425,10 @@ export const iapTransactions = mysqlTable(
   (t) => [index('iap_tx_user_idx').on(t.userId, t.createdAt)],
 );
 
-// 푸시 디바이스 토큰 — iOS APNs / Android FCM 공용.
+// FCM registration token — iOS/Android 통합 푸시 발송 대상.
+// 과거 APNs hex token만 다뤘으나 Firebase Cloud Messaging으로 통합되며 토큰 포맷이 바뀐다.
+// FCM 토큰은 영문/숫자/_/- 혼합 ~150자(여유 512). `environment`는 FCM에서는 무의미하지만
+// 마이그레이션 호환을 위해 컬럼만 보존하고 사용은 하지 않는다.
 export const PUSH_ENVIRONMENTS = ['production', 'sandbox'] as const;
 export type PushEnvironment = (typeof PUSH_ENVIRONMENTS)[number];
 
@@ -439,20 +442,67 @@ export const pushTokens = mysqlTable(
     userId: varchar('user_id', { length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    /** APNs device token(hex 64자) 또는 FCM registration token(가변, 베이스64url). */
-    deviceToken: varchar('device_token', { length: 255 }).notNull().unique(),
+    /** FCM registration token. 같은 기기 1행만. */
+    deviceToken: varchar('device_token', { length: 512 }).notNull().unique(),
     platform: varchar('platform', { length: 16, enum: PUSH_PLATFORMS })
       .notNull()
       .default('ios'),
-    /** iOS 만 의미 있음(production/sandbox). Android 는 항상 'production'. */
     environment: varchar('environment', { length: 16, enum: PUSH_ENVIRONMENTS })
       .notNull()
       .default('production'),
     lastSeenAt: timestamp('last_seen_at').notNull().defaultNow(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  (t) => [index('push_token_user_idx').on(t.userId)],
+  (t) => [
+    index('push_token_user_idx').on(t.userId),
+    index('push_token_platform_idx').on(t.platform),
+  ],
 );
+
+// 관리자 푸시 발송 감사 로그 — 누가 언제 무엇을 어떤 대상에게 보냈는지 보존.
+// 발송 결과(성공/실패 건수)는 비동기 fan-out 완료 후 갱신된다.
+export const PUSH_SEND_AUDIENCES = [
+  'single',
+  'all_active',
+  'subscribers',
+  'dormant',
+  'new_users',
+] as const;
+export type PushSendAudience = (typeof PUSH_SEND_AUDIENCES)[number];
+
+export const PUSH_SEND_STATUSES = ['queued', 'sending', 'completed', 'failed'] as const;
+export type PushSendStatus = (typeof PUSH_SEND_STATUSES)[number];
+
+export const pushSendLogs = mysqlTable(
+  'push_send_logs',
+  {
+    id: int('id').autoincrement().primaryKey(),
+    actorUserId: varchar('actor_user_id', { length: 255 })
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    audience: varchar('audience', { length: 32, enum: PUSH_SEND_AUDIENCES }).notNull(),
+    /** 단건일 때 대상 user id. 세그먼트면 NULL. */
+    targetUserId: varchar('target_user_id', { length: 255 }),
+    title: varchar('title', { length: 200 }),
+    body: text('body').notNull(),
+    deepLink: varchar('deep_link', { length: 500 }),
+    /** 발송 시점에 측정된 대상 인원. */
+    audienceCount: int('audience_count').notNull().default(0),
+    /** 실제 발송 시도 디바이스 토큰 수. */
+    sendCount: int('send_count').notNull().default(0),
+    successCount: int('success_count').notNull().default(0),
+    failureCount: int('failure_count').notNull().default(0),
+    status: varchar('status', { length: 16, enum: PUSH_SEND_STATUSES }).notNull().default('queued'),
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    completedAt: timestamp('completed_at'),
+  },
+  (t) => [
+    index('push_send_logs_actor_idx').on(t.actorUserId),
+    index('push_send_logs_created_idx').on(t.createdAt),
+  ],
+);
+export type PushSendLog = typeof pushSendLogs.$inferSelect;
 
 // 가족(user) 단위 구독 레코드 — 결제 이력/가입 통계용으로 보존.
 // (책 생성 한도는 별 크레딧으로 단일화되어 cycleAnchorDay는 더 이상 차감 게이트에 쓰이지 않음.)

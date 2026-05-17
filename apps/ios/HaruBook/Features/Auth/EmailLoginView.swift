@@ -10,6 +10,8 @@ struct EmailLoginView: View {
     @State private var isSubmitting: Bool = false
     @State private var errorMessage: String?
     @State private var showSignup: Bool = false
+    /// 비밀번호 가시성 — 입력 오류를 사용자가 직접 확인할 수 있어 모바일 환경에서 재입력 비율을 크게 낮춤.
+    @State private var isPasswordVisible: Bool = false
 
     var body: some View {
         ZStack {
@@ -28,13 +30,7 @@ struct EmailLoginView: View {
                             isSecure: false,
                         )
 
-                        labeledField(
-                            label: "비밀번호",
-                            placeholder: "8자 이상",
-                            text: $password,
-                            keyboard: .default,
-                            isSecure: true,
-                        )
+                        passwordField
                     }
 
                     if let errorMessage {
@@ -91,6 +87,43 @@ struct EmailLoginView: View {
             Text("가입하신 이메일과 비밀번호를 입력해 주세요.")
                 .font(.smapBody)
                 .foregroundStyle(Color.smapMuted)
+        }
+    }
+
+    /// 비밀번호 입력 — SecureField/TextField 토글 + 우측 눈 아이콘.
+    private var passwordField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("비밀번호")
+                .font(.smapCaption)
+                .foregroundStyle(Color.smapMuted)
+            HStack(spacing: 8) {
+                Group {
+                    if isPasswordVisible {
+                        TextField("8자 이상", text: $password)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                    } else {
+                        SecureField("8자 이상", text: $password)
+                    }
+                }
+                Button {
+                    isPasswordVisible.toggle()
+                } label: {
+                    Image(systemName: isPasswordVisible ? "eye.slash" : "eye")
+                        .foregroundStyle(Color.smapMuted)
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isPasswordVisible ? "비밀번호 숨기기" : "비밀번호 표시")
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .background(Color.smapSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.smapBorder, lineWidth: 1),
+            )
         }
     }
 

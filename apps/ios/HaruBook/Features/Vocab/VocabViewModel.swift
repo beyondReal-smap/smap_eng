@@ -202,7 +202,13 @@ final class VocabViewModel {
             if let token = AuthState.shared.peekAccessToken() {
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             }
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            // 401/4xx/5xx 응답의 에러 JSON 본문을 AVAudioPlayer에 그대로 넘기면 디코딩
+            // 실패로 던져지긴 하지만, 명시적 상태 확인으로 실패 원인을 분명히 한다.
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                print("[vocab] tts download failed: status \(http.statusCode)")
+                return
+            }
 
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
             try AVAudioSession.sharedInstance().setActive(true)

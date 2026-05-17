@@ -51,10 +51,10 @@ extension AuthState {
                 ),
             )
             applyExchange(response)
-        } catch APIError.http(_, _, let message) {
-            lastError = message ?? "Apple 로그인에 실패했어요. 잠시 후 다시 시도해 주세요."
+        } catch let apiError as APIError {
+            lastError = apiError.localizedDescription
         } catch {
-            lastError = "Apple 로그인 실패: \(error.localizedDescription)"
+            lastError = "Apple 로그인에 실패했어요. 잠시 후 다시 시도해 주세요."
         }
     }
 
@@ -66,7 +66,7 @@ extension AuthState {
             lastError = nil
             return
         }
-        lastError = "Apple 로그인 실패: \(error.localizedDescription)"
+        lastError = "Apple 로그인에 실패했어요. 잠시 후 다시 시도해 주세요."
     }
 }
 

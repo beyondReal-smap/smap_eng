@@ -143,7 +143,7 @@ final class ReaderViewModel {
             }
             AudioPlayer.shared.toggle(passageId: passage.id, audioPath: response.audioPath)
         } catch {
-            self.error = "오디오 준비 실패: \(error.localizedDescription)"
+            self.error = error.localizedDescription
         }
     }
 
@@ -171,7 +171,7 @@ final class ReaderViewModel {
                 )
             }
         } catch {
-            self.error = "삽화 생성 실패: \(error.localizedDescription)"
+            self.error = error.localizedDescription
         }
     }
 

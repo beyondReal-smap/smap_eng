@@ -29,7 +29,9 @@ struct BadgeLabel: View {
 
     private var foreground: Color {
         switch tone {
-        case .primary: return .white
+        // Soft Coral Peach(#FFB39A) 배경 위 흰글씨는 WCAG 대비 ~1.7:1로 AA 미달.
+        // 디자인 시스템의 deep coral ink(#5B2C1F)로 변경해 ~6:1 대비 확보.
+        case .primary: return .smapPrimaryForeground
         case .neutral: return .smapText
         case .warn: return .smapWarn
         case .danger: return .smapDanger

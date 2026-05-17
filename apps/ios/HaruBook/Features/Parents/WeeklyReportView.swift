@@ -21,7 +21,9 @@ struct WeeklyReportView: View {
                             .tint(Color.smapPrimary)
                             .frame(maxWidth: .infinity, minHeight: 120)
                     } else if let error = viewModel.error, viewModel.reports.isEmpty {
-                        emptyError(error)
+                        // 데이터가 없는 자연스러운 상태(reports.isEmpty 아래)와 달리
+                        // 진짜 통신 실패는 재시도 경로를 제공한다.
+                        errorState(error)
                     } else if viewModel.reports.isEmpty {
                         emptyError("아직 모은 학습 데이터가 없어요.")
                     } else {
@@ -78,6 +80,24 @@ struct WeeklyReportView: View {
                 .foregroundStyle(Color.smapMuted)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity, minHeight: 200)
+    }
+
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 40))
+                .foregroundStyle(Color.smapDanger)
+            Text(message)
+                .font(.smapBody)
+                .foregroundStyle(Color.smapDanger)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+            PrimaryButton(title: "다시 시도", variant: .tonal) {
+                Task { await viewModel.load() }
+            }
+            .padding(.horizontal, 24)
         }
         .frame(maxWidth: .infinity, minHeight: 200)
     }

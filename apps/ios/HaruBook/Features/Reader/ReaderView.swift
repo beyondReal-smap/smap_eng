@@ -21,11 +21,19 @@ struct ReaderView: View {
                     Spacer()
                 } else if let error = viewModel.error {
                     Spacer()
-                    Text(error)
-                        .font(.smapBody)
-                        .foregroundStyle(Color.smapDanger)
-                        .multilineTextAlignment(.center)
+                    VStack(spacing: 16) {
+                        Text(error)
+                            .font(.smapBody)
+                            .foregroundStyle(Color.smapDanger)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                        // 책장/퀴즈 화면과 동일한 회복 경로 — 사용자가 "어떻게 해야 하지"
+                        // 막막함 없이 즉시 재시도 가능하도록.
+                        PrimaryButton(title: "다시 시도", variant: .tonal) {
+                            Task { await viewModel.bootstrap() }
+                        }
                         .padding(.horizontal, 24)
+                    }
                     Spacer()
                 } else if viewModel.passages.isEmpty {
                     Spacer()

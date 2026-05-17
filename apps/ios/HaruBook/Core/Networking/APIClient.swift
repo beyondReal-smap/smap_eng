@@ -116,8 +116,17 @@ actor APIClient {
         }
 
         if R.self == EmptyResponse.self {
-            // swiftlint:disable:next force_cast
-            return EmptyResponse() as! R
+            // R.self == EmptyResponse.self가 참이므로 캐스트가 실패할 수 없지만,
+            // 안전한 캐스트 패턴을 강제해 미래의 R 시그니처 변경 시 silent crash를 방지.
+            guard let empty = EmptyResponse() as? R else {
+                throw APIError.decoding(
+                    DecodingError.typeMismatch(R.self, .init(
+                        codingPath: [],
+                        debugDescription: "EmptyResponse cast to \(R.self) failed",
+                    )),
+                )
+            }
+            return empty
         }
 
         do {

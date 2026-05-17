@@ -270,10 +270,16 @@ struct SettingsView: View {
             row(title: "서비스", value: BusinessInfo.serviceName)
             row(title: "운영자", value: BusinessInfo.companyName)
             row(title: "버전", value: appVersion)
-            Link(destination: URL(string: "mailto:\(BusinessInfo.email)")!) {
+            // BusinessInfo.email은 컴파일타임 상수이지만 미래에 잘못된 값이 들어와도
+            // 앱을 크래시시키지 않도록 안전한 옵셔널 처리. URL 빌드 실패 시 mailto 링크는 비활성.
+            if let mailURL = URL(string: "mailto:\(BusinessInfo.email)") {
+                Link(destination: mailURL) {
+                    row(title: "고객 문의", value: BusinessInfo.email)
+                }
+                .buttonStyle(.plain)
+            } else {
                 row(title: "고객 문의", value: BusinessInfo.email)
             }
-            .buttonStyle(.plain)
         } header: {
             sectionHeader("앱 정보", icon: "info.circle.fill", color: .smapMuted)
         }

@@ -1,183 +1,158 @@
 /**
- * FCM HTTP v1 클라이언트.
+ * Firebase Cloud Messaging 클라이언트.
  *
- * Google service account(JSON)의 private_key 로 RS256 JWT 를 만들어 OAuth2 access token 을
- * 발급받고, `https://fcm.googleapis.com/v1/projects/{projectId}/messages:send` 로 발송한다.
- *
- * APNs(`apns.ts`)와 동일하게 외부 라이브러리 없이 `node:crypto` + fetch 만 사용.
- * Access token 은 1시간 유효 — 모듈 레벨에서 50분 캐시.
+ * iOS/Android 통합 푸시 발송. 과거 `apns.ts`가 담당하던 APNs HTTP/2 직호출을 대체한다.
  *
  * 환경변수:
- *   - FCM_SERVICE_ACCOUNT_JSON_BASE64 — service account JSON 전체를 base64 인코딩한 문자열.
- *     (또는 PATH 로 분리하지 않고 단일 env 로 묶어 PM2/Vercel 배포가 단순해진다.)
+ *   FIREBASE_PROJECT_ID                — Firebase 콘솔의 프로젝트 ID
+ *   FIREBASE_SERVICE_ACCOUNT_BASE64    — 서비스 계정 JSON을 base64로 인코딩한 값
+ *
+ * Service Account JSON을 그대로 .env에 넣으면 개행/따옴표 escape 문제가 잦아 base64로 보관.
+ * 콘솔 → 프로젝트 설정 → 서비스 계정 → "새 비공개 키 생성"으로 발급한 JSON 전체를
+ * `base64 -w 0`으로 인코딩해 환경변수에 저장한다.
+ *
+ * 핵심 원칙:
+ *  - Firebase Admin SDK 초기화는 모듈 레벨에서 1회 (`getApps().length`로 idempotent).
+ *  - 발송 실패 분류는 ApnsError 시절 의미를 보존 — `messaging/registration-token-not-registered`
+ *    같은 영구 무효 에러는 `isUnregisteredError`가 true를 반환해 호출자가 토큰을 삭제하도록.
+ *  - 한 디바이스 실패가 다른 디바이스 발송을 막아서는 안 된다(`send.ts`에서 Promise.allSettled).
  */
 
-import { createSign } from 'node:crypto';
-
-const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
-const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
-const TOKEN_REFRESH_MS = 50 * 60 * 1000;
-
-interface ServiceAccount {
-  client_email: string;
-  private_key: string;
-  project_id: string;
-}
-
-interface TokenCache {
-  accessToken: string;
-  fetchedAt: number;
-}
-
-let serviceAccountCache: ServiceAccount | null = null;
-let tokenCache: TokenCache | null = null;
+import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
+import { getMessaging, type Message } from 'firebase-admin/messaging';
 
 export class FcmError extends Error {
   constructor(
-    public status: number,
-    public reason: string,
-    public token?: string,
+    public code: string,
+    message: string,
+    public registrationToken?: string,
   ) {
-    super(`fcm_${status}_${reason}`);
+    super(message);
     this.name = 'FcmError';
   }
 }
 
+/** apns.ts와 시그니처 호환되는 페이로드 — send.ts의 호출처를 그대로 둘 수 있도록 유지. */
 export interface FcmAlertPayload {
-  title: string;
+  title?: string;
   body: string;
-  /** notification + data 외 옵션. Android-specific 옵션을 직접 넣고 싶을 때 사용. */
-  data?: Record<string, string>;
+  /** 딥링크 등 클라이언트 커스텀 데이터. FCM data field에 string으로만 전송 가능. */
+  custom?: Record<string, unknown>;
+  /** iOS 배지 카운트. 0이면 제거. */
+  badge?: number;
+  sound?: 'default';
 }
 
-function loadServiceAccount(): ServiceAccount {
-  if (serviceAccountCache) return serviceAccountCache;
+let appCache: App | null = null;
 
-  const base64 = process.env.FCM_SERVICE_ACCOUNT_JSON_BASE64;
-  if (!base64) {
-    throw new FcmError(500, 'service_account_missing');
+function getFirebaseApp(): App {
+  if (appCache) return appCache;
+
+  // 다른 모듈이 이미 초기화한 경우(예: Functions 환경) 그것을 재사용.
+  const existing = getApps()[0];
+  if (existing) {
+    appCache = existing;
+    return existing;
   }
-  let parsed: ServiceAccount;
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const credentialBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  if (!projectId || !credentialBase64) {
+    throw new FcmError(
+      'firebase_env_missing',
+      'FIREBASE_PROJECT_ID / FIREBASE_SERVICE_ACCOUNT_BASE64 환경변수가 필요합니다.',
+    );
+  }
+
+  let serviceAccount: Record<string, unknown>;
   try {
-    const json = Buffer.from(base64, 'base64').toString('utf8');
-    parsed = JSON.parse(json) as ServiceAccount;
+    const json = Buffer.from(credentialBase64, 'base64').toString('utf8');
+    serviceAccount = JSON.parse(json);
   } catch (err) {
-    throw new FcmError(500, 'service_account_invalid');
+    throw new FcmError(
+      'firebase_credential_invalid',
+      'FIREBASE_SERVICE_ACCOUNT_BASE64 디코딩/파싱 실패: ' + (err as Error).message,
+    );
   }
-  if (!parsed.client_email || !parsed.private_key || !parsed.project_id) {
-    throw new FcmError(500, 'service_account_incomplete');
-  }
-  serviceAccountCache = parsed;
-  return parsed;
-}
 
-function base64UrlEncode(input: Buffer | string): string {
-  const buf = typeof input === 'string' ? Buffer.from(input) : input;
-  return buf
-    .toString('base64')
-    .replace(/=+$/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-}
-
-function signRs256(input: string, privateKeyPem: string): string {
-  const signer = createSign('RSA-SHA256');
-  signer.update(input);
-  signer.end();
-  return base64UrlEncode(signer.sign(privateKeyPem));
-}
-
-async function fetchAccessToken(): Promise<string> {
-  if (tokenCache && Date.now() - tokenCache.fetchedAt < TOKEN_REFRESH_MS) {
-    return tokenCache.accessToken;
-  }
-  const sa = loadServiceAccount();
-  const now = Math.floor(Date.now() / 1000);
-  const header = base64UrlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claims = base64UrlEncode(
-    JSON.stringify({
-      iss: sa.client_email,
-      scope: FCM_SCOPE,
-      aud: TOKEN_ENDPOINT,
-      iat: now,
-      exp: now + 3600,
-    }),
-  );
-  const signature = signRs256(`${header}.${claims}`, sa.private_key);
-  const assertion = `${header}.${claims}.${signature}`;
-
-  const body = new URLSearchParams({
-    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-    assertion,
+  appCache = initializeApp({
+    credential: cert(serviceAccount as Parameters<typeof cert>[0]),
+    projectId,
   });
+  return appCache;
+}
 
-  const response = await fetch(TOKEN_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    throw new FcmError(response.status, `token_exchange:${detail.slice(0, 100)}`);
+/** FCM data field는 string만 허용 — number/boolean/object를 안전하게 직렬화. */
+function normalizeCustom(custom?: Record<string, unknown>): Record<string, string> | undefined {
+  if (!custom) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(custom)) {
+    if (v === null || v === undefined) continue;
+    out[k] = typeof v === 'string' ? v : JSON.stringify(v);
   }
-
-  const json = (await response.json()) as { access_token: string };
-  tokenCache = { accessToken: json.access_token, fetchedAt: Date.now() };
-  return json.access_token;
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /**
- * 단일 FCM registration token 으로 발송.
- * 영구 무효 토큰(NOT_FOUND/UNREGISTERED)이면 [FcmError] status=404 로 표면화 → 호출자가 행 삭제.
+ * 단일 디바이스에 푸시 1건 발송.
+ *
+ * 성공 시 resolve(). 영구 무효 토큰은 `FcmError`를 던지며 `isUnregisteredError`로 분류 가능.
+ * 그 외 에러는 일반 `FcmError`(retryable 등)로 전파 — 호출자가 로그만 남기고 무시.
  */
-export async function sendFcmToDevice(
-  token: string,
+export async function sendPushToDevice(
+  registrationToken: string,
   payload: FcmAlertPayload,
 ): Promise<void> {
-  const sa = loadServiceAccount();
-  const accessToken = await fetchAccessToken();
+  const app = getFirebaseApp();
+  const data = normalizeCustom(payload.custom);
 
-  const url = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`;
-  const message = {
-    message: {
-      token,
-      notification: { title: payload.title, body: payload.body },
-      data: payload.data,
-      android: {
-        priority: 'HIGH' as const,
-        notification: {
-          channel_id: 'vocab_daily',
-          default_sound: true,
+  const message: Message = {
+    token: registrationToken,
+    notification: {
+      title: payload.title,
+      body: payload.body,
+    },
+    data,
+    apns: {
+      payload: {
+        aps: {
+          sound: payload.sound ?? 'default',
+          badge: payload.badge,
         },
+      },
+    },
+    android: {
+      priority: 'high',
+      notification: {
+        sound: payload.sound ?? 'default',
+        // 알림 트레이에 같은 알림이 중첩되지 않도록 tag 기본 — 필요 시 호출처가 custom 적용 가능.
+        defaultSound: false,
       },
     },
   };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(message),
-  });
-
-  if (!response.ok) {
-    const detailRaw = await response.text().catch(() => '');
-    let code = 'http_error';
-    try {
-      const parsed = JSON.parse(detailRaw) as { error?: { status?: string } };
-      if (parsed.error?.status) code = parsed.error.status;
-    } catch {
-      /* JSON 이 아닌 응답은 raw 그대로 reason 으로 사용. */
-    }
-    throw new FcmError(response.status, code, token);
+  try {
+    await getMessaging(app).send(message);
+  } catch (err) {
+    const code = (err as { code?: string })?.code ?? 'unknown';
+    const message = (err as Error)?.message ?? 'fcm send failed';
+    throw new FcmError(code, message, registrationToken);
   }
 }
 
-/** 영구 무효 FCM 토큰인지(`UNREGISTERED` / `INVALID_ARGUMENT`). */
-export function isUnregisteredFcmError(err: unknown): boolean {
+/**
+ * 토큰이 영구 무효인지 판별 — 호출자가 push_tokens 행을 삭제하도록.
+ *
+ * FCM의 영구 무효 에러 코드(Firebase Admin v13 기준):
+ *   - messaging/registration-token-not-registered
+ *   - messaging/invalid-registration-token
+ *   - messaging/invalid-argument (잘못된 토큰 포맷)
+ */
+export function isUnregisteredError(err: unknown): boolean {
   if (!(err instanceof FcmError)) return false;
-  return err.reason === 'UNREGISTERED' || err.reason === 'NOT_FOUND' || err.status === 404;
+  return (
+    err.code === 'messaging/registration-token-not-registered' ||
+    err.code === 'messaging/invalid-registration-token' ||
+    err.code === 'messaging/invalid-argument'
+  );
 }
