@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -89,15 +90,21 @@ private fun StatsContent(state: StatsUiState) {
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
+        // iOS StatsDashboardView.header 패리티 — 타이틀 + 부제. 이전엔 타이틀만 있어
+        // "아이의 영어 학습 흐름을 한눈에 봐요" 라는 보조 문구가 빠져 있었다.
         item {
-            Text(
-                stringResource(R.string.stats_title),
-                style = SmapDisplayStyle,
-                color = SmapText,
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.padding(top = 20.dp),
-            )
+            ) {
+                Text(stringResource(R.string.stats_title), style = SmapDisplayStyle, color = SmapText)
+                Text(stringResource(R.string.stats_subtitle), style = SmapBodyStyle, color = SmapMuted)
+            }
         }
+        // 누적 성취 — iOS 와 동일 4개 카드. 이전엔 섹션 제목이 빠져 있었다.
         item {
+            SectionTitle(stringResource(R.string.stats_section_summary))
+            Spacer(Modifier.height(8.dp))
             StatGrid(
                 items = listOf(
                     stringResource(R.string.stats_books_read) to "${summary.totalBooksRead}권",
@@ -108,7 +115,7 @@ private fun StatsContent(state: StatsUiState) {
             )
         }
         item {
-            SectionTitle("레벨별 독서량")
+            SectionTitle(stringResource(R.string.stats_section_level))
             Spacer(Modifier.height(8.dp))
             LevelDistribution(rows = levelStats(state.books, state.stats))
         }
@@ -119,7 +126,7 @@ private fun StatsContent(state: StatsUiState) {
         }
         item {
             val breakdown = vocabBreakdown(state.vocab)
-            SectionTitle("단어장")
+            SectionTitle(stringResource(R.string.stats_section_vocab))
             Spacer(Modifier.height(8.dp))
             StatGrid(
                 items = listOf(
@@ -130,7 +137,85 @@ private fun StatsContent(state: StatsUiState) {
                 ),
             )
         }
+        // 최근 퀴즈 — iOS recentQuizSection 패리티. quizScore 있는 책만 startedAt 내림차순 8개.
+        item {
+            SectionTitle(stringResource(R.string.stats_section_recent_quiz))
+            Spacer(Modifier.height(8.dp))
+            RecentQuizSection(books = state.books, stats = state.stats)
+        }
         item { Spacer(Modifier.height(12.dp)) }
+    }
+}
+
+/**
+ * iOS StatsDashboardView.recentQuizSection 패리티.
+ * `quizScore` 있는 책만 골라 `startedAt` 내림차순 상위 8개. 만점(5)은 코랄 강조.
+ */
+@Composable
+private fun RecentQuizSection(
+    books: List<site.smap.harubook.core.models.Book>,
+    stats: Map<Int, site.smap.harubook.core.models.BookProgressStat>,
+) {
+    val byId = remember(books) { books.associateBy { it.id } }
+    val rows = remember(books, stats) {
+        stats.mapNotNull { (id, s) ->
+            val book = byId[id] ?: return@mapNotNull null
+            val score = s.quizScore ?: return@mapNotNull null
+            Triple(book, score, s.startedAtUnix)
+        }.sortedByDescending { it.third }.take(8)
+    }
+
+    if (rows.isEmpty()) {
+        Text(
+            text = stringResource(R.string.stats_recent_quiz_empty),
+            style = SmapCaptionStyle,
+            color = SmapMuted,
+            modifier = Modifier.padding(vertical = 12.dp),
+        )
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SmapSurface, RoundedCornerShape(16.dp))
+            .border(1.dp, SmapBorder, RoundedCornerShape(16.dp)),
+    ) {
+        rows.forEachIndexed { idx, (book, score, _) ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+            ) {
+                Text(
+                    text = book.cefr.label,
+                    style = SmapBadgeStyle,
+                    color = SmapText,
+                    modifier = Modifier
+                        .background(book.cefr.tint, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+                Text(
+                    text = book.title,
+                    style = SmapBodyStyle,
+                    color = SmapText,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "$score/5",
+                    style = SmapBodyEmphasisStyle,
+                    color = if (score == 5) SmapPrimary else SmapText,
+                )
+            }
+            if (idx < rows.size - 1) {
+                androidx.compose.material3.HorizontalDivider(
+                    color = SmapBorder,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        }
     }
 }
 

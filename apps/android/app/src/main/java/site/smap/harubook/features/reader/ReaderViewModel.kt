@@ -51,6 +51,8 @@ enum class ReaderTextScale(val sp: Int, val label: String, val previewSp: Int) {
 }
 
 data class ReaderUiState(
+    /** 책 메타데이터 — 헤더에 제목/나이 배지/CEFR 배지를 표시하려면 필수. iOS 패리티(viewModel.book). */
+    val book: Book? = null,
     val passages: List<Passage> = emptyList(),
     val vocabulary: List<VocabularyEntry> = emptyList(),
     val currentIndex: Int = 0,
@@ -208,6 +210,7 @@ class ReaderViewModel(
             val detail: BookDetail = ApiClient.get(path = "/api/books/$bookId")
             _state.update {
                 it.copy(
+                    book = detail.book,
                     passages = detail.passages.sortedBy { p -> p.orderIndex },
                     vocabulary = detail.book.vocabulary.orEmpty(),
                     isLoadingDetail = false,
