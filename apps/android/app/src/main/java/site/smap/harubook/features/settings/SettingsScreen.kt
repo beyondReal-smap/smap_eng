@@ -22,12 +22,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -37,15 +42,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import site.smap.harubook.R
 import site.smap.harubook.core.auth.AuthState
+import site.smap.harubook.core.models.BusinessInfo
 import site.smap.harubook.core.push.DailyVocabReminder
 import site.smap.harubook.designsystem.SmapBackground
+import site.smap.harubook.designsystem.SmapBadgeStyle
 import site.smap.harubook.designsystem.SmapBodyEmphasisStyle
+import site.smap.harubook.designsystem.SmapBodyStyle
 import site.smap.harubook.designsystem.SmapBorder
 import site.smap.harubook.designsystem.SmapCaptionStyle
 import site.smap.harubook.designsystem.SmapDanger
@@ -54,9 +65,16 @@ import site.smap.harubook.designsystem.SmapMuted
 import site.smap.harubook.designsystem.SmapPrimary
 import site.smap.harubook.designsystem.SmapSurface
 import site.smap.harubook.designsystem.SmapText
+import site.smap.harubook.designsystem.SmapWarn
 import site.smap.harubook.features.legal.LegalDocument
 import site.smap.harubook.features.legal.openLegal
 
+/**
+ * 설정 화면 — iOS `SettingsView.swift` 패리티.
+ *
+ * 섹션 헤더(아이콘 + 컬러)로 영역을 구분하고, 각 섹션 안에 행 카드들을 배치한다.
+ * 이전엔 모든 행이 같은 톤으로 평면 나열되어 어떤 영역인지 즉시 파악이 어려웠다.
+ */
 @Composable
 fun SettingsScreen(
     onSwitchProfile: () -> Unit,
@@ -75,33 +93,52 @@ fun SettingsScreen(
             .fillMaxSize()
             .background(SmapBackground)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = 20.dp)
+            .padding(top = 20.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(stringResource(R.string.settings_title), style = SmapDisplayStyle, color = SmapText)
-        Text("현재 로그인된 계정으로 하루책을 사용 중입니다.", style = SmapCaptionStyle, color = SmapMuted)
+        // 헤더 — iOS pageHeader 패리티.
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+            Text(stringResource(R.string.settings_title), style = SmapDisplayStyle, color = SmapText)
+            Text(
+                stringResource(R.string.settings_subtitle),
+                style = SmapBodyStyle,
+                color = SmapMuted,
+            )
+        }
 
+        // 계정 섹션 — 프로필 전환 + 로그아웃.
+        SectionHeader(text = stringResource(R.string.settings_section_account), icon = Icons.Filled.Person, color = SmapText)
         SettingsRow(
             title = stringResource(R.string.action_switch_profile),
-            subtitle = "다른 아이 프로필로 바꿉니다.",
             icon = Icons.Filled.SwapHoriz,
             onClick = onSwitchProfile,
         )
-
         SettingsRow(
-            title = stringResource(R.string.settings_parents_mode),
-            subtitle = stringResource(R.string.settings_parents_mode_subtitle),
-            icon = Icons.Filled.Shield,
-            onClick = onOpenParents,
+            title = stringResource(R.string.action_logout),
+            icon = Icons.AutoMirrored.Filled.Logout,
+            danger = true,
+            onClick = {
+                AuthState.signOut()
+                onSwitchProfile()
+            },
         )
 
+        // 별 충전 섹션.
+        SectionHeader(text = stringResource(R.string.settings_section_store), icon = Icons.Filled.Star, color = SmapWarn)
         SettingsRow(
             title = stringResource(R.string.settings_store),
-            subtitle = "별 잔액을 충전합니다.",
             icon = Icons.Filled.Star,
             onClick = onOpenStore,
         )
+        SectionFooter(stringResource(R.string.settings_store_footer))
 
+        // 단어 복습 알림 섹션.
+        SectionHeader(
+            text = stringResource(R.string.settings_section_reminder),
+            icon = Icons.Filled.NotificationsActive,
+            color = Color(0xFF8A6300),
+        )
         ReminderToggleRow(
             enabled = reminderState.enabled,
             hour = reminderState.hour,
@@ -122,45 +159,92 @@ fun SettingsScreen(
                 }
             },
         )
+        SectionFooter(
+            if (reminderState.enabled) {
+                "매일 %02d:%02d에 단어 복습 알림을 보내드려요.".format(reminderState.hour, reminderState.minute)
+            } else {
+                "원하는 시간에 단어 복습을 잊지 않도록 단말에서 알림을 보내드려요."
+            },
+        )
 
+        // 보호자 모드 섹션.
+        SectionHeader(
+            text = stringResource(R.string.settings_section_parents),
+            icon = Icons.Filled.Group,
+            color = SmapPrimary,
+        )
+        SettingsRow(
+            title = stringResource(R.string.settings_parents_mode_title),
+            icon = Icons.Filled.Shield,
+            onClick = onOpenParents,
+        )
+        SectionFooter(stringResource(R.string.settings_parents_footer))
+
+        // 법적 정보 섹션.
+        SectionHeader(
+            text = stringResource(R.string.settings_section_legal),
+            icon = Icons.Filled.Description,
+            color = SmapMuted,
+        )
         SettingsRow(
             title = stringResource(R.string.settings_terms),
-            subtitle = "서비스 이용 조건을 확인합니다.",
             icon = Icons.Filled.Description,
             onClick = { context.openLegal(LegalDocument.Terms) },
         )
         SettingsRow(
             title = stringResource(R.string.settings_privacy),
-            subtitle = "개인정보 처리 기준을 확인합니다.",
             icon = Icons.Filled.PrivacyTip,
             onClick = { context.openLegal(LegalDocument.Privacy) },
         )
         SettingsRow(
             title = stringResource(R.string.settings_refund),
-            subtitle = "결제·환불 기준을 확인합니다.",
             icon = Icons.Filled.Description,
             onClick = { context.openLegal(LegalDocument.Refund) },
         )
         SettingsRow(
             title = stringResource(R.string.settings_business),
-            subtitle = "사업자 정보를 확인합니다.",
             icon = Icons.Filled.Storefront,
             onClick = { context.openLegal(LegalDocument.Business) },
         )
 
-        Spacer(Modifier.height(8.dp))
-
-        SettingsRow(
-            title = stringResource(R.string.action_logout),
-            subtitle = "이 기기에서 로그아웃합니다.",
-            icon = Icons.AutoMirrored.Filled.Logout,
-            danger = true,
-            onClick = {
-                AuthState.signOut()
-                onSwitchProfile()
-            },
+        // 앱 정보 섹션 — iOS appInfoSection 패리티. 신규 추가.
+        SectionHeader(
+            text = stringResource(R.string.settings_section_app_info),
+            icon = Icons.Filled.Info,
+            color = SmapMuted,
         )
+        InfoRow(stringResource(R.string.settings_app_info_service), BusinessInfo.SERVICE_NAME)
+        InfoRow(stringResource(R.string.settings_app_info_company), BusinessInfo.COMPANY_NAME)
+        InfoRow(stringResource(R.string.settings_app_info_version), appVersion(context))
+        InfoRow(stringResource(R.string.settings_app_info_contact), BusinessInfo.EMAIL)
+
+        Spacer(Modifier.height(4.dp))
     }
+}
+
+/**
+ * 섹션 헤더 — 아이콘 + 컬러로 영역 정체성을 구분. iOS sectionHeader 패리티.
+ */
+@Composable
+private fun SectionHeader(text: String, icon: ImageVector, color: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp, start = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.height(14.dp))
+        Text(text = text, style = SmapBadgeStyle.copy(fontSize = 14.sp), color = color)
+    }
+}
+
+@Composable
+private fun SectionFooter(text: String) {
+    Text(
+        text = text,
+        style = SmapCaptionStyle,
+        color = SmapMuted,
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp, bottom = 4.dp),
+    )
 }
 
 @Composable
@@ -180,15 +264,12 @@ private fun ReminderToggleRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(Icons.Filled.Notifications, contentDescription = null, tint = SmapText)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(stringResource(R.string.settings_reminder), style = SmapBodyEmphasisStyle, color = SmapText)
-            Text(
-                if (enabled) "매일 %02d:%02d에 알려드려요.".format(hour, minute)
-                else "켜면 매일 같은 시각에 단어 복습을 알려드려요.",
-                style = SmapCaptionStyle,
-                color = SmapMuted,
-            )
-        }
+        Text(
+            text = stringResource(R.string.settings_reminder),
+            style = SmapBodyEmphasisStyle,
+            color = SmapText,
+            modifier = Modifier.weight(1f),
+        )
         Switch(
             checked = enabled,
             onCheckedChange = onToggle,
@@ -200,8 +281,7 @@ private fun ReminderToggleRow(
 @Composable
 private fun SettingsRow(
     title: String,
-    subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     danger: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -216,9 +296,37 @@ private fun SettingsRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(icon, contentDescription = null, tint = if (danger) SmapDanger else SmapText)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = SmapBodyEmphasisStyle, color = if (danger) SmapDanger else SmapText)
-            Text(subtitle, style = SmapCaptionStyle, color = SmapMuted)
-        }
+        Text(
+            text = title,
+            style = SmapBodyEmphasisStyle,
+            color = if (danger) SmapDanger else SmapText,
+            modifier = Modifier.weight(1f),
+        )
     }
+}
+
+@Composable
+private fun InfoRow(title: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SmapSurface, RoundedCornerShape(14.dp))
+            .border(1.dp, SmapBorder, RoundedCornerShape(14.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = title, style = SmapBodyEmphasisStyle, color = SmapText, modifier = Modifier.weight(1f))
+        Text(text = value, style = SmapBodyStyle, color = SmapMuted)
+    }
+}
+
+/** BuildConfig.VERSION_NAME 가 신뢰성 있어 우선 사용. 폴백은 PackageManager. */
+private fun appVersion(context: android.content.Context): String {
+    return runCatching {
+        val pkg = context.packageManager.getPackageInfo(context.packageName, 0)
+        val name = pkg.versionName ?: "?"
+        @Suppress("DEPRECATION")
+        val code = pkg.versionCode
+        "$name ($code)"
+    }.getOrDefault("?")
 }

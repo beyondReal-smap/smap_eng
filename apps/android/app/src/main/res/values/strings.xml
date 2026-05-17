@@ -33,12 +33,18 @@
     <string name="tab_settings">설정</string>
 
     <string name="stats_title">학습 통계</string>
-    <string name="stats_empty">아직 학습 기록이 없어요</string>
+    <string name="stats_subtitle">아이의 영어 학습 흐름을 한눈에 봐요</string>
+    <string name="stats_section_summary">누적 성취</string>
+    <string name="stats_section_level">레벨별 독서량</string>
+    <string name="stats_section_vocab">단어장</string>
+    <string name="stats_section_recent_quiz">최근 퀴즈</string>
+    <string name="stats_recent_quiz_empty">아직 평가된 퀴즈가 없어요.</string>
+    <string name="stats_empty">아직 학습 기록이 없어요. 책을 한 권 읽고 다시 와 주세요.</string>
     <string name="stats_books_read">읽은 책</string>
-    <string name="stats_finished_sessions">완독한 세션</string>
-    <string name="stats_perfect_scores">만점 퀴즈</string>
+    <string name="stats_finished_sessions">완독 세션</string>
+    <string name="stats_perfect_scores">만점</string>
     <string name="stats_avg_accuracy">평균 정답률</string>
-    <string name="stats_this_month">이번 달 발자국</string>
+    <string name="stats_this_month">이번 달 학습</string>
 
     <string name="vocab_title">단어장</string>
     <string name="vocab_empty">아직 모은 단어가 없어요</string>
@@ -52,4 +58,5 @@
     <string name="settings_refund">환불정책</string>
     <string name="settings_business">사업자정보</string>
     <string name="settings_store">별 충전</string>
+     <!-- Settings 화면 — iOS 패리티 -->     <string name="settings_subtitle">계정과 알림, 약관을 관리해요</string>     <string name="settings_section_account">계정</string>     <string name="settings_section_store">별 충전</string>     <string name="settings_section_notification">알림</string>     <string name="settings_section_reminder">단어 복습 알림</string>     <string name="settings_section_parents">보호자 모드</string>     <string name="settings_section_legal">법적 정보</string>     <string name="settings_section_app_info">앱 정보</string>     <string name="settings_section_danger">위험 영역</string>     <string name="settings_parents_mode_title">보호자 모드 · 주간 리포트</string>     <string name="settings_parents_footer">PIN으로 잠긴 보호자 전용 영역입니다. 30분 후 자동 잠금됩니다.</string>     <string name="settings_store_footer">결제는 Google Play를 통해 안전하게 처리됩니다.</string>     <string name="settings_app_info_service">서비스</string>     <string name="settings_app_info_company">운영자</string>     <string name="settings_app_info_version">버전</string>     <string name="settings_app_info_contact">고객 문의</string>     <string name="settings_danger_footer">계정을 삭제하면 모든 책·학습 기록·결제 이력이 영구적으로 사라지며 복구할 수 없습니다.</string> 
 </resources>

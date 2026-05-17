@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.GppGood
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import site.smap.harubook.core.parentalpin.ParentalPinStore
 import site.smap.harubook.designsystem.SmapBackground
@@ -55,12 +56,12 @@ fun ParentalPinGateScreen(onBack: () -> Unit) {
     }
 }
 
+/** iOS NavigationStack navigationTitle("보호자 모드") 패리티 — 좌측 뒤로 + 정중앙 타이틀. */
 @Composable
 private fun BackBar(onBack: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(
             Icons.AutoMirrored.Filled.ArrowBack,
@@ -68,7 +69,10 @@ private fun BackBar(onBack: () -> Unit) {
             tint = SmapText,
             modifier = Modifier.size(28.dp).clickable(onClick = onBack),
         )
-        Text("보호자 모드", style = SmapTitleStyle, color = SmapText)
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            Text("보호자 모드", style = SmapTitleStyle, color = SmapText)
+        }
+        Box(modifier = Modifier.size(28.dp))
     }
 }
 
@@ -81,7 +85,8 @@ private fun SetupView() {
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     PinScaffold(
-        icon = Icons.Filled.Shield,
+        // iOS lock.shield 패리티 — 방패+자물쇠 결합 시각.
+        icon = Icons.Filled.GppGood,
         title = if (step == SetupStep.FirstEntry) "보호자 PIN을 만들어주세요" else "한 번 더 입력해 주세요",
         subtitle = "아이가 보호자 모드에 실수로 들어가지 않도록 4자리 숫자로 잠그는 단순 PIN입니다.",
         errorMessage = errorMessage,
@@ -121,8 +126,9 @@ private fun UnlockView() {
         errorMessage = errorMessage,
         footer = {
             Text(
-                "PIN을 잊으셨나요? 다시 설정",
-                style = SmapCaptionStyle,
+                text = "PIN을 잊으셨나요? 다시 설정",
+                // iOS .underline() 패리티 — 클릭 가능한 텍스트라는 시각 단서.
+                style = SmapCaptionStyle.copy(textDecoration = TextDecoration.Underline),
                 color = SmapMuted,
                 modifier = Modifier
                     .padding(bottom = 24.dp)

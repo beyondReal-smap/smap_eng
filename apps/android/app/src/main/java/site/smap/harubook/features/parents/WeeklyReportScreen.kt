@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -33,10 +34,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import site.smap.harubook.designsystem.SmapBackground
 import site.smap.harubook.designsystem.SmapBodyStyle
 import site.smap.harubook.designsystem.SmapBorder
+import site.smap.harubook.designsystem.PrimaryButton
+import site.smap.harubook.designsystem.PrimaryButtonVariant
 import site.smap.harubook.designsystem.SmapCaptionStyle
+import site.smap.harubook.designsystem.SmapDanger
 import site.smap.harubook.designsystem.SmapMuted
 import site.smap.harubook.designsystem.SmapPrimary
-import site.smap.harubook.designsystem.SmapPrimaryForeground
 import site.smap.harubook.designsystem.SmapPrimarySoft
 import site.smap.harubook.designsystem.SmapSurface
 
@@ -64,8 +67,11 @@ fun WeeklyReportScreen(
                     CircularProgressIndicator(color = SmapPrimary)
                 }
             }
-            !state.error.isNullOrBlank() && state.reports.isEmpty() -> item { EmptyOrError(state.error!!) }
-            state.reports.isEmpty() -> item { EmptyOrError("아직 모은 학습 데이터가 없어요.") }
+            // iOS WeeklyReportView 와 동일하게 빈 상태와 통신 실패를 분리. 통신 실패는 재시도 버튼 제공.
+            !state.error.isNullOrBlank() && state.reports.isEmpty() -> item {
+                ErrorState(message = state.error!!, onRetry = viewModel::load)
+            }
+            state.reports.isEmpty() -> item { EmptyState("아직 모은 학습 데이터가 없어요.") }
             else -> items(state.reports, key = { it.profileId }) { report -> ProfileReportCard(report) }
         }
     }
@@ -91,13 +97,14 @@ private fun StatusBar(onLock: () -> Unit) {
                 .clickable(onClick = onLock)
                 .padding(horizontal = 10.dp, vertical = 6.dp),
         ) {
-            Text("지금 잠그기", style = SmapCaptionStyle, color = SmapPrimaryForeground)
+            // iOS 패리티 — 코랄 잉크가 아닌 SmapPrimary(코랄). 코랄 소프트 배경 위에서 액션 단서가 더 강해짐.
+            Text("지금 잠그기", style = SmapCaptionStyle, color = SmapPrimary)
         }
     }
 }
 
 @Composable
-private fun EmptyOrError(message: String) {
+private fun EmptyState(message: String) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -105,5 +112,18 @@ private fun EmptyOrError(message: String) {
     ) {
         Icon(Icons.Filled.Inbox, contentDescription = null, tint = SmapMuted, modifier = Modifier.size(40.dp))
         Text(message, style = SmapBodyStyle, color = SmapMuted, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun ErrorState(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(Icons.Filled.Warning, contentDescription = null, tint = SmapDanger, modifier = Modifier.size(40.dp))
+        Text(message, style = SmapBodyStyle, color = SmapDanger, textAlign = TextAlign.Center)
+        PrimaryButton(title = "다시 시도", variant = PrimaryButtonVariant.Tonal, onClick = onRetry)
     }
 }
