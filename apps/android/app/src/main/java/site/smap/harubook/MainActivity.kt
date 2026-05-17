@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +55,10 @@ private fun RootScaffold() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SmapBackground),
+            .background(SmapBackground)
+            // status bar + navigation bar 영역을 침범하지 않도록 inset 적용.
+            // 모든 화면이 이 Box 아래에 그려지므로 한 곳에서 일괄 처리.
+            .systemBarsPadding(),
         contentAlignment = Alignment.Center,
     ) {
         when (phase) {

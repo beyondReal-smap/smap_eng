@@ -40,11 +40,11 @@ data class Book(
     val topic: String? = null,
     val coverImagePath: String? = null,
     val vocabulary: List<VocabularyEntry>? = null,
-    /** Unix epoch seconds (서버는 number 또는 ISO 둘 다 보낼 수 있어 단순 Long으로 보존). */
-    val flaggedAt: Long? = null,
-    val createdAt: Long? = null,
+    /** ISO8601 문자열. 백엔드 기본 Date 직렬화 결과(`2026-04-22T14:21:26.000Z`). */
+    val flaggedAt: String? = null,
+    val createdAt: String? = null,
 ) {
-    val isFlagged: Boolean get() = flaggedAt != null
+    val isFlagged: Boolean get() = !flaggedAt.isNullOrEmpty()
 }
 
 @Serializable

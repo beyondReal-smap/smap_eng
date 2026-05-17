@@ -9,8 +9,8 @@ data class Profile(
     /** 자녀 나이 5~10. 누락 시 7(서버 default). */
     val age: Int = 7,
     val avatar: String? = null,
-    /** Unix epoch seconds. */
-    val createdAt: Long? = null,
+    /** ISO8601 문자열(`2026-04-22T14:21:26.000Z`). 백엔드 기본 직렬화 결과. */
+    val createdAt: String? = null,
 )
 
 @Serializable
