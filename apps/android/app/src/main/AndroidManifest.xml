@@ -3,6 +3,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".HaruBookApp"
@@ -35,5 +39,19 @@
                     android:host="auth" />
             </intent-filter>
         </activity>
+
+        <!-- 일일 단어 복습 알림. AlarmManager → BroadcastReceiver → Notification. -->
+        <receiver
+            android:name=".core.push.DailyVocabReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".core.push.BootRescheduleReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

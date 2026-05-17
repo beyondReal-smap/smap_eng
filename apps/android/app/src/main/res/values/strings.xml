@@ -26,4 +26,30 @@
     <string name="action_logout">로그아웃</string>
     <string name="action_switch_profile">프로필 전환</string>
     <string name="action_close">닫기</string>
+
+    <string name="tab_bookshelf">책장</string>
+    <string name="tab_stats">통계</string>
+    <string name="tab_vocab">단어장</string>
+    <string name="tab_settings">설정</string>
+
+    <string name="stats_title">학습 통계</string>
+    <string name="stats_empty">아직 학습 기록이 없어요</string>
+    <string name="stats_books_read">읽은 책</string>
+    <string name="stats_finished_sessions">완독한 세션</string>
+    <string name="stats_perfect_scores">만점 퀴즈</string>
+    <string name="stats_avg_accuracy">평균 정답률</string>
+    <string name="stats_this_month">이번 달 발자국</string>
+
+    <string name="vocab_title">단어장</string>
+    <string name="vocab_empty">아직 모은 단어가 없어요</string>
+
+    <string name="settings_title">설정</string>
+    <string name="settings_parents_mode">보호자 모드</string>
+    <string name="settings_parents_mode_subtitle">아이 학습 리포트와 신고된 책을 확인합니다.</string>
+    <string name="settings_reminder">단어 복습 알림</string>
+    <string name="settings_terms">이용약관</string>
+    <string name="settings_privacy">개인정보처리방침</string>
+    <string name="settings_refund">환불정책</string>
+    <string name="settings_business">사업자정보</string>
+    <string name="settings_store">별 충전</string>
 </resources>

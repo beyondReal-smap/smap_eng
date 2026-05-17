@@ -18,15 +18,19 @@ import site.smap.harubook.core.models.ProfilesResponse
 import site.smap.harubook.core.networking.ApiClient
 import site.smap.harubook.features.bookshelf.BookshelfScreen
 import site.smap.harubook.features.createbook.CreateBookFlow
+import site.smap.harubook.features.parents.ParentalPinGateScreen
 import site.smap.harubook.features.profiles.ProfilePickerScreen
 import site.smap.harubook.features.quiz.QuizScreen
 import site.smap.harubook.features.reader.ReaderScreen
+import site.smap.harubook.features.store.StoreScreen
 
 private const val PROFILE_PICKER_ROUTE = "profilePicker"
 private const val BOOKSHELF_ROUTE = "bookshelf"
 private const val READER_ROUTE = "reader/{bookId}"
 private const val QUIZ_ROUTE = "quiz/{bookId}/{logId}"
 private const val CREATE_BOOK_ROUTE = "createBook"
+private const val PARENTS_ROUTE = "parents"
+private const val STORE_ROUTE = "store"
 
 @Composable
 fun HomeRouter() {
@@ -63,18 +67,35 @@ fun HomeRouter() {
 
         composable(BOOKSHELF_ROUTE) {
             val profile = selectedProfile ?: return@composable
-            BookshelfScreen(
+            val gotoPicker = {
+                selectedProfile = null
+                SessionPreferences.setLastProfileId(context, null)
+                nav.navigate(PROFILE_PICKER_ROUTE) {
+                    popUpTo(BOOKSHELF_ROUTE) { inclusive = true }
+                }
+            }
+            MainTabScaffold(
                 profileId = profile.id,
-                onSwitchProfile = {
-                    selectedProfile = null
-                    SessionPreferences.setLastProfileId(context, null)
-                    nav.navigate(PROFILE_PICKER_ROUTE) {
-                        popUpTo(BOOKSHELF_ROUTE) { inclusive = true }
-                    }
+                onSwitchProfile = gotoPicker,
+                onOpenParents = { nav.navigate(PARENTS_ROUTE) },
+                onOpenStore = { nav.navigate(STORE_ROUTE) },
+                bookshelfContent = {
+                    BookshelfScreen(
+                        profileId = profile.id,
+                        onSwitchProfile = gotoPicker,
+                        onOpenBook = { bookId -> nav.navigate("reader/$bookId") },
+                        onCreateBook = { nav.navigate(CREATE_BOOK_ROUTE) },
+                    )
                 },
-                onOpenBook = { bookId -> nav.navigate("reader/$bookId") },
-                onCreateBook = { nav.navigate(CREATE_BOOK_ROUTE) },
             )
+        }
+
+        composable(PARENTS_ROUTE) {
+            ParentalPinGateScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable(STORE_ROUTE) {
+            StoreScreen(onBack = { nav.popBackStack() })
         }
 
         composable(CREATE_BOOK_ROUTE) {
