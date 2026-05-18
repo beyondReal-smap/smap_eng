@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: '/legal/terms', label: '이용약관' },
   { href: '/legal/privacy', label: '개인정보처리방침' },
   { href: '/legal/refund', label: '환불정책' },
+  { href: '/legal/data-deletion', label: '데이터 삭제 요청' },
   { href: '/legal/business', label: '사업자정보' },
 ] as const;
 
