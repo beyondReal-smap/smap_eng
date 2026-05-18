@@ -67,10 +67,14 @@ export default async function PushHistoryPage() {
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-border align-top">
                   <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
-                    {row.createdAt.toLocaleString('ko-KR')}
+                    {/*
+                      Vercel/서버 시스템 timezone 이 UTC 일 때 한국 사용자에게 9시간
+                      어긋난 시간을 보여주는 문제 방지. KST 강제.
+                    */}
+                    {row.createdAt.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
                     {row.completedAt && (
                       <div className="text-[10px]">
-                        완료 {row.completedAt.toLocaleTimeString('ko-KR')}
+                        완료 {row.completedAt.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul' })}
                       </div>
                     )}
                   </td>

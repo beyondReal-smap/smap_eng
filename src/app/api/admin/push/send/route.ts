@@ -46,6 +46,12 @@ export async function POST(req: NextRequest) {
 
     // 감사 로그 먼저 기록 — 발송 도중 크래시해도 흔적 남기 위해.
     // drizzle mysql2 어댑터의 `$returningId()`는 `{ id: number }[]`를 반환한다.
+    //
+    // createdAt 을 코드에서 명시적으로 채운다. defaultNow() 의 MySQL CURRENT_TIMESTAMP
+    // (서버 SYSTEM=KST 로 발행) 와 completedAt 의 코드 `new Date()` (JS UTC 직렬화) 가
+    // drizzle mysql2 어댑터를 거치면서 timezone 처리가 달라져 9시간 어긋난 채 저장되던
+    // 문제를 막는다. 두 컬럼 모두 같은 변환 경로(JS Date → drizzle → MySQL) 를 타게
+    // 강제해 history 화면 표시도 일치.
     const inserted = await db
       .insert(pushSendLogs)
       .values({
@@ -57,6 +63,7 @@ export async function POST(req: NextRequest) {
         deepLink: deepLink ?? null,
         audienceCount: resolution.audienceCount,
         status: 'sending',
+        createdAt: new Date(),
       })
       .$returningId();
     const logId = inserted[0].id;

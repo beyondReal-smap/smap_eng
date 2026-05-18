@@ -61,6 +61,10 @@ export function PushComposer() {
   const [deepLink, setDeepLink] = useState('');
 
   const [preview, setPreview] = useState<PreviewState>(EMPTY_PREVIEW);
+  // 발송 직전 확인 모달과 발송 결과 모달을 분리해 관리. 이전엔 window.confirm + inline
+  // banner 로 처리되어 어드민 패널에서 시각 위계가 약했다 — 발송 같은 비가역 작업은
+  // 명확한 모달로 의사 결정을 강제한다.
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [result, setResult] = useState<{
     kind: 'success' | 'error';
     message: string;
@@ -121,14 +125,24 @@ export function PushComposer() {
     return (preview.count ?? 0) > 0;
   }, [body, preview, pending, mode, singleIdentifier]);
 
+  const confirmMessage = useMemo(() => {
+    if (mode === 'single') {
+      return singleIdentifier.trim()
+        ? `${singleIdentifier.trim()} 에게 푸시를 보낼까요?`
+        : '이 사용자에게 푸시를 보낼까요?';
+    }
+    return `${preview.count?.toLocaleString() ?? '0'}명에게 푸시를 보낼까요?`;
+  }, [mode, singleIdentifier, preview.count]);
+
   const handleSubmit = () => {
     if (!canSubmit) return;
-    const confirmMsg =
-      mode === 'single'
-        ? `이 사용자에게 푸시를 보낼까요?`
-        : `${preview.count?.toLocaleString() ?? '0'}명에게 푸시를 보낼까요?`;
-    if (!window.confirm(confirmMsg)) return;
+    // 비가역 작업이라 명시적 확인 모달로 전환. 이전 window.confirm 은 브라우저
+    // 기본 UI 라 어드민 패널의 시각 톤과 어긋났다.
+    setConfirmOpen(true);
+  };
 
+  const handleConfirmed = () => {
+    setConfirmOpen(false);
     startTransition(async () => {
       setResult(null);
       try {
@@ -284,19 +298,6 @@ export function PushComposer() {
           </div>
         </Card>
 
-        {result && (
-          <div
-            role="status"
-            className={`rounded-2xl border px-4 py-3 text-sm ${
-              result.kind === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : 'border-rose-200 bg-rose-50 text-rose-800'
-            }`}
-          >
-            {result.message}
-          </div>
-        )}
-
         <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4">
           <div className="text-sm text-muted-foreground">
             {preview.loading ? (
@@ -335,6 +336,125 @@ export function PushComposer() {
           </p>
         </div>
       </aside>
+
+      {/* 발송 직전 확인 모달 — 비가역 작업에 대한 의사 결정 강제. */}
+      <Modal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="푸시 발송 확인"
+        variant="confirm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-foreground">{confirmMessage}</p>
+          <div className="rounded-xl border border-border bg-muted/40 p-3">
+            <PushPreviewCard title={title} body={body} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(false)}
+              className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-semibold hover:bg-muted"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmed}
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90"
+            >
+              발송
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 발송 결과 모달 — 성공/실패 각각 다른 톤으로 표시. */}
+      <Modal
+        open={!!result}
+        onClose={() => setResult(null)}
+        title={result?.kind === 'success' ? '발송 완료' : '발송 실패'}
+        variant={result?.kind === 'success' ? 'success' : 'error'}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-foreground">{result?.message}</p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setResult(null)}
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+/**
+ * 어드민 패널 전용 단순 Modal. 배경 dim + ESC/배경클릭 닫기 + 우상단 X.
+ * 외부 라이브러리 없이 inline 처리 — radix/headless 등 추가 의존성 회피.
+ */
+function Modal({
+  open,
+  onClose,
+  title,
+  variant = 'confirm',
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  variant?: 'confirm' | 'success' | 'error';
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const accentClass =
+    variant === 'success'
+      ? 'border-l-4 border-l-emerald-500'
+      : variant === 'error'
+        ? 'border-l-4 border-l-rose-500'
+        : 'border-l-4 border-l-primary';
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className={`w-full max-w-md rounded-2xl border border-border bg-card shadow-xl ${accentClass}`}
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h2 id="modal-title" className="text-sm font-extrabold">
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="px-5 py-4">{children}</div>
+      </div>
     </div>
   );
 }
