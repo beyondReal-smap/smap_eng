@@ -8,6 +8,13 @@
 	<string>하루책</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<!--
+	    iOS 11+ 에서 Asset Catalog 의 AppIcon 을 시뮬/디바이스가 인식하려면
+	    이 키를 명시해야 한다. 누락 시 일부 환경에서 회색 placeholder 가
+	    표시되거나 아이콘이 비어 보인다.
+	-->
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
