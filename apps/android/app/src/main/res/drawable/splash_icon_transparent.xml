@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    iOS UILaunchScreen 패리티용 투명 splash 아이콘. Android 12+ SplashScreen API 는
+    아이콘 drawable 을 필수로 요구하지만, 시각적으로는 보이지 않게 처리해
+    iOS 와 동일하게 단순 배경색만 노출되도록 한다.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+</shape>

@@ -9,4 +9,16 @@
         <item name="android:statusBarColor">@color/smap_background</item>
         <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
     </style>
+
+    <!--
+        Android 12+ SplashScreen API 패리티 — iOS UILaunchScreen(UIColorName=LaunchBackground)
+        와 동일하게 단순 배경색(#FBFAF9)만 보여주고 앱 아이콘은 표시하지 않는다.
+        시스템이 강제로 런처 아이콘을 띄우지 않도록 windowSplashScreenAnimatedIcon 을
+        투명 drawable 로 지정. postSplashScreenTheme 로 본 테마(Theme.HaruBook)로 전환된다.
+    -->
+    <style name="Theme.HaruBook.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/smap_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_transparent</item>
+        <item name="postSplashScreenTheme">@style/Theme.HaruBook</item>
+    </style>
 </resources>

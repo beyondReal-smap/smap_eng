@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +27,10 @@ import site.smap.harubook.features.home.HomeRouter
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // iOS UILaunchScreen 패리티 — Android 12+ SplashScreen API 를 명시적으로 설치하면
+        // Theme.HaruBook.Starting 의 배경(#FBFAF9) + 투명 아이콘 으로 깔끔한 단색 splash 가
+        // 노출되고, super.onCreate 호출 직후 자동으로 Theme.HaruBook 으로 전환된다.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         intent?.let(::routeIntent)
         setContent {

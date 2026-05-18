@@ -9,6 +9,7 @@ activity-compose = "1.9.3"
 lifecycle = "2.8.7"
 nav-compose = "2.8.5"
 core-ktx = "1.15.0"
+core-splashscreen = "1.0.1"
 appcompat = "1.7.0"
 ktor = "3.0.2"
 browser = "1.8.0"
@@ -22,6 +23,7 @@ junit = "4.13.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "core-splashscreen" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
 androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
