@@ -15,7 +15,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 | 항목 | 내용 |
 |------|------|
 | **도구** | GitHub Issues |
-| **레포** | [github.com/bluemusk/smap_eng](https://github.com/bluemusk/smap_eng) (clone: `git@github.com:bluemusk/smap_eng.git`) |
+| **레포** | [github.com/beyondReal-smap/smap_eng](https://github.com/beyondReal-smap/smap_eng) (clone: `git@github.com:beyondReal-smap/smap_eng.git`) |
 | **라벨 규칙** | `priority:P0/P1/P2`, `type:feat/fix/docs/chore`, `area:llm/tts/image/ui/db` |
 | **조회 명령** | `gh issue list --label "priority:P0"` |
 
