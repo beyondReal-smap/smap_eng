@@ -57,7 +57,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 
 ## 최근 세션
 
-### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + queries·reader 리팩토링)
+### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + queries·reader·auth 리팩토링)
 
 #### 세션 목표
 - 워킹트리에 누적된 미커밋 변경(성능·안정성·캐시) 검증 후 커밋. 폐기 잔여물 정리. SESSION.md 백필.
@@ -72,12 +72,15 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 | `67c9b14`·`4f98cde` | docs(session) | 4/30~5/30 작업 로그 동기화 + 레포 URL 정정(bluemusk→beyondReal-smap) |
 | `2c9c2fc` | refactor(db) | `queries.ts` 1123줄 → 도메인별 10파일 + barrel |
 | `709534d` | refactor(reader) | `reader.tsx` 1388 → 943줄, `reader/` 하위 6파일 분리 |
+| `afc5c43` | refactor(auth) | `auth.ts` 875 → 42줄, `lib/auth/` 하위 4파일 분리 |
 
 #### 리팩토링 상세
 - **`refactor(db)` queries.ts** — 1123줄 38함수를 도메인 경계로 분리. `queries.ts`는 barrel(re-export)로 전환해 **호출처 37개 파일 import 경로 변경 0**. 도메인: `queries/{profiles,books,vocab,passages,quizzes,reading-logs,parental,learning,admin}.ts` + 공유 헬퍼 `_shared.ts`(parseJsonColumn·toYMD). 의존 단방향(parental→books, admin→books). 동작 변화 0(순수 이동).
 - **`refactor(reader)` reader.tsx** — 1388→943줄(−445). 강결합 본체 effect(TTS 폴링·백그라운드 합성·복구·자동재생·키보드)는 회귀 위험이 커 **유지**하고, 회귀 위험 낮은 응집 단위만 추출: `reader/{shared.ts, passage-text.tsx, ending-choice-dialog.tsx, reader-settings.tsx, use-reading-log.ts, use-font-size.ts}`. 동작 보존 의도(코드 이동 + 응집 훅화).
   - ⚠️ **수동 QA 권장**: effect 순서 의존 동작(낭독 재생/다시듣기·자동재생 연속·진도 저장)은 빌드로 회귀를 못 잡음 → 배포 전 실기기 확인.
   - 기존 lint 이슈(범위 밖, 원본부터 존재): `setState-in-effect`(진행복원), `requestTts` 사용순서, `setSceneCache` 미사용.
+
+- **`refactor(auth)` auth.ts** — 875→42줄. NextAuth 코어 + 모바일 인증 핸들러 + crypto/PKCE 헬퍼를 순환 없는 단방향으로 분리: `lib/auth/{password.ts, mobile-shared.ts, next-auth-instance.ts, mobile-handlers.ts}`. 의존 방향 password·mobile-shared(순수) ← mobile-handlers → next-auth-instance, auth.ts가 조립. public API(handlers·auth·signIn·signOut) 유지, 호출처 7개 변경 0. 보안 핵심이라 회귀를 직접 대조 검증(scrypt 파라미터·PKCE 정규식·timingSafeEqual·`for('update')` 락·dev-issue 3중 가드·쿠키 보안 속성 일치). security-reviewer 에이전트는 파싱 오류로 실패 → 수동 대조로 대체.
 
 #### 검증
 - `tsc --noEmit` 0 에러 · `npm run build` 성공(각 Phase 독립 검증) · 정합성 리뷰 통과.
