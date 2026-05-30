@@ -372,9 +372,12 @@ function RecentCard({
       <div className="relative aspect-[4/3] overflow-hidden rounded-lg">
         {hasCover ? (
           <Image
+            // 표지는 쿠키 인증 동적 라우트(/images/*)라 next/image optimizer가
+            // upstream fetch에 쿠키를 전달하지 못해 404가 된다 → 원본 직접 서빙.
             src={book.coverImagePath!}
             alt={book.title}
             fill
+            unoptimized
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="160px"
           />
@@ -446,9 +449,11 @@ function BookCard({
         <div className="relative aspect-[5/3] w-full overflow-hidden">
           {hasCover ? (
             <Image
+              // 인증 동적 라우트라 optimizer 우회(쿠키 미전달 404 방지).
               src={book.coverImagePath!}
               alt={book.title}
               fill
+              unoptimized
               className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             />

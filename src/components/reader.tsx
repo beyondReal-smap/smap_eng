@@ -952,11 +952,14 @@ export function Reader({ book, passages }: Props) {
         <div className="relative">
           {currentScene ? (
             <div className="mb-5 overflow-hidden rounded-2xl border-2 border-border/60 sticker-shadow animate-pop-in">
+              {/* 장면 이미지는 쿠키 인증 동적 라우트(/images/*)라 optimizer가
+                  쿠키를 전달하지 못해 404가 된다 → 원본 직접 서빙. */}
               <Image
                 src={currentScene}
                 alt={currentTextEn}
                 width={1024}
                 height={768}
+                unoptimized
                 className="aspect-[4/3] w-full object-cover"
                 priority={idx === 0}
                 sizes="(max-width: 640px) 100vw, 640px"
