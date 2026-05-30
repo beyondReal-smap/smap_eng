@@ -57,7 +57,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 
 ## 최근 세션
 
-### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + queries·reader·auth·cover-art·create-book-dialog 리팩토링)
+### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + 대형 파일 6종 리팩토링)
 
 #### 세션 목표
 - 워킹트리에 누적된 미커밋 변경(성능·안정성·캐시) 검증 후 커밋. 폐기 잔여물 정리. SESSION.md 백필.
@@ -75,6 +75,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 | `afc5c43` | refactor(auth) | `auth.ts` 875 → 42줄, `lib/auth/` 하위 4파일 분리 |
 | `809a757` | refactor(cover-art) | `cover-art.tsx` 791 → 135줄, 일러스트 24종 → `cover-art/illustrations.tsx` |
 | `7a74b2b` | refactor(create-book-dialog) | `create-book-dialog.tsx` 773 → 454줄, Step 6종 + 상수/타입 분리 |
+| `750c5af` | refactor(vocab-deck) | `vocab-deck.tsx` 757 → 514줄, 보조 컴포넌트 8종 → `vocab-deck/components.tsx` |
 
 #### 리팩토링 상세
 - **`refactor(db)` queries.ts** — 1123줄 38함수를 도메인 경계로 분리. `queries.ts`는 barrel(re-export)로 전환해 **호출처 37개 파일 import 경로 변경 0**. 도메인: `queries/{profiles,books,vocab,passages,quizzes,reading-logs,parental,learning,admin}.ts` + 공유 헬퍼 `_shared.ts`(parseJsonColumn·toYMD). 의존 단방향(parental→books, admin→books). 동작 변화 0(순수 이동).
@@ -86,6 +87,19 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 
 - **`refactor(cover-art)` cover-art.tsx** — 791→135줄. hook 0개 순수 프레젠테이션 — SVG 일러스트 24종 + Svg 래퍼를 `cover-art/illustrations.tsx`(659줄)로 이동, CoverArt 본체·타입·PALETTES·TEMPLATES·pickVariant만 유지. 동작 변화 0(순수 이동). tsc + eslint + build 통과.
 - **`refactor(create-book-dialog)` create-book-dialog.tsx** — 773→454줄. 5단계 마법사. 강결합 본체 hook(open·step·genre·cefr·intake)은 회귀 위험으로 유지하고, 순수 프레젠테이션 Step 6종(Genre/GenreCard/Cefr/Intake/Topic/Review)을 `create-book-dialog/steps.tsx`(333줄), 상수·타입을 `create-book-dialog/shared.ts`(28줄)로 분리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
+- **`refactor(vocab-deck)` vocab-deck.tsx** — 757→514줄. 단어장 플래시카드 + SRS. 강결합 본체 hook(20개 — 덱/평가/발음/키보드)은 회귀 위험으로 유지하고, 순수 프레젠테이션 컴포넌트 8종(DailyGoalBar/SessionCompleteCard/CardStateChip/TabBar/TabItem/GradeButton/PronounceButton/Skeleton) + Tab 타입을 `vocab-deck/components.tsx`(252줄)로 분리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
+
+#### 리팩토링 총괄 (대형 파일 6종, 모두 push 완료)
+| 대상 | before→after | 분리 |
+|------|------|------|
+| `queries.ts` | 1123 → 21(barrel) | 도메인 10파일 |
+| `reader.tsx` | 1388 → 943 | shared·보조 4·훅 2 (`reader/`) |
+| `auth.ts` | 875 → 42 | `lib/auth/` 4파일(순환 없는 단방향) |
+| `cover-art.tsx` | 791 → 135 | 일러스트 24종(`cover-art/illustrations.tsx`) |
+| `create-book-dialog.tsx` | 773 → 454 | Step 6 + shared(`create-book-dialog/`) |
+| `vocab-deck.tsx` | 757 → 514 | 보조 8 + Tab(`vocab-deck/components.tsx`) |
+
+> 공통 원칙: **순수 프레젠테이션/헬퍼/상수만 추출, 강결합 본체 hook은 유지**(회귀 위험 회피). 호출처 import 경로 변경 0, 각 단계 tsc+eslint+build 검증. ⚠️ reader는 effect 순서 의존 동작이 있어 배포 전 실기기 QA 권장.
 
 #### 검증
 - `tsc --noEmit` 0 에러 · `npm run build` 성공(각 Phase 독립 검증) · 정합성 리뷰 통과.
