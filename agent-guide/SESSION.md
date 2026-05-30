@@ -57,7 +57,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 
 ## 최근 세션
 
-### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + queries·reader·auth 리팩토링)
+### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + queries·reader·auth·cover-art 리팩토링)
 
 #### 세션 목표
 - 워킹트리에 누적된 미커밋 변경(성능·안정성·캐시) 검증 후 커밋. 폐기 잔여물 정리. SESSION.md 백필.
@@ -73,6 +73,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 | `2c9c2fc` | refactor(db) | `queries.ts` 1123줄 → 도메인별 10파일 + barrel |
 | `709534d` | refactor(reader) | `reader.tsx` 1388 → 943줄, `reader/` 하위 6파일 분리 |
 | `afc5c43` | refactor(auth) | `auth.ts` 875 → 42줄, `lib/auth/` 하위 4파일 분리 |
+| `809a757` | refactor(cover-art) | `cover-art.tsx` 791 → 135줄, 일러스트 24종 → `cover-art/illustrations.tsx` |
 
 #### 리팩토링 상세
 - **`refactor(db)` queries.ts** — 1123줄 38함수를 도메인 경계로 분리. `queries.ts`는 barrel(re-export)로 전환해 **호출처 37개 파일 import 경로 변경 0**. 도메인: `queries/{profiles,books,vocab,passages,quizzes,reading-logs,parental,learning,admin}.ts` + 공유 헬퍼 `_shared.ts`(parseJsonColumn·toYMD). 의존 단방향(parental→books, admin→books). 동작 변화 0(순수 이동).
@@ -81,6 +82,8 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
   - 기존 lint 이슈(범위 밖, 원본부터 존재): `setState-in-effect`(진행복원), `requestTts` 사용순서, `setSceneCache` 미사용.
 
 - **`refactor(auth)` auth.ts** — 875→42줄. NextAuth 코어 + 모바일 인증 핸들러 + crypto/PKCE 헬퍼를 순환 없는 단방향으로 분리: `lib/auth/{password.ts, mobile-shared.ts, next-auth-instance.ts, mobile-handlers.ts}`. 의존 방향 password·mobile-shared(순수) ← mobile-handlers → next-auth-instance, auth.ts가 조립. public API(handlers·auth·signIn·signOut) 유지, 호출처 7개 변경 0. 보안 핵심이라 회귀를 직접 대조 검증(scrypt 파라미터·PKCE 정규식·timingSafeEqual·`for('update')` 락·dev-issue 3중 가드·쿠키 보안 속성 일치). security-reviewer 에이전트는 파싱 오류로 실패 → 수동 대조로 대체.
+
+- **`refactor(cover-art)` cover-art.tsx** — 791→135줄. hook 0개 순수 프레젠테이션 — SVG 일러스트 24종 + Svg 래퍼를 `cover-art/illustrations.tsx`(659줄)로 이동, CoverArt 본체·타입·PALETTES·TEMPLATES·pickVariant만 유지. 동작 변화 0(순수 이동). tsc + eslint + build 통과.
 
 #### 검증
 - `tsc --noEmit` 0 에러 · `npm run build` 성공(각 Phase 독립 검증) · 정합성 리뷰 통과.
