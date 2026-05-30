@@ -57,20 +57,30 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 
 ## 최근 세션
 
-### 2026-05-30 (웹 미디어 안정성/캐시 개선 + untracked 정리 + 세션 로그 동기화)
+### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + queries·reader 리팩토링)
 
 #### 세션 목표
 - 워킹트리에 누적된 미커밋 변경(성능·안정성·캐시) 검증 후 커밋. 폐기 잔여물 정리. SESSION.md 백필.
+- 후반: God 모듈/컴포넌트 2종(`queries.ts` 1123줄, `reader.tsx` 1388줄) 리팩토링 — 동작 보존하며 도메인/관심사 분리.
 
-#### 변경 / 커밋 (로컬, push 미수행)
+#### 변경 / 커밋 (origin/main push 완료)
 | 커밋 | 성격 | 내용 |
 |------|------|------|
 | `7456427` | fix(ui) | 인증 이미지 라우트(`/images`·`/audio`) 표지·장면 `unoptimized` — next/image optimizer 쿠키 미전달 404 복구 |
 | `23b5f63` | perf(media) | TTS·이미지 hang 상한 타임아웃(`AbortSignal.timeout`+`any`), `KOKORO_SPEED(0.85)`·`*_TIMEOUT_MS` env 검증, 정적 라우트 `private`+약한 ETag 304 재검증, `/api/books` books·stats `Promise.all` 병렬화 |
 | `6bf315f` | chore | 폐기 Expo 잔여(`apps/mobile/`)·디버그 PNG(`eng-*`·`profile-*`)·`scripts/test-fcm.mjs` gitignore |
+| `67c9b14`·`4f98cde` | docs(session) | 4/30~5/30 작업 로그 동기화 + 레포 URL 정정(bluemusk→beyondReal-smap) |
+| `2c9c2fc` | refactor(db) | `queries.ts` 1123줄 → 도메인별 10파일 + barrel |
+| `709534d` | refactor(reader) | `reader.tsx` 1388 → 943줄, `reader/` 하위 6파일 분리 |
+
+#### 리팩토링 상세
+- **`refactor(db)` queries.ts** — 1123줄 38함수를 도메인 경계로 분리. `queries.ts`는 barrel(re-export)로 전환해 **호출처 37개 파일 import 경로 변경 0**. 도메인: `queries/{profiles,books,vocab,passages,quizzes,reading-logs,parental,learning,admin}.ts` + 공유 헬퍼 `_shared.ts`(parseJsonColumn·toYMD). 의존 단방향(parental→books, admin→books). 동작 변화 0(순수 이동).
+- **`refactor(reader)` reader.tsx** — 1388→943줄(−445). 강결합 본체 effect(TTS 폴링·백그라운드 합성·복구·자동재생·키보드)는 회귀 위험이 커 **유지**하고, 회귀 위험 낮은 응집 단위만 추출: `reader/{shared.ts, passage-text.tsx, ending-choice-dialog.tsx, reader-settings.tsx, use-reading-log.ts, use-font-size.ts}`. 동작 보존 의도(코드 이동 + 응집 훅화).
+  - ⚠️ **수동 QA 권장**: effect 순서 의존 동작(낭독 재생/다시듣기·자동재생 연속·진도 저장)은 빌드로 회귀를 못 잡음 → 배포 전 실기기 확인.
+  - 기존 lint 이슈(범위 밖, 원본부터 존재): `setState-in-effect`(진행복원), `requestTts` 사용순서, `setSceneCache` 미사용.
 
 #### 검증
-- `tsc --noEmit` 0 에러 · `npm run build` 성공 · 정합성 리뷰 통과.
+- `tsc --noEmit` 0 에러 · `npm run build` 성공(각 Phase 독립 검증) · 정합성 리뷰 통과.
 
 #### 메모
 - SESSION.md 4/29 섹션의 커밋 해시(`b4c0311` 등)는 별도 macOS 작업분으로 **현재 main에 미존재**. 실제 main은 4/30~5/18에 네이티브 앱·FCM·IAP가 집중 진행됨(아래 백필).
