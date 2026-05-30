@@ -141,11 +141,22 @@ export async function GET(
     const size = s.size;
     const range = parseRange(rangeHeader, size);
 
+    // 약한 ETag(size+mtime). 내용이 같으면 만료 후에도 304로 바디 재전송을 막고,
+    // force 재합성으로 wav가 바뀌면 mtime이 갱신돼 ETag도 달라져 자동 무효화된다.
+    // 인증 게이트를 통과한 사용자별 자원이므로 공유 캐시 금지(private).
+    const etag = `W/"${size.toString(16)}-${Math.floor(s.mtimeMs).toString(16)}"`;
     const commonHeaders = {
       'Content-Type': 'audio/wav',
       'Accept-Ranges': 'bytes',
-      'Cache-Control': 'public, max-age=3600',
+      'Cache-Control': 'private, max-age=3600',
+      ETag: etag,
     } as const;
+
+    // 조건부 요청은 Range 없는 전체 GET에서만 304로 단축(부분 응답과 충돌 방지).
+    if (!range && req.headers.get('if-none-match') === etag) {
+      console.log(`[audio:get] 304 file=${file}`);
+      return new Response(null, { status: 304, headers: commonHeaders });
+    }
 
     if (range) {
       const { start, end } = range;
@@ -197,12 +208,15 @@ export async function HEAD(
   const abs = path.join(AUDIO_DIR, file);
   try {
     const s = statSync(abs);
+    const etag = `W/"${s.size.toString(16)}-${Math.floor(s.mtimeMs).toString(16)}"`;
     return new Response(null, {
       status: 200,
       headers: {
         'Content-Type': 'audio/wav',
         'Content-Length': String(s.size),
         'Accept-Ranges': 'bytes',
+        'Cache-Control': 'private, max-age=3600',
+        ETag: etag,
       },
     });
   } catch {

@@ -186,8 +186,12 @@ export async function GET(req: NextRequest) {
     const parsed = ListBooksQuery.parse(params);
     // 자기 가족의 자녀 프로필만 조회 가능. 타 user 프로필 책 enumeration 차단.
     await requireProfileOwnershipForApi(parsed.profileId);
-    const books = await listBooks(parsed);
-    const stats = await getBookProgressMap(parsed.profileId);
+    // 소유권 가드 통과 후 두 쿼리는 서로 독립(books 테이블 / readingLogs 테이블)이라
+    // 병렬 실행 — DB 왕복 1회를 절약한다.
+    const [books, stats] = await Promise.all([
+      listBooks(parsed),
+      getBookProgressMap(parsed.profileId),
+    ]);
     return NextResponse.json({ books, stats });
   } catch (err) {
     return handleApiError(err);

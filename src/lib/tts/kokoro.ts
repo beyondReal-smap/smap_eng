@@ -6,6 +6,28 @@ const KOKORO_BASE_URL =
 
 const KOKORO_VOICE_DEFAULT = process.env.KOKORO_VOICE ?? 'af_heart';
 
+// 어린이 학습용 기본 발화 속도. Kokoro 1.0은 빠르다는 피드백이 있어 합성 단계에서
+// 약간 느리게 만든다(클라이언트 playbackRate 0.75와 누적). Kokoro API 허용 범위
+// 0.5~2.0 안에서만 적용하고, 잘못된 env는 기본값으로 안전 폴백.
+const KOKORO_SPEED_DEFAULT = (() => {
+  const raw = process.env.KOKORO_SPEED;
+  if (!raw) return 0.85;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0.5 || n > 2.0) return 0.85;
+  return n;
+})();
+
+// 합성 상한 타임아웃. FastAPI/모델이 hang하면 on-demand 라우트는 사용자 핸들러를,
+// 배치는 inFlightBooks 락을 장시간 점유한다. undici 기본 상한(~5분)은 UX 저하라
+// 명시적으로 짧게 끊는다. 잘못된 env는 기본값으로 안전 폴백.
+const KOKORO_TIMEOUT_MS = (() => {
+  const raw = process.env.KOKORO_TIMEOUT_MS;
+  if (!raw) return 60_000;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 60_000;
+  return n;
+})();
+
 export class TtsError extends Error {
   constructor(
     message: string,
@@ -50,22 +72,31 @@ function isTransientFetchError(err: unknown): boolean {
 export async function synthesize({
   text,
   voice = KOKORO_VOICE_DEFAULT,
-  speed = 1.0,
+  speed = KOKORO_SPEED_DEFAULT,
   signal,
 }: SynthesizeOptions): Promise<Uint8Array> {
   let attempt = 0;
   while (true) {
+    // 매 시도마다 새 타임아웃. 외부 취소 signal과 합성해 둘 중 먼저 발화하는 쪽이 abort.
+    const timeoutSignal = AbortSignal.timeout(KOKORO_TIMEOUT_MS);
+    const fetchSignal = signal
+      ? AbortSignal.any([signal, timeoutSignal])
+      : timeoutSignal;
     let res: Response;
     try {
       res = await fetch(`${KOKORO_BASE_URL}/v1/tts`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ text, voice, speed }),
-        signal,
+        signal: fetchSignal,
       });
     } catch (err) {
-      // AbortSignal 발화는 호출자에 그대로 전달.
+      // 외부 AbortSignal(사용자 취소) 발화는 호출자에 그대로 전달.
       if (signal?.aborted) throw err;
+      // 내부 타임아웃 — hang은 재시도해도 또 hang이므로 즉시 TtsError로 끊는다.
+      if (timeoutSignal.aborted) {
+        throw new TtsError(`Kokoro timeout after ${KOKORO_TIMEOUT_MS}ms`);
+      }
       if (attempt < NETWORK_RETRY_MAX && isTransientFetchError(err)) {
         attempt += 1;
         await new Promise((r) => setTimeout(r, NETWORK_RETRY_DELAY_MS));
