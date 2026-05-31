@@ -57,7 +57,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 
 ## 최근 세션
 
-### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + 대형 파일 7종 리팩토링)
+### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + 대형 파일 8종 리팩토링)
 
 #### 세션 목표
 - 워킹트리에 누적된 미커밋 변경(성능·안정성·캐시) 검증 후 커밋. 폐기 잔여물 정리. SESSION.md 백필.
@@ -77,6 +77,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 | `7a74b2b` | refactor(create-book-dialog) | `create-book-dialog.tsx` 773 → 454줄, Step 6종 + 상수/타입 분리 |
 | `750c5af` | refactor(vocab-deck) | `vocab-deck.tsx` 757 → 514줄, 보조 컴포넌트 8종 → `vocab-deck/components.tsx` |
 | `839befc` | refactor(bookshelf) | `bookshelf.tsx` 656 → 328줄, 보조 7종 + 상수 → `bookshelf/`, LevelBadge·SkeletonGrid re-export |
+| `95d9684` | refactor(learning-summary) | `learning-summary.tsx` 588 → 361줄, 보조 3종 → `learning-summary/components.tsx` |
 
 #### 리팩토링 상세
 - **`refactor(db)` queries.ts** — 1123줄 38함수를 도메인 경계로 분리. `queries.ts`는 barrel(re-export)로 전환해 **호출처 37개 파일 import 경로 변경 0**. 도메인: `queries/{profiles,books,vocab,passages,quizzes,reading-logs,parental,learning,admin}.ts` + 공유 헬퍼 `_shared.ts`(parseJsonColumn·toYMD). 의존 단방향(parental→books, admin→books). 동작 변화 0(순수 이동).
@@ -90,6 +91,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 - **`refactor(create-book-dialog)` create-book-dialog.tsx** — 773→454줄. 5단계 마법사. 강결합 본체 hook(open·step·genre·cefr·intake)은 회귀 위험으로 유지하고, 순수 프레젠테이션 Step 6종(Genre/GenreCard/Cefr/Intake/Topic/Review)을 `create-book-dialog/steps.tsx`(333줄), 상수·타입을 `create-book-dialog/shared.ts`(28줄)로 분리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
 - **`refactor(vocab-deck)` vocab-deck.tsx** — 757→514줄. 단어장 플래시카드 + SRS. 강결합 본체 hook(20개 — 덱/평가/발음/키보드)은 회귀 위험으로 유지하고, 순수 프레젠테이션 컴포넌트 8종(DailyGoalBar/SessionCompleteCard/CardStateChip/TabBar/TabItem/GradeButton/PronounceButton/Skeleton) + Tab 타입을 `vocab-deck/components.tsx`(252줄)로 분리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
 - **`refactor(bookshelf)` bookshelf.tsx** — 656→328줄. 책장 그리드. 강결합 본체 hook(SSR fetch·필터·디바운스·recent)은 회귀 위험으로 유지하고, 보조 컴포넌트 7종(RecentCard/BookCard/CoverGenButton/FilterGroup/LevelPill/LevelBadge/SkeletonGrid)을 `bookshelf/components.tsx`(315줄), 상수·헬퍼를 `bookshelf/shared.ts`(40줄)로 분리. 외부 공개 컴포넌트(LevelBadge·SkeletonGrid)는 본체에서 re-export해 호출처 변경 0(app/loading.tsx의 SkeletonGrid import 유지). 동작 변화 0(코드 이동). tsc + eslint + build 통과.
+- **`refactor(learning-summary)` learning-summary.tsx** — 588→361줄. 홈 상단 학습 요약. 강결합 본체 hook(SSR fetch·프로필 동기화·인사말)은 회귀 위험으로 유지하고, 순수 프레젠테이션 3종(MonthlyTrace/ContinueCard/StatCard) + WEEKDAY_LABELS를 `learning-summary/components.tsx`(236줄)로 분리. 보조로 이동한 import(Image·CoverArt·Progress·일부 아이콘) 정리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
 
 #### 리팩토링 총괄 (대형 파일 6종, 모두 push 완료)
 | 대상 | before→after | 분리 |
@@ -101,6 +103,7 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 | `create-book-dialog.tsx` | 773 → 454 | Step 6 + shared(`create-book-dialog/`) |
 | `vocab-deck.tsx` | 757 → 514 | 보조 8 + Tab(`vocab-deck/components.tsx`) |
 | `bookshelf.tsx` | 656 → 328 | 보조 7 + 상수(`bookshelf/`, re-export로 호환) |
+| `learning-summary.tsx` | 588 → 361 | 보조 3(`learning-summary/components.tsx`) |
 
 > 공통 원칙: **순수 프레젠테이션/헬퍼/상수만 추출, 강결합 본체 hook은 유지**(회귀 위험 회피). 호출처 import 경로 변경 0, 각 단계 tsc+eslint+build 검증. ⚠️ reader는 effect 순서 의존 동작이 있어 배포 전 실기기 QA 권장.
 
