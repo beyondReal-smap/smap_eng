@@ -16,7 +16,7 @@ export const BookSchema = z.object({
   passages: z
     .array(EndingPassageSchema)
     .min(6)
-    .max(32),
+    .max(40),
   vocabulary: z
     .array(
       z.object({
@@ -24,8 +24,8 @@ export const BookSchema = z.object({
         meaning: z.string().min(1), // 한글 뜻
       }),
     )
-    // CEFR 레벨별 vocabCount 상한(B2=85)에 여유를 두고 100까지 허용.
-    .max(100)
+    // CEFR 레벨별 vocabCount 상한(B2=100)에 여유를 두고 110까지 허용.
+    .max(110)
     .optional(),
   alternateEnding: z
     .object({

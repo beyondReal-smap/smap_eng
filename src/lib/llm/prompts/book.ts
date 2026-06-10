@@ -16,10 +16,10 @@ function levelGuideline(level: Level): LevelGuideline {
 
   if (cefr === 'A1' && age <= 6) {
     return {
-      passageCount: [8, 12],
+      passageCount: [14, 18],
       wordsPerPassage: [4, 7],
       // passage당 1~2개 어휘가 나오도록 상향
-      vocabCount: [12, 20],
+      vocabCount: [18, 28],
       grammar: 'present simple only, no contractions, avoid auxiliary verbs',
       style: 'very short, cheerful sentences a 5-year-old can read aloud',
       examples: '"The cat is small. It likes milk. It runs fast."',
@@ -27,10 +27,10 @@ function levelGuideline(level: Level): LevelGuideline {
   }
   if (cefr === 'A1' || (cefr === 'A2' && age <= 7)) {
     return {
-      passageCount: [12, 18],
+      passageCount: [18, 24],
       wordsPerPassage: [6, 10],
       // passage당 2개 내외
-      vocabCount: [22, 32],
+      vocabCount: [30, 42],
       grammar: 'present and past simple, simple conjunctions (and, but, so)',
       style: 'simple storybook rhythm with repetition and clear cause-effect',
       examples: '"The fox walked into the forest. He saw a little rabbit."',
@@ -38,10 +38,10 @@ function levelGuideline(level: Level): LevelGuideline {
   }
   if (cefr === 'A2') {
     return {
-      passageCount: [16, 22],
+      passageCount: [22, 28],
       wordsPerPassage: [10, 16],
       // passage당 2~3개
-      vocabCount: [32, 48],
+      vocabCount: [42, 60],
       grammar:
         'past simple/continuous, present perfect, time and reason conjunctions (when, while, because, so that), descriptive adjectives/adverbs, compound sentences',
       style:
@@ -52,10 +52,10 @@ function levelGuideline(level: Level): LevelGuideline {
   }
   if (cefr === 'B1') {
     return {
-      passageCount: [22, 30],
+      passageCount: [28, 36],
       wordsPerPassage: [12, 22],
       // passage당 2~3개
-      vocabCount: [45, 65],
+      vocabCount: [58, 80],
       grammar:
         'past simple/continuous/perfect, relative clauses (who/which/that/where), reported speech, first/second conditionals, linking adverbs (however, suddenly, meanwhile), varied adjectives/adverbs',
       style:
@@ -66,10 +66,10 @@ function levelGuideline(level: Level): LevelGuideline {
   }
   // B2 — 9~10세 상위 도전 단계
   return {
-    passageCount: [24, 30],
+    passageCount: [30, 36],
     wordsPerPassage: [16, 28],
     // passage당 3개 내외 — 가장 풍부한 어휘 노출
-    vocabCount: [60, 85],
+    vocabCount: [75, 100],
     grammar:
       'full range of past and present tenses including past perfect continuous, mixed conditionals, passive voice where natural, complex relative clauses, participle phrases, advanced linking (nevertheless, despite, in spite of, as a result), idiomatic expressions used sparingly',
     style:

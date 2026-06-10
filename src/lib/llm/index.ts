@@ -59,7 +59,14 @@ interface GenerateBookArgs {
  */
 export async function generateBook(args: GenerateBookArgs): Promise<Book> {
   const { system, user } = buildBookPrompt(args);
-  return chatJson({ system, user, validate: (raw) => BookSchema.parse(raw) });
+  // 레벨별 passage 수를 상향(B1·B2 최대 36)하면서 출력이 길어져, 8k 기본으로는
+  // 긴 책에서 finish_reason=length로 잘릴 수 있어 12k로 명시 지정한다.
+  return chatJson({
+    system,
+    user,
+    maxCompletionTokens: 12000,
+    validate: (raw) => BookSchema.parse(raw),
+  });
 }
 
 /**
