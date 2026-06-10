@@ -4,9 +4,10 @@ import StoreKit
 /// 별 충전(IAP) 화면.
 ///
 /// App Store Review Guideline 3.1.1 — 디지털 콘텐츠는 IAP만. 토스 결제 페이지 링크 금지.
-/// 3.1.1(c) — Consumable에도 "구매 복원" 버튼이 화면에 있어야 함.
 struct StoreView: View {
     @State private var viewModel = StoreViewModel()
+    /// 거래 검증/적립 결과는 앱 수명주기 싱글톤이 보유 — 성공 알럿/에러 표시는 여기서 관찰.
+    @State private var iapObserver = IapTransactionObserver.shared
 
     /// 충전 성공 시 상위로 알림(잔액 새로고침 트리거).
     var onGranted: ((Int) -> Void)?
@@ -31,7 +32,7 @@ struct StoreView: View {
                         }
                     }
 
-                    if let message = viewModel.errorMessage {
+                    if let message = viewModel.errorMessage ?? iapObserver.verifyErrorMessage {
                         Text(message)
                             .font(.smapBody)
                             .foregroundStyle(Color.smapDanger)
@@ -39,8 +40,15 @@ struct StoreView: View {
                             .padding(.horizontal, 8)
                     }
 
-                    restoreSection
-                        .padding(.top, 8)
+                    // Ask to Buy 승인 대기 같은 중립 안내 — 실패가 아니므로 danger 색을 쓰지 않는다.
+                    if let info = viewModel.infoMessage {
+                        Text(info)
+                            .font(.smapBody)
+                            .foregroundStyle(Color.smapMuted)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 8)
+                    }
+
                     policySection
                 }
                 .padding(.horizontal, 20)
@@ -50,8 +58,20 @@ struct StoreView: View {
         .navigationTitle("별 충전")
         .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.load() }
-        .onChange(of: viewModel.lastGrantedStars) { _, stars in
+        .onChange(of: iapObserver.lastGrantedStars) { _, stars in
             if let stars { onGranted?(stars) }
+        }
+        // 결제 성공의 명시적 확인 — 이전에는 햅틱뿐이라 사용자가 충전 여부를 알 수 없었다.
+        .alert(
+            "충전 완료",
+            isPresented: Binding(
+                get: { iapObserver.lastGrantedStars != nil },
+                set: { if !$0 { iapObserver.lastGrantedStars = nil } },
+            ),
+        ) {
+            Button("확인") { iapObserver.lastGrantedStars = nil }
+        } message: {
+            Text("별 \(iapObserver.lastGrantedStars ?? 0)개가 충전되었어요!")
         }
     }
 
@@ -179,24 +199,6 @@ struct StoreView: View {
     }
 
     // MARK: - Footer
-
-    private var restoreSection: some View {
-        VStack(alignment: .center, spacing: 6) {
-            Button {
-                Task { await viewModel.restore() }
-            } label: {
-                Label("구매 복원", systemImage: "arrow.clockwise")
-                    .font(Font.atozBold(14))
-                    .foregroundStyle(Color.smapPrimary)
-            }
-            .buttonStyle(.plain)
-            Text("기기 변경·재설치 후 미반영된 거래가 있다면 여기를 탭하세요.")
-                .font(.smapCaption)
-                .foregroundStyle(Color.smapMuted)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-    }
 
     private var policySection: some View {
         VStack(alignment: .leading, spacing: 8) {

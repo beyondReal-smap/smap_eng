@@ -11,6 +11,7 @@ struct HaruBookApp: App {
     // 별도 `AuthState()` 인스턴스를 만들면 401 시 shared의 phase만 바뀌고
     // RootView가 관찰하는 environment 인스턴스는 갱신되지 않아 LoginView로 복귀 못 함.
     @State private var authState = AuthState.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // NavigationBar 타이틀(SwiftUI Text가 아니라 UIKit NavigationBar)의 폰트도 A2Z로.
@@ -45,7 +46,20 @@ struct HaruBookApp: App {
                 .environment(authState)
                 .preferredColorScheme(.light)
                 .tint(.smapPrimary)
-                .task { await PushManager.shared.refreshAuthorizationStatus() }
+                .task {
+                    // Transaction.updates 리스너는 앱 수명주기 동안 1개만 상주 —
+                    // Ask to Buy 승인/unfinished transaction이 스토어 화면 진입과 무관하게 적립되도록.
+                    IapTransactionObserver.shared.start()
+                    await PushManager.shared.refreshAuthorizationStatus()
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    guard phase == .active else { return }
+                    Task {
+                        // 설정 앱에서 알림 권한을 바꾸고 돌아온 경우 — 상태 재조회 + 로컬 복습 알림 재동기화.
+                        await PushManager.shared.refreshAuthorizationStatus()
+                        await DailyVocabReminder.shared.syncSchedule()
+                    }
+                }
         }
     }
 }

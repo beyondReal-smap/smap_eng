@@ -5,11 +5,19 @@ struct BookshelfView: View {
     /// 현재 선택된 프로필 — 헤더 타이틀/우상단 프로필 칩에 이름·아바타 표시용.
     /// nil인 첫 진입 순간엔 폴백("책장")으로 표시.
     let currentProfile: Profile?
+    /// 별 충전 성공 시 MainTabView가 증가시키는 토큰 — 변경을 감지해 별 잔액을 재조회한다.
+    let creditsRefreshToken: Int
     let onSwitchProfile: () -> Void
 
-    init(profileId: Int, currentProfile: Profile?, onSwitchProfile: @escaping () -> Void) {
+    init(
+        profileId: Int,
+        currentProfile: Profile?,
+        creditsRefreshToken: Int = 0,
+        onSwitchProfile: @escaping () -> Void,
+    ) {
         _viewModel = State(initialValue: BookshelfViewModel(profileId: profileId))
         self.currentProfile = currentProfile
+        self.creditsRefreshToken = creditsRefreshToken
         self.onSwitchProfile = onSwitchProfile
     }
 
@@ -57,6 +65,10 @@ struct BookshelfView: View {
             async let books: Void = viewModel.load()
             async let credits: Void = viewModel.fetchCredits()
             _ = await (books, credits)
+        }
+        // 별 충전 직후 — .task는 1회만 실행되므로 토큰 변경으로 잔액을 다시 받아온다.
+        .onChange(of: creditsRefreshToken) { _, _ in
+            Task { await viewModel.fetchCredits() }
         }
     }
 

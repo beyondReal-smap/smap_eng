@@ -10,10 +10,14 @@ struct SettingsView: View {
     /// 부모(HomeRouter)에서 프로필 선택 상태 초기화를 위해 콜백 주입.
     var onSwitchProfile: () -> Void
     var onSignOut: () -> Void
+    /// 별 충전 성공 시 상위(MainTabView)로 전달 — 책장 별 잔액 갱신 트리거.
+    var onStoreGranted: ((Int) -> Void)? = nil
 
     @State private var showDeleteSheet: Bool = false
     @State private var pushManager = PushManager.shared
     @State private var dailyReminder = DailyVocabReminder.shared
+    /// 알림 권한이 거부된 상태에서 복습 알림 토글을 켜려 할 때 — 설정 앱 이동 안내.
+    @State private var showReminderPermissionAlert: Bool = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -47,6 +51,16 @@ struct SettingsView: View {
                     onSignOut()
                 })
             }
+        }
+        .alert("알림 권한이 필요해요", isPresented: $showReminderPermissionAlert) {
+            Button("설정 열기") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("설정 앱에서 하루책의 알림을 허용하면 매일 복습 알림을 받을 수 있어요.")
         }
     }
 
@@ -143,7 +157,7 @@ struct SettingsView: View {
     private var storeSection: some View {
         Section {
             NavigationLink {
-                StoreView()
+                StoreView(onGranted: onStoreGranted)
             } label: {
                 Label("별 충전", systemImage: "sparkles")
                     .font(Font.atozBold(17))
@@ -166,12 +180,22 @@ struct SettingsView: View {
                 get: { dailyReminder.isEnabled },
                 set: { newValue in
                     if newValue {
-                        // 권한이 없으면 토글을 켤 수 없게 — 권한 요청 흐름을 동시에 시작.
+                        // 권한이 확보된 경우에만 켠다 — 거부 상태에서 무조건 true로 두면
+                        // 토글은 켜졌는데 알림은 영원히 오지 않는 상태가 된다.
                         Task {
+                            let status: UNAuthorizationStatus
                             if pushManager.authorizationStatus == .notDetermined {
-                                _ = await pushManager.requestAuthorization()
+                                status = await pushManager.requestAuthorization()
+                            } else {
+                                status = pushManager.authorizationStatus
                             }
-                            dailyReminder.isEnabled = true
+                            switch status {
+                            case .authorized, .provisional, .ephemeral:
+                                dailyReminder.isEnabled = true
+                            default:
+                                dailyReminder.isEnabled = false
+                                showReminderPermissionAlert = true
+                            }
                         }
                     } else {
                         dailyReminder.isEnabled = false

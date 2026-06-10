@@ -17,6 +17,9 @@ struct MainTabView: View {
 
     @State private var selectedTab: Tab = .bookshelf
     @State private var bookshelfPath = NavigationPath()
+    /// 별 충전 성공 시 증가 — 책장이 onChange로 감지해 별 잔액을 갱신한다.
+    /// 책장/설정 어느 경로의 StoreView에서 결제하든 같은 토큰을 공유.
+    @State private var creditsRefreshToken: Int = 0
 
     enum Tab: Hashable {
         case bookshelf
@@ -116,6 +119,7 @@ struct MainTabView: View {
             BookshelfView(
                 profileId: profileId,
                 currentProfile: currentProfile,
+                creditsRefreshToken: creditsRefreshToken,
                 onSwitchProfile: { onResetProfile() },
             )
             .safeAreaInset(edge: .bottom) { tabBarInsetSpacer }
@@ -140,7 +144,7 @@ struct MainTabView: View {
                 )
             }
             .navigationDestination(for: StoreDestination.self) { _ in
-                StoreView()
+                StoreView(onGranted: { _ in creditsRefreshToken += 1 })
             }
         }
     }
@@ -164,6 +168,7 @@ struct MainTabView: View {
             SettingsView(
                 onSwitchProfile: { onResetProfile() },
                 onSignOut: { onSignOut() },
+                onStoreGranted: { _ in creditsRefreshToken += 1 },
             )
             .safeAreaInset(edge: .bottom) { tabBarInsetSpacer }
         }
