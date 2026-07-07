@@ -42,6 +42,10 @@ struct HomeRouter: View {
                     },
                 )
                 .transition(.move(edge: .leading))
+                // 온보딩 푸시 권한 요청 — 프로필을 고르고 책장에 진입한 시점(첫 의미 있는
+                // 화면)에 요청한다. 이미 결정된 상태면 시스템 다이얼로그가 다시 뜨지 않고
+                // 권한 상태 갱신 + APNs 재등록만 수행하므로 매 진입마다 불러도 무해하다.
+                .task { await PushManager.shared.requestAuthorization() }
             } else {
                 // switching=true 면 이전 책장으로 복귀 가능. lastProfileId가 없으면(첫 로그인)
                 // 백 버튼 자체가 생기지 않는다.

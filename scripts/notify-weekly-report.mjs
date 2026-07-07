@@ -8,11 +8,35 @@
  *   NEXT_LOCAL_URL — Next 앱 로컬 주소 (기본 http://127.0.0.1:5029)
  */
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/**
+ * PM2 env 블록에는 시크릿을 넣지 않으므로(ecosystem.config.cjs 커밋 대상),
+ * process.env에 없으면 프로젝트 루트의 .env.local에서 직접 읽는다.
+ * dotenv 미설치 환경이라 KEY=VALUE 한 줄 파싱만 수행 — CRON_TOKEN 하나면 충분.
+ */
+function readEnvLocal(key) {
+  const envPath = join(dirname(fileURLToPath(import.meta.url)), '..', '.env.local');
+  let raw;
+  try {
+    raw = readFileSync(envPath, 'utf8');
+  } catch {
+    return undefined;
+  }
+  for (const line of raw.split('\n')) {
+    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (m && m[1] === key) return m[2].replace(/^["']|["']$/g, '');
+  }
+  return undefined;
+}
+
 const url = `${process.env.NEXT_LOCAL_URL ?? 'http://127.0.0.1:5029'}/api/parents/notify-weekly`;
-const token = process.env.CRON_TOKEN;
+const token = process.env.CRON_TOKEN ?? readEnvLocal('CRON_TOKEN');
 
 if (!token) {
-  console.error('[cron-weekly] CRON_TOKEN missing');
+  console.error('[cron-weekly] CRON_TOKEN missing (env & .env.local 모두 없음)');
   process.exit(1);
 }
 

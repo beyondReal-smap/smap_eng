@@ -2,6 +2,7 @@ import FirebaseCore
 import FirebaseMessaging
 import SwiftUI
 import UIKit
+import UserNotifications
 
 @main
 struct HaruBookApp: App {
@@ -57,7 +58,8 @@ struct HaruBookApp: App {
 ///   2) Messaging.delegate = self
 ///   3) APNs token 수신 → PushManager.applyDeviceToken (APNs → FCM 교환)
 ///   4) Firebase가 FCM token을 새로 발급/갱신할 때 → messaging(_:didReceiveRegistrationToken:)
-final class HaruBookAppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate {
+final class HaruBookAppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate,
+    UNUserNotificationCenterDelegate {
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil,
@@ -65,6 +67,9 @@ final class HaruBookAppDelegate: NSObject, UIApplicationDelegate, MessagingDeleg
         // GoogleService-Info.plist를 번들에서 읽어 Firebase 초기화. 1회만 호출돼야 한다.
         FirebaseApp.configure()
         Messaging.messaging().delegate = self
+        // delegate가 없으면 iOS는 포그라운드 수신 푸시를 아무것도 표시하지 않는다
+        // (조용히 소멸). 배너/사운드 표시를 위해 반드시 didFinishLaunching에서 지정.
+        UNUserNotificationCenter.current().delegate = self
         return true
     }
 
@@ -98,6 +103,17 @@ final class HaruBookAppDelegate: NSObject, UIApplicationDelegate, MessagingDeleg
         Task { @MainActor in
             await PushManager.shared.applyFcmTokenRefresh(fcmToken)
         }
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    /// 앱이 포그라운드일 때 도착한 푸시도 배너/사운드로 표시.
+    /// MessagingDelegate와 같은 이유로 nonisolated 명시 (프로토콜이 nonisolated context).
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .list, .sound, .badge]
     }
 }
 

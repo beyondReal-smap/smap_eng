@@ -36,10 +36,23 @@ final class PushManager {
 
     init() {}
 
-    /// 앱 시작 시 호출 — 현재 권한 상태를 읽어 둔다.
+    /// 앱 시작 시 호출 — 현재 권한 상태를 읽고, 이미 허용된 상태면 APNs 등록을 갱신한다.
+    ///
+    /// `registerForRemoteNotifications()`는 매 실행마다 불러야 한다: APNs device token은
+    /// OS 업데이트·백업 복원 등으로 조용히 바뀔 수 있는데, 재등록 없이는 새 token이
+    /// Firebase에 주입되지 않아 FCM이 옛 APNs token으로 발송한다 — 서버에는 성공으로
+    /// 보이지만 기기에는 영원히 도착하지 않는 상태가 된다.
     func refreshAuthorizationStatus() async {
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         self.authorizationStatus = settings.authorizationStatus
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            UIApplication.shared.registerForRemoteNotifications()
+        case .notDetermined, .denied:
+            break
+        @unknown default:
+            break
+        }
     }
 
     /// 시스템 다이얼로그로 권한 요청. 허용되면 `registerForRemoteNotifications`까지 트리거.

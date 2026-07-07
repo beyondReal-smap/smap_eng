@@ -8,8 +8,15 @@ import { handleApiError } from '../../_lib/errors';
 
 export const runtime = 'nodejs';
 
+// FCM registration token 포맷 — register 라우트와 동일 기준.
+// 과거 APNs hex 강제(40~200자, hex only)는 FCM 토큰(':', '_', '-' 포함)을 400으로
+// 거부해 로그아웃 시 토큰이 서버에 남는 버그가 있었다.
 const UnregisterRequest = z.object({
-  deviceToken: z.string().min(40).max(200).regex(/^[0-9a-fA-F]+$/),
+  deviceToken: z
+    .string()
+    .min(32)
+    .max(512)
+    .regex(/^[A-Za-z0-9_:\-\/.]+$/, 'invalid_token_format'),
 });
 
 /**
