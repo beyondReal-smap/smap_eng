@@ -1,0 +1,11 @@
+# pnpm v11 빌드 스크립트 허용 목록 — 미승인 상태면 pnpm의 모든 스크립트 실행이
+# ERR_PNPM_IGNORED_BUILDS로 실패해 deploy.sh가 동작하지 않는다 (2026-07-07).
+# 전부 정상 동작에 필요한 네이티브/설치 스크립트: esbuild·sharp·unrs-resolver(바이너리),
+# protobufjs·@firebase/util·msw(postinstall).
+allowBuilds:
+  '@firebase/util': true
+  esbuild: true
+  msw: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
