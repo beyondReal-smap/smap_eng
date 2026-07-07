@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,9 +18,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -37,6 +41,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import site.smap.harubook.R
+import site.smap.harubook.core.rewards.BadgeDef
+import site.smap.harubook.core.rewards.computePoints
+import site.smap.harubook.core.rewards.earnedBadges
 import site.smap.harubook.designsystem.PrimaryButton
 import site.smap.harubook.designsystem.PrimaryButtonVariant
 import site.smap.harubook.designsystem.SmapBackground
@@ -47,6 +54,7 @@ import site.smap.harubook.designsystem.SmapBorder
 import site.smap.harubook.designsystem.SmapCaptionStyle
 import site.smap.harubook.designsystem.SmapDanger
 import site.smap.harubook.designsystem.SmapDisplayStyle
+import site.smap.harubook.designsystem.SmapGold
 import site.smap.harubook.designsystem.SmapMuted
 import site.smap.harubook.designsystem.SmapPrimary
 import site.smap.harubook.designsystem.SmapPrimarySoft
@@ -83,6 +91,9 @@ fun StatsDashboardScreen(profileId: Int) {
 @Composable
 private fun StatsContent(state: StatsUiState) {
     val summary = state.summary!!
+    // 포인트·배지 — 웹 rewards.ts 파생 집계. summary 가 바뀔 때만 재계산.
+    val rewardPoints = remember(summary) { computePoints(summary) }
+    val badges = remember(summary) { earnedBadges(summary) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -107,6 +118,13 @@ private fun StatsContent(state: StatsUiState) {
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+        // 모은 포인트 + 획득 배지 — 웹 learning-summary PointsCard 패리티.
+        // 획득한 것이 아무것도 없으면 카드 자체를 렌더하지 않는다(결핍 강조 방지).
+        if (rewardPoints > 0 || badges.isNotEmpty()) {
+            item {
+                PointsCard(points = rewardPoints, badges = badges)
+            }
+        }
         // 누적 성취 — iOS 와 동일 4개 카드. 이전엔 섹션 제목이 빠져 있었다.
         item {
             SectionTitle(stringResource(R.string.stats_section_summary))
@@ -150,6 +168,77 @@ private fun StatsContent(state: StatsUiState) {
             RecentQuizSection(books = state.books, stats = state.stats)
         }
         item { Spacer(Modifier.height(12.dp)) }
+        }
+    }
+}
+
+/**
+ * 모은 포인트 + 획득 배지 카드 — 웹 `learning-summary/points-card.tsx` 패리티.
+ *
+ * "압박 없는" 톤: 이미 획득한 것만 보여준다. 다음 배지 조건이나
+ * "N점 더 모으면" 같은 결핍 프레이밍은 넣지 않는다(미획득 배지 미표시).
+ * 노출 여부(포인트 0 && 배지 0 → 미노출)는 호출부(StatsContent)에서 판정.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PointsCard(points: Int, badges: List<BadgeDef>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SmapSurface, RoundedCornerShape(16.dp))
+            .border(1.dp, SmapBorder, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // 메달 아이콘 — 웹 lucide Medal 대응.
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(SmapGold.copy(alpha = 0.3f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MilitaryTech,
+                    contentDescription = null,
+                    tint = SmapText,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("모은 포인트", style = SmapBodyEmphasisStyle, color = SmapText)
+                Text("읽고, 풀고, 외울 때마다 쌓여요", style = SmapCaptionStyle, color = SmapMuted)
+            }
+            Text(
+                text = "%,dP".format(points),
+                style = SmapBodyEmphasisStyle,
+                color = SmapPrimary,
+                modifier = Modifier
+                    .background(SmapPrimarySoft, CircleShape)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            )
+        }
+
+        if (badges.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                badges.forEach { badge ->
+                    Text(
+                        text = "${badge.emoji} ${badge.title}",
+                        style = SmapBadgeStyle,
+                        color = SmapText,
+                        modifier = Modifier
+                            .background(SmapBackground, CircleShape)
+                            .border(1.dp, SmapBorder, CircleShape)
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    )
+                }
+            }
         }
     }
 }

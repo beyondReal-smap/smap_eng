@@ -79,7 +79,14 @@ object ApiClient {
         path: String,
         body: Any? = null,
         requiresAuth: Boolean = true,
-    ): R = request(HttpMethod.Post, path, body = body, requiresAuth = requiresAuth)
+        timeoutMillis: Long? = null,
+    ): R = request(
+        HttpMethod.Post,
+        path,
+        body = body,
+        requiresAuth = requiresAuth,
+        timeoutMillis = timeoutMillis,
+    )
 
     suspend inline fun <reified R> patch(
         path: String,
@@ -94,8 +101,9 @@ object ApiClient {
         query: Map<String, String> = emptyMap(),
         body: Any? = null,
         requiresAuth: Boolean = true,
+        timeoutMillis: Long? = null,
     ): R {
-        val response = sendRaw(method, path, query, body, requiresAuth)
+        val response = sendRaw(method, path, query, body, requiresAuth, timeoutMillis)
 
         if (response.status.value == 401 && requiresAuth) {
             AuthState.handleUnauthorized()
@@ -122,6 +130,7 @@ object ApiClient {
         query: Map<String, String>,
         body: Any?,
         requiresAuth: Boolean,
+        timeoutMillis: Long? = null,
     ): HttpResponse = try {
         client.request {
             this.method = method
@@ -133,6 +142,14 @@ object ApiClient {
             }
             if (body != null && body !== Unit) {
                 setBody(body)
+            }
+            // 오래 걸리는 호출(TTS 합성 등)용 per-request 상향. requestTimeout만 올리면
+            // 클라이언트 기본 socketTimeout(60s)이 먼저 발화하므로 둘을 함께 지정한다.
+            timeoutMillis?.let { t ->
+                timeout {
+                    requestTimeoutMillis = t
+                    socketTimeoutMillis = t
+                }
             }
         }
     } catch (e: CancellationException) {
@@ -165,7 +182,14 @@ object ApiClient {
                 }
                 contentType(ContentType.Application.Json)
                 setBody(payload)
-                timeout { requestTimeoutMillis = timeoutMillis }
+                timeout {
+                    requestTimeoutMillis = timeoutMillis
+                    // OkHttp 엔진에서 socketTimeout은 read timeout으로 매핑된다.
+                    // LLM 책 생성은 서버가 첫 응답 바이트까지 60초+ 침묵하므로,
+                    // 여기서 함께 상향하지 않으면 클라이언트 기본 socketTimeout(60s)이
+                    // requestTimeout(180s)보다 먼저 발화해 SocketTimeoutException이 난다.
+                    socketTimeoutMillis = timeoutMillis
+                }
             }
         } catch (e: CancellationException) {
             throw e

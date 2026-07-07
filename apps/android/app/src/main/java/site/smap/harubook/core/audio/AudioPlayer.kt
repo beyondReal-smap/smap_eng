@@ -40,10 +40,17 @@ object AudioPlayer {
 
     data class State(
         val nowPlayingPassageId: Int? = null,
+        /** 일시정지 여부 — pause 시에도 nowPlayingPassageId는 유지되므로(재개용),
+         *  버튼 라벨("듣기"↔"정지")은 이 플래그까지 봐야 한다. */
+        val isPaused: Boolean = false,
         val preparingPassageId: Int? = null,
         val lastError: String? = null,
     ) {
-        val isPlaying: Boolean get() = nowPlayingPassageId != null
+        val isPlaying: Boolean get() = nowPlayingPassageId != null && !isPaused
+
+        /** 해당 passage가 실제로 소리를 내며 재생 중인지 — 라벨/하이라이트 판정용. */
+        fun isActivelyPlaying(passageId: Int?): Boolean =
+            passageId != null && nowPlayingPassageId == passageId && !isPaused
     }
 
     fun init(context: Context) {
@@ -56,7 +63,13 @@ object AudioPlayer {
         val current = _state.value
         if (current.nowPlayingPassageId == passageId) {
             val p = player ?: return
-            if (p.isPlaying) p.pause() else p.start()
+            if (p.isPlaying) {
+                p.pause()
+                _state.update { it.copy(isPaused = true) }
+            } else {
+                p.start()
+                _state.update { it.copy(isPaused = false) }
+            }
             return
         }
         if (audioPath.isNullOrEmpty()) {
@@ -80,7 +93,9 @@ object AudioPlayer {
         runCatching { player?.stop() }
         runCatching { player?.release() }
         player = null
-        _state.update { it.copy(preparingPassageId = passageId, nowPlayingPassageId = null) }
+        _state.update {
+            it.copy(preparingPassageId = passageId, nowPlayingPassageId = null, isPaused = false)
+        }
 
         inFlight = scope.launch {
             try {
@@ -88,7 +103,7 @@ object AudioPlayer {
                 val mp = MediaPlayer().apply {
                     setDataSource(file.absolutePath)
                     setOnCompletionListener {
-                        _state.update { it.copy(nowPlayingPassageId = null) }
+                        _state.update { it.copy(nowPlayingPassageId = null, isPaused = false) }
                     }
                     setOnErrorListener { _, what, extra ->
                         _state.update { it.copy(preparingPassageId = null, lastError = "오디오 오류 ($what/$extra)") }

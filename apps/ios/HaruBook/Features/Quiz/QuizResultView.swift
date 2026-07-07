@@ -30,6 +30,11 @@ struct QuizResultView: View {
         }
     }
 
+    /// 이번 세션 획득 포인트 — 완독 +10, 만점 보너스 +20 (웹 ScoreHeader의 sessionPoints 미러).
+    private var earnedPoints: Int {
+        Rewards.sessionPoints(isPerfect: total > 0 && score == total)
+    }
+
     var body: some View {
         ZStack {
             Color.smapBackground.ignoresSafeArea()
@@ -57,6 +62,14 @@ struct QuizResultView: View {
                     Text("\(percentage)점")
                         .font(.smapHeading)
                         .foregroundStyle(Color.smapMuted)
+                    // 이번 세션 획득 포인트 축하 배지 — 결과 헤더 톤에 맞춘 필(pill).
+                    Text("✨ +\(earnedPoints)P 획득!")
+                        .font(Font.atozBold(15))
+                        .foregroundStyle(Color.smapPrimaryForeground)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Color.smapPrimarySoft, in: Capsule())
+                        .padding(.top, 4)
                 }
 
                 Spacer()

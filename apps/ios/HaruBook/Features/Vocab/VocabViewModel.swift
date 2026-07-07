@@ -44,6 +44,13 @@ final class VocabViewModel {
     var isFlipped: Bool = false
     var isSpeaking: Bool = false
 
+    // 학습 컴패니언 — 평가 이벤트에 반응 후 idle 복귀(웹 vocab-deck과 동일 타이밍).
+    /// 현재 컴패니언 상태. 세션 완료 화면의 celebrate 고정은 뷰에서 처리.
+    private(set) var companionState: CompanionState = .idle
+    /// 같은 상태가 연속돼도 연출·문구가 갱신되도록 하는 카운터.
+    private(set) var companionPulse: Int = 0
+    @ObservationIgnored private var companionResetTask: Task<Void, Never>?
+
     let profileId: Int
 
     private var audioCache: [String: String] = [:]
@@ -157,8 +164,12 @@ final class VocabViewModel {
 
     func grade(_ g: SrsGrade) {
         guard let cur = current else { return }
-        _ = srs.grade(cur.word, g)
+        let next = srs.grade(cur.word, g)
         isFlipped = false
+
+        // 컴패니언 반응 — 정답(good)으로 마스터에 도달하면 축하, 아니면 정/오답 반응.
+        let mastered = g == .good && next.level >= SrsStore.maxLevel
+        reactCompanion(mastered ? .celebrate : (g == .good ? .correct : .wrong))
 
         if g == .again {
             // 현재 단어를 entries 끝으로 이동 — 즉시 한 번 더 보게.
@@ -170,6 +181,20 @@ final class VocabViewModel {
         } else {
             // 한 칸 전진. 마지막이면 유지.
             index = Swift.min(index + 1, Swift.max(0, deck.count - 1))
+        }
+    }
+
+    /// 컴패니언 상태 전환 + idle 복귀 타이머. 연속 평가 시 이전 타이머는 취소(리셋).
+    /// correct/wrong 1.8초, celebrate 2.6초 — 웹 vocab-deck과 동일.
+    private func reactCompanion(_ state: CompanionState) {
+        companionState = state
+        companionPulse += 1
+        companionResetTask?.cancel()
+        let delayNs = UInt64((state == .celebrate ? 2.6 : 1.8) * 1_000_000_000)
+        companionResetTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delayNs)
+            guard !Task.isCancelled else { return }
+            self?.companionState = .idle
         }
     }
 

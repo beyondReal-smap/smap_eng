@@ -50,6 +50,7 @@ struct StatsDashboardView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     summarySection
+                    pointsSection
                     levelSection
                     monthlySection
                     vocabSection
@@ -90,6 +91,85 @@ struct StatsDashboardView: View {
                     label: "평균 정답률",
                     value: Int(((viewModel.summary?.averageAccuracy ?? 0) * 100).rounded()),
                     unit: "%",
+                )
+            }
+        }
+    }
+
+    // MARK: - 모은 포인트
+
+    /// 누적 포인트 + 획득 배지 카드 — 웹 `points-card.tsx` 미러.
+    /// "압박 없는" 톤: 이미 획득한 것만 보여준다(미획득 배지·다음 조건 미표시).
+    /// 포인트 0 + 배지 0이면 카드 자체 미노출(결핍 강조 방지).
+    @ViewBuilder
+    private var pointsSection: some View {
+        if let summary = viewModel.summary {
+            let stats = summary.rewardStats
+            let points = Rewards.computePoints(stats)
+            let badges = Rewards.earnedBadges(stats)
+            if points > 0 || !badges.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 10) {
+                        ZStack {
+                            Circle().fill(Color.smapGold.opacity(0.35))
+                            Image(systemName: "medal.fill")
+                                .font(.system(size: 15, weight: .bold))
+                                // smapGold는 배경용 파스텔 — 아이콘은 진한 골드 잉크(단어장 Lv 칩과 동일 계열).
+                                .foregroundStyle(Color(hex: 0x8A6300))
+                        }
+                        .frame(width: 36, height: 36)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("모은 포인트")
+                                .font(.smapHeading)
+                                .foregroundStyle(Color.smapText)
+                            Text("읽고, 풀고, 외울 때마다 쌓여요")
+                                .font(.smapCaption)
+                                .foregroundStyle(Color.smapMuted)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        Text("\(points)P")
+                            .font(Font.atozBold(15))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.smapPrimaryForeground)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.smapPrimarySoft, in: Capsule())
+                    }
+
+                    if !badges.isEmpty {
+                        LazyVGrid(
+                            columns: [GridItem(.adaptive(minimum: 100), spacing: 6)],
+                            alignment: .leading,
+                            spacing: 6,
+                        ) {
+                            ForEach(badges) { badge in
+                                HStack(spacing: 4) {
+                                    Text(badge.emoji)
+                                        .font(.system(size: 12))
+                                    Text(badge.title)
+                                        .font(Font.atozBold(12))
+                                        .foregroundStyle(Color.smapText)
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity)
+                                .background(Color.smapBackground, in: Capsule())
+                                .overlay(Capsule().stroke(Color.smapBorder, lineWidth: 1))
+                                .accessibilityLabel("\(badge.title) — \(badge.description)")
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+                .background(Color.smapSurface)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.smapBorder, lineWidth: 1),
                 )
             }
         }

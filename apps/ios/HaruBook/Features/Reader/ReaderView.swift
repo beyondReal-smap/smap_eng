@@ -81,19 +81,23 @@ struct ReaderView: View {
         TabView(
             selection: Binding(
                 get: { viewModel.currentIndex },
-                set: { newValue in
-                    Task { await viewModel.reportPageChanged(to: newValue) }
-                }
+                // 동기 갱신 필수 — Task로 미루면 TabView가 바인딩 불일치로 페이지를
+                // 되돌리는(스냅백) 오작동이 난다. pageChanged 내부에서 서버 PATCH만 비동기.
+                set: { newValue in viewModel.pageChanged(to: newValue) }
             )
         ) {
             ForEach(Array(viewModel.passages.enumerated()), id: \.offset) { index, passage in
-                let isPlaying = audio.nowPlayingPassageId == passage.id
+                let isPlaying = audio.isActivelyPlaying(passageId: passage.id)
                 PassageView(
                     passage: passage,
                     vocabulary: viewModel.book.vocabulary ?? [],
                     showsKorean: viewModel.showsKorean,
                     isPlaying: isPlaying,
                     textScale: viewModel.textScale,
+                    mission: viewModel.mission(for: index),
+                    missionDone: viewModel.missionsDone.contains(index),
+                    onWordTap: { word in viewModel.handleWordTap(word, passageIndex: index) },
+                    onMissionComplete: { viewModel.completeMission(at: index) },
                 )
                 .tag(index)
             }
@@ -112,7 +116,7 @@ struct ReaderView: View {
     private var bottomBar: some View {
         let isLastPage = viewModel.currentIndex + 1 >= viewModel.passages.count
         let passage = viewModel.passages[viewModel.currentIndex]
-        let isPlaying = audio.nowPlayingPassageId == passage.id
+        let isPlaying = audio.isActivelyPlaying(passageId: passage.id)
         let isPreparing = audio.preparingPassageId == passage.id
             || viewModel.synthesizingPassageId == passage.id
 
@@ -184,7 +188,7 @@ struct ReaderView: View {
         return Button {
             if !isDisabled {
                 Haptic.play(.lightTap)
-                Task { await viewModel.reportPageChanged(to: viewModel.currentIndex - 1) }
+                viewModel.pageChanged(to: viewModel.currentIndex - 1)
             }
         } label: {
             HStack(spacing: 4) {
@@ -210,7 +214,7 @@ struct ReaderView: View {
             let next = viewModel.currentIndex + 1
             if next < viewModel.passages.count {
                 Haptic.play(.lightTap)
-                Task { await viewModel.reportPageChanged(to: next) }
+                viewModel.pageChanged(to: next)
             }
         } label: {
             HStack(spacing: 4) {
