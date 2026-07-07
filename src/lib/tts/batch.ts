@@ -1,5 +1,5 @@
 // 책 단위 TTS 일괄 생성 — 동화 생성 직후 after()로 킥오프된다.
-// Kokoro는 CPU/GPU 바운드라 동시성을 올려도 이득이 적어 동시성 1로 순차 처리.
+// Supertonic은 CPU 바운드(ONNX)라 동시성을 올려도 이득이 적어 동시성 1로 순차 처리.
 // 한 passage가 실패해도 나머지는 계속 — Reader가 on-demand로 재시도할 수 있다.
 import { getBookById, listPassagesByBook } from '@/lib/db/queries';
 import { synthesizePassage } from './persist';

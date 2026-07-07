@@ -45,7 +45,9 @@ async function authorizeImageFile(file: string): Promise<void> {
  * FLUX가 생성한 표지/장면 PNG를 런타임 런에서도 서빙한다.
  */
 
-const FILE_RE = /^(?:book|passage)-\d+(?:-[a-z]+)?\.png$/;
+// authorizeImageFile이 인식하는 두 형식과 1:1 정합 — 1차 게이트(FILE_RE)가
+// 2차 게이트(authorize)보다 넓으면 향후 패턴 추가 시 검증 누락 여지가 생긴다.
+const FILE_RE = /^(?:book-\d+-cover|passage-\d+-scene)\.png$/;
 const IMAGE_DIR = path.resolve(process.cwd(), 'public', 'images');
 
 function nodeStreamToWeb(filePath: string): ReadableStream {

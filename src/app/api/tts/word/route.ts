@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
-import { synthesize, TtsError } from '@/lib/tts/kokoro';
+import { synthesize, TtsError } from '@/lib/tts/supertonic';
 import { requireUserIdForApi } from '@/lib/auth/session';
 import { handleApiError } from '../../_lib/errors';
 
@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 /**
  * POST /api/tts/word   body: { text: string }
  *
- * 임의 단어·짧은 구를 Kokoro로 합성해 /public/audio/word-<slug>.wav 에 캐시.
+ * 임의 단어·짧은 구를 Supertonic으로 합성해 /public/audio/word-<slug>.mp3 에 캐시.
  * 동일 텍스트는 파일명이 같아 멱등(같은 응답). 클라이언트는 반환된 audioPath로
  * 곧바로 <audio> 재생 가능.
  *
@@ -33,6 +33,42 @@ async function fileExists(p: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+interface WordAudio {
+  audioPath: string;
+  cached: boolean;
+  bytes?: number;
+}
+
+// 동일 텍스트 동시 요청 병합 — 단어장에서 같은 단어를 연타하면 캐시 파일이
+// 생기기 전에 두 요청이 모두 Supertonic을 때린다(합성이 가장 비싼 경로).
+// persist.ts의 passage 단위 inFlight와 동일한 패턴 — 단일 프로세스 기준.
+const inFlightWords = new Map<string, Promise<WordAudio>>();
+
+function synthesizeWordOnce(text: string, slug: string): Promise<WordAudio> {
+  const existing = inFlightWords.get(slug);
+  if (existing) return existing;
+
+  const promise = (async (): Promise<WordAudio> => {
+    const filename = `word-${slug}.mp3`;
+    const abs = path.join(AUDIO_DIR, filename);
+    const webPath = `/audio/${filename}`;
+
+    if (await fileExists(abs)) {
+      return { audioPath: webPath, cached: true };
+    }
+
+    const wav = await synthesize({ text });
+    await mkdir(AUDIO_DIR, { recursive: true });
+    await writeFile(abs, wav);
+    return { audioPath: webPath, cached: false, bytes: wav.byteLength };
+  })();
+
+  inFlightWords.set(slug, promise);
+  // 성공/실패와 무관하게 제거 — 실패 시 다음 요청이 재시도할 수 있게 한다.
+  promise.finally(() => inFlightWords.delete(slug)).catch(() => void 0);
+  return promise;
 }
 
 /**
@@ -58,17 +94,10 @@ export async function POST(req: NextRequest) {
     await requireUserIdForApi();
     const { text } = Schema.parse(await req.json());
     const slug = audioSlug(text);
-    const filename = `word-${slug}.wav`;
-    const abs = path.join(AUDIO_DIR, filename);
-    const webPath = `/audio/${filename}`;
 
-    if (await fileExists(abs)) {
-      return NextResponse.json({ text, audioPath: webPath, cached: true });
-    }
-
-    let wav: Uint8Array;
+    let result: WordAudio;
     try {
-      wav = await synthesize({ text });
+      result = await synthesizeWordOnce(text, slug);
     } catch (err) {
       if (err instanceof TtsError) {
         return NextResponse.json(
@@ -79,17 +108,14 @@ export async function POST(req: NextRequest) {
       throw err;
     }
 
-    await mkdir(AUDIO_DIR, { recursive: true });
-    await writeFile(abs, wav);
-
     return NextResponse.json(
       {
         text,
-        audioPath: webPath,
-        cached: false,
-        bytes: wav.byteLength,
+        audioPath: result.audioPath,
+        cached: result.cached,
+        ...(result.bytes !== undefined ? { bytes: result.bytes } : {}),
       },
-      { status: 201 },
+      { status: result.cached ? 200 : 201 },
     );
   } catch (err) {
     return handleApiError(err);

@@ -3,13 +3,13 @@
 // books.alternate_ending JSON에 인라인 저장되므로 id가 없다. 대신 책 id + 분기 +
 // orderIndex로 파일명을 구성해 안정적인 캐시 키로 사용한다.
 //
-// 파일 명명: /public/audio/ending-<bookId>-<A|B>-<idx>.wav
+// 파일 명명: /public/audio/ending-<bookId>-<A|B>-<idx>.mp3 (구버전 책은 .wav)
 // 합성 실패한 슬롯은 '' (빈 문자열)로 보존 — Reader에서 falsy 체크로 음성 없음 처리.
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AlternateEnding } from '@/lib/db/schema';
 import { updateBookEndingAudioPaths } from '@/lib/db/queries';
-import { synthesize } from './kokoro';
+import { synthesize } from './supertonic';
 
 const AUDIO_DIR = path.resolve(process.cwd(), 'public', 'audio');
 
@@ -18,7 +18,7 @@ function endingAudioFile(
   branch: 'A' | 'B',
   idx: number,
 ): { abs: string; webPath: string } {
-  const filename = `ending-${bookId}-${branch}-${idx}.wav`;
+  const filename = `ending-${bookId}-${branch}-${idx}.mp3`;
   return { abs: path.join(AUDIO_DIR, filename), webPath: `/audio/${filename}` };
 }
 

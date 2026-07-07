@@ -4,6 +4,7 @@ import path from 'node:path';
 import { NextRequest } from 'next/server';
 import {
   ApiAuthError,
+  requireBookOwnershipForApi,
   requirePassageOwnershipForApi,
   requireUserIdForApi,
 } from '@/lib/auth/session';
@@ -12,15 +13,16 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * 파일명 → 소유권 검증.
- *  - passage-<id>.wav → 해당 passage가 현재 user 소유여야 함
- *  - word-<slug>.wav → 단어 TTS는 ownership 단위가 없음. 인증만 강제(슬러그 enumeration 위험은
+ * 파일명 → 소유권 검증. (확장자는 신규 .mp3 + 구버전 캐시 .wav 모두 허용)
+ *  - passage-<id>.(mp3|wav) → 해당 passage가 현재 user 소유여야 함
+ *  - ending-<bookId>-<A|B>-<idx>.(mp3|wav) → 해당 book이 현재 user 소유여야 함
+ *  - word-<slug>.(mp3|wav) → 단어 TTS는 ownership 단위가 없음. 인증만 강제(슬러그 enumeration 위험은
  *    SHA-1 해시 suffix로 추측 어려움 + 무작위 단어로 재합성 가능 — 인증만으로 충분).
  *
  * BOLA 회피: 비소유/비존재 → 404 (`not found`)로 통일. 통상 응답과 동일 텍스트.
  */
 async function authorizeAudioFile(file: string): Promise<void> {
-  const passageMatch = /^passage-(\d+)\.wav$/.exec(file);
+  const passageMatch = /^passage-(\d+)\.(?:wav|mp3)$/.exec(file);
   if (passageMatch) {
     const id = Number(passageMatch[1]);
     if (!Number.isInteger(id) || id <= 0) {
@@ -29,7 +31,16 @@ async function authorizeAudioFile(file: string): Promise<void> {
     await requirePassageOwnershipForApi(id);
     return;
   }
-  if (/^word-[a-z0-9_-]{1,80}\.wav$/.test(file)) {
+  const endingMatch = /^ending-(\d+)-[AB]-\d+\.(?:wav|mp3)$/.exec(file);
+  if (endingMatch) {
+    const bookId = Number(endingMatch[1]);
+    if (!Number.isInteger(bookId) || bookId <= 0) {
+      throw new ApiAuthError('not_found', 404);
+    }
+    await requireBookOwnershipForApi(bookId);
+    return;
+  }
+  if (/^word-[a-z0-9_-]{1,80}\.(?:wav|mp3)$/.test(file)) {
     await requireUserIdForApi();
     return;
   }
@@ -49,17 +60,25 @@ function authErrorToResponse(err: unknown): Response | null {
  * Next.js 16 Turbopack이 빌드 타임 이후 생성된 public 파일을 404로 처리하는 문제를 우회.
  *
  * 보안:
- *  - 파일명은 `passage-<digit>.wav` 형식만 허용(경로 탈출 방지).
+ *  - 파일명은 FILE_RE의 세 가지 형식만 허용(경로 탈출 방지).
  *  - 실제 파일은 프로젝트 루트의 `public/audio/` 안에서만 접근.
  *
  * HTTP Range:
  *  - <audio controls>는 대부분 Range 요청으로 seek한다. 206 Partial Content 지원.
  */
 
-// passage-<id>.wav | word-<slug>.wav 형식만 허용.
+// passage-<id> | ending-<bookId>-<A|B>-<idx> | word-<slug> 형식만 허용.
+// 확장자는 신규 .mp3 + 구버전 캐시 .wav. ending은 결말 분기 사전 합성 파일 —
+// 기존 정규식에 빠져 있어 결말 오디오가 404로 떨어지던 버그를 함께 수정.
 // word 슬러그는 소문자·숫자·밑줄·하이픈만. 경로 탈출·예상 외 확장자 차단.
-const FILE_RE = /^(?:passage-\d+|word-[a-z0-9_-]{1,80})\.wav$/;
+const FILE_RE =
+  /^(?:passage-\d+|ending-\d+-[AB]-\d+|word-[a-z0-9_-]{1,80})\.(?:wav|mp3)$/;
 const AUDIO_DIR = path.resolve(process.cwd(), 'public', 'audio');
+
+// 확장자별 Content-Type — 구버전 .wav와 신규 .mp3가 공존한다.
+function contentTypeFor(file: string): string {
+  return file.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav';
+}
 
 function parseRange(header: string | null, size: number) {
   if (!header) return null;
@@ -146,7 +165,7 @@ export async function GET(
     // 인증 게이트를 통과한 사용자별 자원이므로 공유 캐시 금지(private).
     const etag = `W/"${size.toString(16)}-${Math.floor(s.mtimeMs).toString(16)}"`;
     const commonHeaders = {
-      'Content-Type': 'audio/wav',
+      'Content-Type': contentTypeFor(file),
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'private, max-age=3600',
       ETag: etag,
@@ -212,7 +231,7 @@ export async function HEAD(
     return new Response(null, {
       status: 200,
       headers: {
-        'Content-Type': 'audio/wav',
+        'Content-Type': contentTypeFor(file),
         'Content-Length': String(s.size),
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'private, max-age=3600',

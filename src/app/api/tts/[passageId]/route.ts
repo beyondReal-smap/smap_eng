@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 /**
  * 지정 passage의 TTS 오디오를 생성·캐싱하고 웹 경로(/audio/...)를 돌려준다.
  * 파일이 이미 있으면 재합성하지 않는다(멱등). 배치 생성과 동일한 공통 헬퍼를 호출해
- * 두 경로가 동시에 들어와도 Kokoro는 한 번만 실행된다.
+ * 두 경로가 동시에 들어와도 Supertonic은 한 번만 실행된다.
  */
 export async function POST(
   req: NextRequest,
