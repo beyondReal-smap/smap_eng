@@ -3,6 +3,9 @@ import type { BookIntakeInput, Level } from '../schemas';
 
 interface LevelGuideline {
   passageCount: [number, number];
+  /** passage 1개당 문장 수 범위 — 한 화면이 미니 장면(mini-scene)이 되도록. */
+  sentencesPerPassage: [number, number];
+  /** passage 1개 전체의 영어 단어 수 범위(문장 합산). */
   wordsPerPassage: [number, number];
   /** 책 전체 vocabulary 엔트리 수 범위. 레벨이 높을수록 더 많이. */
   vocabCount: [number, number];
@@ -16,66 +19,72 @@ function levelGuideline(level: Level): LevelGuideline {
 
   if (cefr === 'A1' && age <= 6) {
     return {
-      passageCount: [8, 12],
-      wordsPerPassage: [4, 7],
+      passageCount: [12, 16],
+      sentencesPerPassage: [3, 4],
+      wordsPerPassage: [12, 22],
       // passage당 1~2개 어휘가 나오도록 상향
-      vocabCount: [12, 20],
+      vocabCount: [18, 28],
       grammar: 'present simple only, no contractions, avoid auxiliary verbs',
       style: 'very short, cheerful sentences a 5-year-old can read aloud',
-      examples: '"The cat is small. It likes milk. It runs fast."',
+      examples: '"The cat is small. It likes milk. It runs fast. It naps in the warm sun."',
     };
   }
   if (cefr === 'A1' || (cefr === 'A2' && age <= 7)) {
     return {
-      passageCount: [12, 18],
-      wordsPerPassage: [6, 10],
+      passageCount: [14, 20],
+      sentencesPerPassage: [3, 4],
+      wordsPerPassage: [18, 32],
       // passage당 2개 내외
-      vocabCount: [22, 32],
+      vocabCount: [30, 42],
       grammar: 'present and past simple, simple conjunctions (and, but, so)',
       style: 'simple storybook rhythm with repetition and clear cause-effect',
-      examples: '"The fox walked into the forest. He saw a little rabbit."',
+      examples:
+        '"The fox walked into the forest. He saw a little rabbit. The rabbit looked sad, so the fox stopped."',
     };
   }
   if (cefr === 'A2') {
     return {
-      passageCount: [16, 22],
-      wordsPerPassage: [10, 16],
+      passageCount: [18, 24],
+      sentencesPerPassage: [3, 5],
+      wordsPerPassage: [30, 50],
       // passage당 2~3개
-      vocabCount: [32, 48],
+      vocabCount: [42, 60],
       grammar:
         'past simple/continuous, present perfect, time and reason conjunctions (when, while, because, so that), descriptive adjectives/adverbs, compound sentences',
       style:
         'richer narration with sensory details (sight, sound, smell), short compound sentences, a touch of dialogue',
       examples:
-        '"While the golden sun was setting behind the mountains, Maya carefully climbed the tall oak tree because she wanted to find her lost kite."',
+        '"While the golden sun was setting behind the mountains, Maya carefully climbed the tall oak tree. She wanted to find her lost kite before dark. Far below, her little brother held his breath and watched."',
     };
   }
   if (cefr === 'B1') {
     return {
-      passageCount: [22, 30],
-      wordsPerPassage: [12, 22],
+      passageCount: [20, 28],
+      sentencesPerPassage: [3, 5],
+      wordsPerPassage: [45, 70],
       // passage당 2~3개
-      vocabCount: [45, 65],
+      vocabCount: [58, 80],
       grammar:
         'past simple/continuous/perfect, relative clauses (who/which/that/where), reported speech, first/second conditionals, linking adverbs (however, suddenly, meanwhile), varied adjectives/adverbs',
       style:
         'vivid middle-grade storytelling: scene transitions, a small emotional arc, characters with clear feelings and motives, natural dialogue',
       examples:
-        '"Ethan, who had never seen the ocean before, stared in wonder as the enormous waves crashed against the black rocks, filling the air with a salty mist that tasted of adventure."',
+        '"Ethan, who had never seen the ocean before, stared in wonder as the enormous waves crashed against the black rocks. The air filled with a salty mist that tasted of adventure. Somewhere beyond the fog, a lighthouse blinked slowly, as if it were calling his name."',
     };
   }
   // B2 — 9~10세 상위 도전 단계
   return {
-    passageCount: [24, 30],
-    wordsPerPassage: [16, 28],
+    passageCount: [22, 30],
+    sentencesPerPassage: [4, 6],
+    wordsPerPassage: [60, 95],
     // passage당 3개 내외 — 가장 풍부한 어휘 노출
-    vocabCount: [60, 85],
+    vocabCount: [75, 100],
     grammar:
       'full range of past and present tenses including past perfect continuous, mixed conditionals, passive voice where natural, complex relative clauses, participle phrases, advanced linking (nevertheless, despite, in spite of, as a result), idiomatic expressions used sparingly',
     style:
       'upper-middle-grade literary storytelling: layered description, foreshadowing, figurative language (simple metaphors and similes), nuanced character emotions, short moments of introspection, tight paragraph pacing',
     examples:
-      '"Having waited for what felt like an eternity at the edge of the whispering forest, Ellie finally took a deep breath and stepped inside, her heart pounding like a drum while the silver leaves shivered above her, as if the trees themselves were watching."',
+      '"Having waited for what felt like an eternity at the edge of the whispering forest, Ellie finally took a deep breath and stepped inside. Her heart pounded like a drum while the silver leaves shivered above her, as if the trees themselves were watching. Somewhere deeper among the shadows, something answered her arrival with a low, patient hum."',
   };
 }
 
@@ -192,6 +201,15 @@ export function buildBookPrompt({
 - Do NOT output a "funFacts" field for fiction.
 </alternate_endings>`;
 
+  const missionsBlock = `<in_book_missions>
+- Output a "missions" array with 3-4 mini-game entries spread across the book (never two missions on adjacent passages; none on the first or last passage).
+- Each entry: { "passageIndex": 0-based index into "passages", "wordHunt"?: { "targetWord", "hintKo" }, "check"?: { "question", "choices": [two options], "answerIndex": 0 or 1 } }.
+- Each mission has EITHER wordHunt OR check, not both. Use 2-3 wordHunt and 1-2 check missions.
+- wordHunt.targetWord MUST be a word that (a) appears verbatim in that passage's "en" text AND (b) is one of the book's "vocabulary" entries. hintKo is one playful Korean sentence telling the child what to find WITHOUT saying the English word itself (e.g., "'용감한'이라는 뜻의 단어를 찾아 눌러 봐!").
+- check.question is a simple Korean comprehension question answerable ONLY from that passage (or earlier ones). Both choices are short Korean phrases; exactly one is correct. Keep it easy and encouraging — this is a fun checkpoint, not a test.
+- Missions must never spoil events that happen AFTER their passage.
+</in_book_missions>`;
+
   const nonFictionFunFactsBlock = `<fun_facts>
 - After the main passages, output a "funFacts" array with 2-3 short additional facts that extend the topic.
 - Each entry: { "title": short English headline (1-7 words), "body": one short Korean sentence (한 문장, 30~140자) explaining the fact in kid-friendly Korean }.
@@ -251,8 +269,10 @@ You are writing for Korean children aged ${age} at CEFR level ${cefr}.
 </language_rules>
 
 <length_rules>
-- Produce ${guide.passageCount[0]} to ${guide.passageCount[1]} passages. A passage may be one sentence or a short pair of connected sentences.
-- Each passage should be approximately ${guide.wordsPerPassage[0]}-${guide.wordsPerPassage[1]} English words. Vary sentence length within the range to avoid a monotonous rhythm.
+- Produce ${guide.passageCount[0]} to ${guide.passageCount[1]} passages.
+- Each passage is a mini-scene of ${guide.sentencesPerPassage[0]}-${guide.sentencesPerPassage[1]} connected sentences, approximately ${guide.wordsPerPassage[0]}-${guide.wordsPerPassage[1]} English words in total. Single-sentence passages are NOT acceptable.
+- Use the extra sentences to DEEPEN the scene — a character's feeling or reaction, one concrete sensory detail, or a short line of dialogue — never to repeat information already stated or to pad with decoration.
+- Vary sentence length within each passage to avoid a monotonous rhythm.
 </length_rules>
 
 ${narrativeQualityBlock}
@@ -274,7 +294,9 @@ ${narrativeQualityBlock}
 - Exclude trivial function words (the, a, an, is, are, was, were, and, or, but, to, of, in, on, at, it, he, she, they, we, you, I, etc). Also avoid including numbers and the child's name.
 </vocabulary_rules>
 
-${isFiction ? fictionEndingsBlock : nonFictionFunFactsBlock}${intakeSection}
+${isFiction ? fictionEndingsBlock : nonFictionFunFactsBlock}
+
+${missionsBlock}${intakeSection}
 
 <output_format>
 Return JSON in this exact shape:
@@ -282,7 +304,8 @@ Return JSON in this exact shape:
   "title": "short English title",
   "topic": "one-line English topic",
   "passages": [ { "en": "...", "ko": "..." }, ... ],
-  "vocabulary": [ { "word": "...", "meaning": "한글 뜻" }, ... ]${
+  "vocabulary": [ { "word": "...", "meaning": "한글 뜻" }, ... ],
+  "missions": [ { "passageIndex": 2, "wordHunt": { "targetWord": "...", "hintKo": "..." } }, { "passageIndex": 5, "check": { "question": "...", "choices": ["...", "..."], "answerIndex": 0 } }, ... 3-4 items ]${
     isFiction
       ? `,
   "alternateEnding": {
@@ -317,7 +340,7 @@ Return JSON in this exact shape:
 
   const user = `Write one engaging English ${isFiction ? 'storybook' : 'non-fiction knowledge book'} for a ${age}-year-old Korean child at CEFR ${cefr}.
 ${topicLine}
-Follow ALL rules in the system message — especially <length_rules> (passage count, words per passage), ${isFiction ? '<theme_and_lesson>, <narrative_coherence>' : '<arc>, <factual_coherence>'}, <vocabulary_rules>, and <korean_translation>.
+Follow ALL rules in the system message — especially <length_rules> (passage count, sentences per passage), ${isFiction ? '<theme_and_lesson>, <narrative_coherence>' : '<arc>, <factual_coherence>'}, <vocabulary_rules>, <in_book_missions>, and <korean_translation>.
 ${planningLine}Return the JSON object only.`;
 
   return { system, user };

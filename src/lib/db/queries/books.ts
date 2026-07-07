@@ -40,6 +40,10 @@ export function normalizeBookJsonFields(row: Book): Book {
       'books.intake',
       row.intake,
     ),
+    missions: parseJsonColumn<NonNullable<Book['missions']>>(
+      'books.missions',
+      row.missions,
+    ),
   };
 }
 

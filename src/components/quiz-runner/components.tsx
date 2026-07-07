@@ -9,10 +9,13 @@ export function ScoreHeader({
   book,
   score,
   total,
+  earnedPoints,
 }: {
   book: Book;
   score: number;
   total: number;
+  /** 이번 세션 획득 포인트 — 있으면 점수 아래에 축하 배지로 표시. */
+  earnedPoints?: number;
 }) {
   const ratio = score / total;
   const emoji = ratio === 1 ? '🏆' : ratio >= 0.6 ? '🎉' : '💪';
@@ -36,6 +39,11 @@ export function ScoreHeader({
         <p className="mt-1 text-sm text-muted-foreground">
           {label} · {book.title}
         </p>
+        {earnedPoints !== undefined && earnedPoints > 0 ? (
+          <p className="animate-bounce-in mx-auto mt-3 inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-bold text-primary">
+            ✨ +{earnedPoints}P 획득!
+          </p>
+        ) : null}
         <div className="mx-auto mt-5 max-w-sm">
           <Progress value={pct} className="h-2.5 rounded-full" />
           <p className="mt-1 text-xs font-medium text-primary">{pct}%</p>

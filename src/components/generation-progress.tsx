@@ -14,13 +14,16 @@ import { Progress } from '@/components/ui/progress';
  */
 
 interface Props {
-  /** 예상 총 소요 시간(ms). 기본 18s (reasoning_effort=medium 관측치 기준). */
+  /**
+   * 예상 총 소요 시간(ms). 기본 35s — passage당 문장 수를 3~6문장으로 확대하면서
+   * 출력 토큰이 2~3배가 되어 기존 관측치(18s)에서 상향. 실측 후 재보정 여지 있음.
+   */
   expectedMs?: number;
 }
 
 const STAGES = [
   { label: '제목 짓는 중', hint: '이야기의 제목을 고르고 있어요' },
-  { label: '이야기 쓰는 중', hint: 'AI가 문장을 한 줄씩 엮고 있어요' },
+  { label: '이야기 쓰는 중', hint: '문장을 한 줄씩 엮고 있어요' },
   { label: '어휘 정리 중', hint: '어려운 단어를 골라 뜻을 달고 있어요' },
   { label: '책장에 넣는 중', hint: '완성된 책을 책장에 옮기고 있어요' },
 ];
@@ -37,7 +40,7 @@ function stageIndex(pct: number): number {
   return STAGE_WEIGHTS.length - 1;
 }
 
-export function GenerationProgress({ expectedMs = 18_000 }: Props) {
+export function GenerationProgress({ expectedMs = 35_000 }: Props) {
   const [pct, setPct] = useState(0);
 
   useEffect(() => {

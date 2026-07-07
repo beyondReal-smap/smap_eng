@@ -11,6 +11,7 @@ import { parseJsonField } from '@/lib/json-field';
 import { APP_HOME } from '@/lib/paths';
 import type { Book, CefrLevel, Quiz } from '@/lib/db/schema';
 import { useKeyboardNav } from '@/lib/hooks/use-keyboard-nav';
+import { sessionPoints } from '@/lib/rewards';
 import { useProfileStore } from '@/stores/profile';
 import {
   ConfettiBurst,
@@ -209,7 +210,12 @@ export function QuizRunner({ book, initialQuizzes }: Props) {
     const isPerfect = correct === quizzes.length;
     return (
       <section className="space-y-6 animate-fade-up">
-        <ScoreHeader book={book} score={correct} total={quizzes.length} />
+        <ScoreHeader
+          book={book}
+          score={correct}
+          total={quizzes.length}
+          earnedPoints={sessionPoints(isPerfect)}
+        />
         {isPerfect ? <ConfettiBurst /> : null}
         <div className="space-y-4">
           {quizzes.map((q, i) => {

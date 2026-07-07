@@ -24,6 +24,7 @@ import {
   MonthlyTrace,
   StatCard,
 } from './learning-summary/components';
+import { PointsCard } from './learning-summary/points-card';
 
 /**
  * 한국어 호격조사(vocative) 분기.
@@ -348,12 +349,20 @@ export function LearningSummary({
           </div>
         </div>
 
-        {/* 우: 월간 캘린더 — md 이상에선 오른쪽 컬럼, 모바일에선 세로 아래. */}
+        {/* 우: 월간 캘린더 + 포인트·배지 — md 이상에선 오른쪽 컬럼, 모바일에선 세로 아래. */}
         {visibleSummary ? (
-          <MonthlyTrace
-            month={visibleSummary.thisMonth}
-            activeDays={visibleSummary.activeDaysThisMonth}
-          />
+          <div className="space-y-3">
+            <MonthlyTrace
+              month={visibleSummary.thisMonth}
+              activeDays={visibleSummary.activeDaysThisMonth}
+            />
+            {effectiveProfileId ? (
+              <PointsCard
+                profileId={effectiveProfileId}
+                summary={visibleSummary}
+              />
+            ) : null}
+          </div>
         ) : null}
       </div>
     </section>

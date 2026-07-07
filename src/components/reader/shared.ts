@@ -25,12 +25,14 @@ export const LEVEL_CLASS: Record<CefrLevel, string> = {
 export const progressKey = (bookId: number) => `reader:progress:${bookId}`;
 export const autoplayKey = (bookId: number) => `reader:autoplay:${bookId}`;
 export const branchKey = (bookId: number) => `reader:branch:${bookId}`;
+/** 완료한 미션의 passageIndex 배열(JSON)을 저장 — progress/branch와 같은 로컬 패턴. */
+export const missionKey = (bookId: number) => `reader:mission:${bookId}`;
 export const logKey = (profileId: number, bookId: number) =>
   `reader:log:${profileId}:${bookId}`;
 export const fontSizeKey = 'reader:font-size';
 
-// 백그라운드 prefetch는 직렬(while + await)이지만 GAP이 너무 짧으면 Kokoro
-// PyTorch 모델의 메모리가 GC되기 전에 다음 합성이 시작되며 누적 spike가
+// 백그라운드 prefetch는 직렬(while + await)이지만 GAP이 너무 짧으면 TTS
+// 모델의 메모리가 GC되기 전에 다음 합성이 시작되며 누적 spike가
 // 발생해 PM2 max_memory_restart가 30초 주기로 트리거됐다(2026-04-26 사례).
 // 1.5초 gap으로 매 합성 사이에 GC + soundfile buffer 해제 시간을 확보한다.
 export const BACKGROUND_TTS_GAP_MS = 1500;

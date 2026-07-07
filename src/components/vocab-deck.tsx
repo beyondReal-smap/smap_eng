@@ -42,6 +42,7 @@ import {
   TabBar,
   type Tab,
 } from './vocab-deck/components';
+import { VocabCompanion, type CompanionState } from './vocab-deck/companion';
 
 /**
  * 단어장 플래시카드 + SRS(Spaced Repetition).
@@ -74,6 +75,19 @@ export function VocabDeck() {
   // 단어 → audioPath 메모리 캐시. 같은 단어 반복 재생 시 API 스킵.
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // 학습 컴패니언 — 평가 이벤트에 반응 후 idle로 복귀. pulse는 연속 같은 상태에서도
+  // 연출/문구가 갱신되도록 하는 카운터.
+  const [companionState, setCompanionState] = useState<CompanionState>('idle');
+  const [companionPulse, setCompanionPulse] = useState(0);
+  const companionTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (companionTimerRef.current !== null) {
+        window.clearTimeout(companionTimerRef.current);
+      }
+    };
+  }, []);
 
   // 초기 SRS 스토어 로드 (프로필 변경 시 재로드).
   // 1) 로컬에서 즉시 표시 → 2) 서버 진도를 받아 머지 (다른 디바이스 평가 통합).
@@ -194,7 +208,7 @@ export function VocabDeck() {
   const progress = total > 0 ? ((idx + 1) / total) * 100 : 0;
 
   /**
-   * 영단어 Kokoro TTS 재생. 이미 캐시된 경로는 즉시 <audio>.src로 설정해 재생.
+   * 영단어 TTS 재생. 이미 캐시된 경로는 즉시 <audio>.src로 설정해 재생.
    * 카드 클릭(flip)과 섞이지 않도록 호출부에서 stopPropagation 처리 필요.
    */
   const speak = useCallback(async (word: string) => {
@@ -259,9 +273,22 @@ export function VocabDeck() {
     (g: Grade) => {
       if (!profileId || !current) return;
       gradeWord(profileId, current.word, g);
-      setSrsStore(loadStore(profileId));
+      const updated = loadStore(profileId);
+      setSrsStore(updated);
       setNowMs(Date.now());
       setFlipped(false);
+      // 컴패니언 반응 — 정답으로 마스터에 도달하면 축하, 아니면 정/오답 반응.
+      // 잠시 뒤 idle 복귀(연속 평가 시 타이머 리셋).
+      const mastered = g === 'good' && isMastered(updated, current.word);
+      setCompanionState(mastered ? 'celebrate' : g === 'good' ? 'correct' : 'wrong');
+      setCompanionPulse((p) => p + 1);
+      if (companionTimerRef.current !== null) {
+        window.clearTimeout(companionTimerRef.current);
+      }
+      companionTimerRef.current = window.setTimeout(
+        () => setCompanionState('idle'),
+        mastered ? 2600 : 1800,
+      );
       if (g === 'again') {
         // 덱 끝으로 이동 — entries 차원에서 당장 재시도 가능하게.
         setEntries((prev) => {
@@ -364,6 +391,14 @@ export function VocabDeck() {
         totalCount={remainingCount}
         masteredCount={masteredCount}
       />
+
+      {/* 학습 컴패니언 — 평가가 일어나는 탭에서만. 훑어보기(전체) 탭에는 미노출. */}
+      {tab === 'review' || tab === 'unknown' ? (
+        <VocabCompanion
+          state={sessionComplete ? 'celebrate' : companionState}
+          pulse={companionPulse}
+        />
+      ) : null}
 
       {total === 0 ? (
         sessionComplete ? (

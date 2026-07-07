@@ -8,9 +8,12 @@ import { normalize, tokenize } from './shared';
 export function PassageText({
   text,
   vocabMap,
+  onWordTap,
 }: {
   text: string;
   vocabMap: Map<string, VocabularyEntry>;
+  /** 밑줄 단어의 뜻 팝오버가 열릴 때 호출 — 워드 헌트 미션 판정용(vocab entry의 word 전달). */
+  onWordTap?: (word: string) => void;
 }) {
   if (vocabMap.size === 0) {
     return <>{text}</>;
@@ -23,7 +26,9 @@ export function PassageText({
         if (!entry) {
           return <span key={i}>{tok}</span>;
         }
-        return <VocabWord key={i} word={tok} entry={entry} />;
+        return (
+          <VocabWord key={i} word={tok} entry={entry} onWordTap={onWordTap} />
+        );
       })}
     </>
   );
@@ -32,12 +37,18 @@ export function PassageText({
 function VocabWord({
   word,
   entry,
+  onWordTap,
 }: {
   word: string;
   entry: VocabularyEntry;
+  onWordTap?: (word: string) => void;
 }) {
   return (
-    <Popover.Root>
+    <Popover.Root
+      onOpenChange={(open) => {
+        if (open) onWordTap?.(entry.word);
+      }}
+    >
       <Popover.Trigger
         render={
           <button

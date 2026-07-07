@@ -1,6 +1,6 @@
-import { and, desc, eq, gte, isNull, lt } from 'drizzle-orm';
+import { and, count, desc, eq, gte, isNull, lt } from 'drizzle-orm';
 import { db } from '../index';
-import { books, readingLogs } from '../schema';
+import { books, readingLogs, vocabProgress } from '../schema';
 import { toYMD } from './_shared';
 
 // ===== Learning summary =====
@@ -9,6 +9,8 @@ export interface LearningSummary {
   totalBooksRead: number;
   totalFinishedSessions: number;
   totalPerfectScores: number;
+  /** 마스터한 단어 수 (vocab_progress.level >= 3) — 포인트·배지 파생 집계용. */
+  masteredWords: number;
   averageAccuracy: number | null;
   lastFinishedAtUnix: number | null;
   continueBookId: number | null;
@@ -20,11 +22,22 @@ export interface LearningSummary {
 export async function getLearningSummary(
   profileId: number,
 ): Promise<LearningSummary> {
-  const rows = await db
-    .select()
-    .from(readingLogs)
-    .where(eq(readingLogs.profileId, profileId))
-    .orderBy(desc(readingLogs.startedAt));
+  // 독서 로그와 마스터 단어 수는 서로 독립 — 병렬 조회.
+  const [rows, masteredRows] = await Promise.all([
+    db
+      .select()
+      .from(readingLogs)
+      .where(eq(readingLogs.profileId, profileId))
+      .orderBy(desc(readingLogs.startedAt)),
+    db
+      .select({ n: count() })
+      .from(vocabProgress)
+      .where(
+        // 3 = srs.ts MAX_LEVEL(마스터 기준). srs.ts가 'use client' 모듈이라 직접
+        // import 불가 — 값 변경 시 양쪽을 함께 수정할 것.
+        and(eq(vocabProgress.profileId, profileId), gte(vocabProgress.level, 3)),
+      ),
+  ]);
 
   const finishedRows = rows.filter((r) => r.finishedAt !== null);
   const scoredRows = finishedRows.filter(
@@ -90,6 +103,7 @@ export async function getLearningSummary(
     totalBooksRead: distinctBooks.size,
     totalFinishedSessions: finishedRows.length,
     totalPerfectScores: totalPerfect,
+    masteredWords: masteredRows[0]?.n ?? 0,
     averageAccuracy: avg,
     lastFinishedAtUnix: lastFinished
       ? Math.floor(lastFinished.getTime() / 1000)

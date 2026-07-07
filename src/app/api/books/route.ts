@@ -11,7 +11,10 @@ import {
   insertBookWithPassages,
   listBooks,
 } from '@/lib/db/queries';
-import { CEFR_LEVELS } from '@/lib/db/schema';
+import { CEFR_LEVELS, type Mission } from '@/lib/db/schema';
+// 워드 헌트 판정을 리더(PassageText 토큰 매칭)와 동일한 규칙으로 수행하기 위해 재사용.
+// reader/shared는 React 의존 없는 순수 모듈이라 서버에서 import해도 안전하다.
+import { normalize, tokenize } from '@/components/reader/shared';
 import { consumeCredit, refundCredit } from '@/lib/billing/credits';
 import { requireProfileOwnershipForApi } from '@/lib/auth/session';
 import { startBookTtsBatch } from '@/lib/tts/batch';
@@ -68,6 +71,40 @@ async function refundOrLogLost(
   }
 }
 
+/**
+ * LLM이 출력한 미션을 저장 전에 정규화 — fail-soft 경계 검증.
+ * 범위 밖 passageIndex는 미션째 제거, 워드 헌트는 (a) 해당 passage 본문에 실제로
+ * 등장하고 (b) vocabulary 엔트리(리더의 밑줄·탭 대상)에 있어야 유지한다.
+ * 매칭 규칙은 리더와 동일하게 tokenize+normalize 단어 경계 판정 — 부분 문자열
+ * 매칭("art" ⊂ "started")으로 탭 불가능한 죽은 미션이 저장되는 것을 막는다.
+ * 남는 게 없으면 null = 미션 없는 책 (리더는 미션 UI를 그리지 않음).
+ */
+function normalizeMissions(
+  missions: Mission[] | undefined,
+  passages: { en: string }[],
+  vocabulary: { word: string }[],
+): Mission[] | null {
+  if (!missions?.length) return null;
+  const vocabWords = new Set(
+    vocabulary.map((v) => normalize(v.word)).filter(Boolean),
+  );
+  const out: Mission[] = [];
+  for (const m of missions) {
+    if (m.passageIndex < 0 || m.passageIndex >= passages.length) continue;
+    const passageTokens = new Set(
+      tokenize(passages[m.passageIndex].en).map(normalize),
+    );
+    const target = m.wordHunt ? normalize(m.wordHunt.targetWord) : '';
+    const wordHunt =
+      m.wordHunt && target && passageTokens.has(target) && vocabWords.has(target)
+        ? m.wordHunt
+        : undefined;
+    if (!wordHunt && !m.check) continue;
+    out.push({ passageIndex: m.passageIndex, wordHunt, check: m.check });
+  }
+  return out.length > 0 ? out : null;
+}
+
 /** 동화 1편 생성 — LLM 호출 + DB 일괄 저장. */
 export async function POST(req: NextRequest) {
   try {
@@ -107,6 +144,11 @@ export async function POST(req: NextRequest) {
     const isFiction = genre === 'fiction';
     const alternateEndingForDb = isFiction ? story.alternateEnding ?? null : null;
     const funFactsForDb = !isFiction ? story.funFacts ?? null : null;
+    const missionsForDb = normalizeMissions(
+      story.missions,
+      story.passages,
+      story.vocabulary ?? [],
+    );
 
     let book;
     try {
@@ -121,6 +163,7 @@ export async function POST(req: NextRequest) {
           vocabulary: story.vocabulary ?? [],
           alternateEnding: alternateEndingForDb,
           funFacts: funFactsForDb,
+          missions: missionsForDb,
           // intake 답변은 책 카드/디버그 용도로 보존. 빈 답변 정규화는 LLM 측에서 이미 수행.
           intake: body.intake ?? null,
         },

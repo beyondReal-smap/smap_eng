@@ -15,6 +15,7 @@ import type {
   Book,
   EndingPassage,
   FunFact,
+  Mission,
   Passage,
   VocabularyEntry,
 } from '@/lib/db/schema';
@@ -27,6 +28,8 @@ import {
   branchKey,
   buildVocabMap,
   LEVEL_CLASS,
+  missionKey,
+  normalize,
   PASSAGE_FONT_CLASS,
   progressKey,
   wait,
@@ -35,6 +38,7 @@ import {
   type TtsResponse,
 } from './reader/shared';
 import { PassageText } from './reader/passage-text';
+import { PassageMission } from './reader/passage-mission';
 import { EndingChoiceDialog } from './reader/ending-choice-dialog';
 import { FontSizePicker, ReaderSettingsButton } from './reader/reader-settings';
 import { useReadingLog } from './reader/use-reading-log';
@@ -172,6 +176,59 @@ export function Reader({ book, passages }: Props) {
   );
   const vocabMap = useMemo(() => buildVocabMap(vocabulary), [vocabulary]);
 
+  // 책 속 미션 — passageIndex → Mission 맵. 저장 시 서버가 범위/단어 존재를 이미
+  // 검증했지만(fail-soft), 레거시/수동 편집 대비 워드 헌트는 vocabMap에 있는
+  // 단어일 때만 유효로 간주한다(탭 대상이 밑줄 단어뿐이므로).
+  const missionByIdx = useMemo(() => {
+    const parsed = parseJsonField<Mission[]>(book.missions);
+    const map = new Map<number, Mission>();
+    if (!Array.isArray(parsed)) return map;
+    for (const m of parsed) {
+      if (typeof m?.passageIndex !== 'number') continue;
+      const wordHunt =
+        m.wordHunt && vocabMap.has(normalize(m.wordHunt.targetWord))
+          ? m.wordHunt
+          : undefined;
+      if (!wordHunt && !m.check) continue;
+      map.set(m.passageIndex, { ...m, wordHunt });
+    }
+    return map;
+  }, [book.missions, vocabMap]);
+  const currentMission = !isEndingStep ? missionByIdx.get(idx) : undefined;
+  // 완료한 미션의 passageIndex 집합 — localStorage 복원은 마운트 effect에서.
+  const [missionsDone, setMissionsDone] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+  const completeMission = useCallback(
+    (passageIndex: number) => {
+      setMissionsDone((prev) => {
+        if (prev.has(passageIndex)) return prev;
+        const next = new Set(prev);
+        next.add(passageIndex);
+        try {
+          window.localStorage.setItem(
+            missionKey(book.id),
+            JSON.stringify(Array.from(next)),
+          );
+        } catch {
+          /* storage 접근 실패 무시 — 세션 내 상태로만 유지 */
+        }
+        return next;
+      });
+    },
+    [book.id],
+  );
+  // 워드 헌트 판정 — 현재 passage에 미완료 워드 헌트가 있고, 탭한 단어가
+  // targetWord와 일치하면 완료. 그 외의 단어 탭은 기존 뜻 보기 동작 그대로.
+  const handleWordTap = useCallback(
+    (word: string) => {
+      const hunt = currentMission?.wordHunt;
+      if (!hunt || missionsDone.has(idx)) return;
+      if (normalize(word) === normalize(hunt.targetWord)) completeMission(idx);
+    },
+    [currentMission, missionsDone, idx, completeMission],
+  );
+
   useEffect(() => {
     audioCacheRef.current = audioCache;
   }, [audioCache]);
@@ -196,6 +253,16 @@ export function Reader({ book, passages }: Props) {
       }
       const savedAutoplay = window.localStorage.getItem(autoplayKey(book.id));
       if (savedAutoplay === '1') setAutoplay(true);
+      // 완료한 미션 복원 — 숫자 배열(JSON)만 신뢰.
+      const savedMissions = window.localStorage.getItem(missionKey(book.id));
+      if (savedMissions) {
+        const arr = JSON.parse(savedMissions) as unknown;
+        if (Array.isArray(arr)) {
+          setMissionsDone(
+            new Set(arr.filter((n): n is number => typeof n === 'number')),
+          );
+        }
+      }
     } catch {
       /* storage 접근 실패 무시 */
     }
@@ -323,6 +390,21 @@ export function Reader({ book, passages }: Props) {
     };
   }, [allTtsReady, book.id, passages]);
 
+  // 퀴즈 prefetch — 마지막 페이지에 도달하면 백그라운드로 퀴즈 생성을 미리
+  // 시작해 "퀴즈 풀러 가기" 진입 시 LLM 대기(수 초~수십 초)를 제거한다.
+  // POST /api/books/[id]/quiz는 멱등 + 서버 in-flight 병합이라 퀴즈 화면의
+  // 본 호출과 겹쳐도 LLM은 한 번만 실행된다. 실패는 무시 — 퀴즈 화면이 재시도.
+  const quizPrefetchedRef = useRef(false);
+  useEffect(() => {
+    if (!isLast || quizPrefetchedRef.current) return;
+    quizPrefetchedRef.current = true;
+    void apiFetch(`/api/books/${book.id}/quiz`, { method: 'POST' }).catch(
+      () => {
+        quizPrefetchedRef.current = false;
+      },
+    );
+  }, [isLast, book.id]);
+
   // 자동재생 토글 저장
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -406,8 +488,8 @@ export function Reader({ book, passages }: Props) {
           ? `/api/tts/${currentCommon.id}?force=1`
           : `/api/tts/${currentCommon.id}`;
         const res = await apiFetch<TtsResponse>(url, { method: 'POST' });
-        // force 재생성 시 wav 파일명은 동일(passage-<id>.wav)하므로 브라우저 HTTP
-        // 캐시에 묶여 새 wav가 로드되지 않을 수 있다. cache-buster 쿼리로 audio
+        // force 재생성 시 파일명은 동일(passage-<id>.mp3)하므로 브라우저 HTTP
+        // 캐시에 묶여 새 오디오가 로드되지 않을 수 있다. cache-buster 쿼리로 audio
         // src를 강제로 새 URL로 만들어 <audio>가 다시 fetch하게 한다.
         const cachedPath = force
           ? `${res.audioPath}?v=${Date.now()}`
@@ -747,12 +829,25 @@ export function Reader({ book, passages }: Props) {
           <p
             className={`whitespace-pre-wrap font-semibold text-foreground ${PASSAGE_FONT_CLASS[fontSize]}`}
           >
-            <PassageText text={currentTextEn} vocabMap={vocabMap} />
+            <PassageText
+              text={currentTextEn}
+              vocabMap={vocabMap}
+              onWordTap={handleWordTap}
+            />
           </p>
           {vocabMap.size > 0 ? (
             <p className="mt-2 text-[11px] text-muted-foreground">
               💡 밑줄 친 단어를 눌러 뜻을 볼 수 있어요
             </p>
+          ) : null}
+
+          {/* 책 속 미션 — 이 passage에 미션이 있을 때만. 진행을 막지 않는 재미 요소. */}
+          {currentMission ? (
+            <PassageMission
+              mission={currentMission}
+              done={missionsDone.has(idx)}
+              onComplete={() => completeMission(idx)}
+            />
           ) : null}
 
           <div
