@@ -133,6 +133,15 @@ private fun VocabContent(viewModel: VocabViewModel) {
             remainingCount = remainingCount,
         )
 
+        // 학습 컴패니언 — 평가가 일어나는 탭에서만. 훑어보기(전체) 탭에는 미노출.
+        // 세션 완료 화면에서는 celebrate 고정(웹 vocab-deck 패리티).
+        if (state.tab == VocabViewModel.Tab.Review || state.tab == VocabViewModel.Tab.Unknown) {
+            VocabCompanion(
+                state = if (isSessionComplete) CompanionState.Celebrate else state.companionState,
+                pulse = state.companionPulse,
+            )
+        }
+
         if (deck.isEmpty()) {
             Spacer(Modifier.weight(1f))
             if (isSessionComplete) {

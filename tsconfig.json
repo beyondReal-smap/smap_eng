@@ -30,5 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "apps/mobile", "apps/landing"]
+  "exclude": ["node_modules", "apps/mobile", "apps/landing", "apps/landing-astro-backup"]
 }

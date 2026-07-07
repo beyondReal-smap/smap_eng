@@ -70,6 +70,14 @@ final class ReaderViewModel {
     /// 현재 진행 중인 reading_log id. 외부(QuizView)가 점수 PATCH 시 참조한다.
     private(set) var readingLogId: Int?
 
+    /// 책 속 미션 — passageIndex → Mission. 서버가 저장 시 검증하지만(fail-soft) 레거시/수동
+    /// 편집 대비 워드 헌트는 vocabulary에 있는 단어일 때만 유효로 간주한다(웹 reader의
+    /// missionByIdx와 동일). 레거시 책(missions nil)은 빈 맵 — 미션 UI 없이 렌더.
+    let missionsByIndex: [Int: Mission]
+
+    /// 완료한 미션의 passageIndex 집합 — UserDefaults 복원(웹 localStorage `reader:mission:{bookId}` 패리티).
+    private(set) var missionsDone: Set<Int>
+
     /// 마지막으로 TTS 합성이 진행 중인 passage id. UI 인디케이터용.
     private(set) var synthesizingPassageId: Int?
 
@@ -81,6 +89,8 @@ final class ReaderViewModel {
     init(book: Book, profileId: Int) {
         self.book = book
         self.profileId = profileId
+        self.missionsByIndex = Self.buildMissionIndex(book: book)
+        self.missionsDone = Self.loadMissionsDone(bookId: book.id)
     }
 
     func bootstrap() async {
@@ -89,17 +99,29 @@ final class ReaderViewModel {
         _ = await (detail, log)
     }
 
-    func reportPageChanged(to newIndex: Int) async {
+    /// 페이지 전환 — 반드시 동기로 상태를 갱신한다.
+    ///
+    /// TabView(selection:)의 setter가 비동기(Task)로만 상태를 바꾸면 SwiftUI가 바인딩
+    /// 값 불일치를 감지해 페이지가 되돌아가거나(스냅백) 스와이프가 씹히는 오작동이 난다.
+    /// 진행률 서버 PATCH만 비동기로 분리.
+    func pageChanged(to newIndex: Int) {
         // 페이지 전환 시 한글 해석은 자동으로 닫는다 — 다음 문장은 영문부터 다시 만나도록 학습 흐름 유지.
         // 사용자가 다시 필요하면 한글 토글 버튼으로 켤 수 있다.
         if newIndex != currentIndex {
             showsKorean = false
         }
         currentIndex = newIndex
+        // 떠나는 페이지의 오디오 정지 — 문장이 3~6문장으로 길어져(오디오 30초+) 이전
+        // 낭독이 다음 페이지까지 이어지면 "정지가 안 된다"는 혼란을 만든다.
+        if let playingId = AudioPlayer.shared.nowPlayingPassageId,
+           passages.indices.contains(newIndex),
+           passages[newIndex].id != playingId {
+            AudioPlayer.shared.stop()
+        }
         guard !passages.isEmpty else { return }
         let total = max(passages.count, 1)
         let ratio = Double(newIndex + 1) / Double(total)
-        await patchLog(progressRatio: ratio, finishedAtUnix: nil)
+        Task { await patchLog(progressRatio: ratio, finishedAtUnix: nil) }
     }
 
     func leave() async {
@@ -112,6 +134,70 @@ final class ReaderViewModel {
 
     func toggleKorean() {
         showsKorean.toggle()
+    }
+
+    // MARK: - 책 속 미션
+
+    func mission(for passageIndex: Int) -> Mission? {
+        missionsByIndex[passageIndex]
+    }
+
+    /// 워드 헌트 판정 — 해당 passage에 미완료 워드 헌트가 있고 탭한 단어가 targetWord와
+    /// 일치하면 완료. 그 외의 단어 탭은 기존 뜻 보기 동작 그대로(여기서는 아무것도 안 함).
+    /// 정규화(trim+lowercase+구두점 제거)는 SRS와 같은 규칙 — srsNormalizeKey 재사용.
+    func handleWordTap(_ word: String, passageIndex: Int) {
+        guard let hunt = missionsByIndex[passageIndex]?.wordHunt,
+              !missionsDone.contains(passageIndex) else { return }
+        if srsNormalizeKey(word) == srsNormalizeKey(hunt.targetWord) {
+            completeMission(at: passageIndex)
+        }
+    }
+
+    /// 미션 완료 — 로컬 영속화(정수 배열). 진행을 막지 않는 재미 요소라 서버 기록 없음(웹과 동일).
+    func completeMission(at passageIndex: Int) {
+        guard !missionsDone.contains(passageIndex) else { return }
+        missionsDone.insert(passageIndex)
+        UserDefaults.standard.set(
+            Array(missionsDone).sorted(),
+            forKey: Self.missionDefaultsKey(bookId: book.id),
+        )
+    }
+
+    private static func missionDefaultsKey(bookId: Int) -> String {
+        "reader:mission:\(bookId)"
+    }
+
+    private static func buildMissionIndex(book: Book) -> [Int: Mission] {
+        guard let missions = book.missions, !missions.isEmpty else { return [:] }
+        let vocabKeys = Set((book.vocabulary ?? []).map { srsNormalizeKey($0.word) })
+        var map: [Int: Mission] = [:]
+        for m in missions {
+            // lossy 디코딩 강등(-1) 포함, 음수 인덱스는 폐기. 상한 초과는 조회에 안 걸려 자연 무시.
+            guard m.passageIndex >= 0 else { continue }
+            // 워드 헌트는 탭 대상이 밑줄(vocabulary) 단어뿐이므로 vocabulary에 없으면 무시.
+            var hunt: MissionWordHunt?
+            if let wordHunt = m.wordHunt, vocabKeys.contains(srsNormalizeKey(wordHunt.targetWord)) {
+                hunt = wordHunt
+            }
+            // check는 질문/선택지/정답 인덱스가 온전할 때만 유효 — 불완전 미션이
+            // 버튼 없는 빈 카드로 뜨지 않게(AOS buildMissionMap과 대칭).
+            var check: MissionCheck?
+            if let candidate = m.check,
+               !candidate.question.isEmpty,
+               candidate.choices.count >= 2,
+               candidate.choices.indices.contains(candidate.answerIndex) {
+                check = candidate
+            }
+            // wordHunt/check 둘 다 비면 미션 자체를 버린다.
+            guard hunt != nil || check != nil else { continue }
+            map[m.passageIndex] = Mission(passageIndex: m.passageIndex, wordHunt: hunt, check: check)
+        }
+        return map
+    }
+
+    private static func loadMissionsDone(bookId: Int) -> Set<Int> {
+        let raw = UserDefaults.standard.array(forKey: missionDefaultsKey(bookId: bookId)) ?? []
+        return Set(raw.compactMap { $0 as? Int })
     }
 
     /// 재생 토글. audioPath가 없으면 TTS 합성을 먼저 요청한다.
@@ -127,8 +213,10 @@ final class ReaderViewModel {
         synthesizingPassageId = passage.id
         defer { synthesizingPassageId = nil }
         do {
+            // passage가 3~6문장(최대 ~95단어)으로 길어져 합성이 기본 60s에
+            // 근접할 수 있어 90s로 상향. Android ReaderViewModel과 패리티.
             let response: TtsResponse = try await APIClient.shared.send(
-                Endpoint(path: "/api/tts/\(passage.id)", method: .post, requiresAuth: true)
+                Endpoint(path: "/api/tts/\(passage.id)", method: .post, requiresAuth: true, timeout: 90)
             )
             if let idx = passages.firstIndex(where: { $0.id == passage.id }) {
                 passages[idx] = Passage(

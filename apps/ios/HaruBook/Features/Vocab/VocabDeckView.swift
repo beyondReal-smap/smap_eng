@@ -59,6 +59,15 @@ struct VocabDeckView: View {
             }
             tabBar
 
+            // 학습 컴패니언 — 평가가 일어나는 탭에서만. 훑어보기(전체) 탭에는 미노출(웹과 동일).
+            // 세션 완료 화면에서는 celebrate 고정.
+            if viewModel.tab == .review || viewModel.tab == .unknown {
+                VocabCompanionView(
+                    state: viewModel.isSessionComplete ? .celebrate : viewModel.companionState,
+                    pulse: viewModel.companionPulse,
+                )
+            }
+
             let deck = viewModel.deck
             if deck.isEmpty {
                 Spacer()

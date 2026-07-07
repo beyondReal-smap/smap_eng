@@ -26,7 +26,7 @@ const steps = [
   {
     n: 2,
     title: '오늘의 동화',
-    body: '아이에게 딱 맞는 새 영어 동화를 AI가 매일 한 권 만들어 드려요.',
+    body: '아이에게 딱 맞는 새 영어 동화가 매일 한 권 도착해요.',
   },
   {
     n: 3,
@@ -43,7 +43,7 @@ const steps = [
 const features = [
   {
     title: '매일 새 이야기',
-    body: '같은 책을 반복하지 않아요. 아이 레벨과 관심사에 맞춰 오늘 읽을 이야기가 열립니다.',
+    body: '같은 책을 반복하지 않아요. AI가 아이 레벨과 관심사를 살펴 오늘 읽을 새 이야기를 만들어 줍니다.',
     icon: (
       <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
         <path
@@ -256,7 +256,7 @@ export function LandingPage() {
 
         <section className="page final" aria-labelledby="final-title">
           <h2 id="final-title">오늘부터, 우리 아이의 영어책장을 매일 채워 주세요</h2>
-          <p>첫 책은 무료예요. 아이 이름만 알려주면 바로 오늘 읽을 이야기가 준비됩니다.</p>
+          <p>가입하면 첫 동화 한 권을 무료로 선물해 드려요. 아이 이름만 알려주면 오늘 읽을 이야기가 바로 준비됩니다.</p>
           {/* 최하단 최종 CTA도 신규 사용자 진입점(/signup)으로 통일. */}
           <a className="button button-primary" href="/signup?callbackUrl=%2F">
             하루책 시작하기

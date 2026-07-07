@@ -37,7 +37,7 @@ struct GeneratingStep: View {
                 Text("동화를 만들고 있어요…")
                     .font(.smapHeading)
                     .foregroundStyle(Color.smapText)
-                Text("OpenAI가 이야기를 짓는 데 30초 ~ 2분 정도 걸려요.\n잠시만 기다려 주세요.")
+                Text("이야기를 짓는 데 30초 ~ 2분 정도 걸려요.\n잠시만 기다려 주세요.")
                     .font(.smapBody)
                     .foregroundStyle(Color.smapMuted)
                     .multilineTextAlignment(.center)

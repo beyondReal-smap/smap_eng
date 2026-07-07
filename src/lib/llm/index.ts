@@ -59,12 +59,15 @@ interface GenerateBookArgs {
  */
 export async function generateBook(args: GenerateBookArgs): Promise<Book> {
   const { system, user } = buildBookPrompt(args);
-  // 레벨별 passage 수를 상향(B1·B2 최대 36)하면서 출력이 길어져, 8k 기본으로는
-  // 긴 책에서 finish_reason=length로 잘릴 수 있어 12k로 명시 지정한다.
+  // passage당 문장 수를 3~6문장(미니 장면)으로 확대하면서 en+ko 출력이 대폭 길어져,
+  // 12k로는 B1·B2 긴 책에서 finish_reason=length로 잘릴 수 있어 16k로 상향한다.
+  // 16k 토큰 출력은 클라이언트 기본 timeout(45s/60s)으로는 도중에 끊겨 SDK가
+  // 같은 비싼 요청을 재시도하게 되므로, 이 호출만 150s로 상향한다.
   return chatJson({
     system,
     user,
-    maxCompletionTokens: 12000,
+    maxCompletionTokens: 16000,
+    timeoutMs: 150_000,
     validate: (raw) => BookSchema.parse(raw),
   });
 }

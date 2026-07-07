@@ -1,6 +1,5 @@
 'use client';
 
-import { Loader2, Volume2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   useCallback,
@@ -8,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent,
 } from 'react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -30,11 +28,21 @@ import {
   isUnknown,
   loadStore,
   normalizeKey,
-  type CardState,
   type Grade,
   type SrsStore,
 } from '@/lib/srs';
 import { useProfileStore } from '@/stores/profile';
+import {
+  CardStateChip,
+  DailyGoalBar,
+  GradeButton,
+  PronounceButton,
+  SessionCompleteCard,
+  Skeleton,
+  TabBar,
+  type Tab,
+} from './vocab-deck/components';
+import { VocabCompanion, type CompanionState } from './vocab-deck/companion';
 
 /**
  * 단어장 플래시카드 + SRS(Spaced Repetition).
@@ -52,8 +60,6 @@ import { useProfileStore } from '@/stores/profile';
  *  - (뒤집은 상태) 1: 몰라, 2: 알아 — 평가 즉시 다음 카드로.
  */
 
-type Tab = 'review' | 'unknown' | 'all';
-
 export function VocabDeck() {
   const hasHydrated = useProfileStore((s) => s.hasHydrated);
   const profileId = useProfileStore((s) => s.currentProfileId);
@@ -69,6 +75,19 @@ export function VocabDeck() {
   // 단어 → audioPath 메모리 캐시. 같은 단어 반복 재생 시 API 스킵.
   const audioCacheRef = useRef<Map<string, string>>(new Map());
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // 학습 컴패니언 — 평가 이벤트에 반응 후 idle로 복귀. pulse는 연속 같은 상태에서도
+  // 연출/문구가 갱신되도록 하는 카운터.
+  const [companionState, setCompanionState] = useState<CompanionState>('idle');
+  const [companionPulse, setCompanionPulse] = useState(0);
+  const companionTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (companionTimerRef.current !== null) {
+        window.clearTimeout(companionTimerRef.current);
+      }
+    };
+  }, []);
 
   // 초기 SRS 스토어 로드 (프로필 변경 시 재로드).
   // 1) 로컬에서 즉시 표시 → 2) 서버 진도를 받아 머지 (다른 디바이스 평가 통합).
@@ -189,7 +208,7 @@ export function VocabDeck() {
   const progress = total > 0 ? ((idx + 1) / total) * 100 : 0;
 
   /**
-   * 영단어 Kokoro TTS 재생. 이미 캐시된 경로는 즉시 <audio>.src로 설정해 재생.
+   * 영단어 TTS 재생. 이미 캐시된 경로는 즉시 <audio>.src로 설정해 재생.
    * 카드 클릭(flip)과 섞이지 않도록 호출부에서 stopPropagation 처리 필요.
    */
   const speak = useCallback(async (word: string) => {
@@ -254,9 +273,22 @@ export function VocabDeck() {
     (g: Grade) => {
       if (!profileId || !current) return;
       gradeWord(profileId, current.word, g);
-      setSrsStore(loadStore(profileId));
+      const updated = loadStore(profileId);
+      setSrsStore(updated);
       setNowMs(Date.now());
       setFlipped(false);
+      // 컴패니언 반응 — 정답으로 마스터에 도달하면 축하, 아니면 정/오답 반응.
+      // 잠시 뒤 idle 복귀(연속 평가 시 타이머 리셋).
+      const mastered = g === 'good' && isMastered(updated, current.word);
+      setCompanionState(mastered ? 'celebrate' : g === 'good' ? 'correct' : 'wrong');
+      setCompanionPulse((p) => p + 1);
+      if (companionTimerRef.current !== null) {
+        window.clearTimeout(companionTimerRef.current);
+      }
+      companionTimerRef.current = window.setTimeout(
+        () => setCompanionState('idle'),
+        mastered ? 2600 : 1800,
+      );
       if (g === 'again') {
         // 덱 끝으로 이동 — entries 차원에서 당장 재시도 가능하게.
         setEntries((prev) => {
@@ -359,6 +391,14 @@ export function VocabDeck() {
         totalCount={remainingCount}
         masteredCount={masteredCount}
       />
+
+      {/* 학습 컴패니언 — 평가가 일어나는 탭에서만. 훑어보기(전체) 탭에는 미노출. */}
+      {tab === 'review' || tab === 'unknown' ? (
+        <VocabCompanion
+          state={sessionComplete ? 'celebrate' : companionState}
+          pulse={companionPulse}
+        />
+      ) : null}
 
       {total === 0 ? (
         sessionComplete ? (
@@ -504,254 +544,6 @@ export function VocabDeck() {
           책장으로
         </Link>
       </div>
-    </div>
-  );
-}
-
-/* ---------- Subcomponents ---------- */
-
-/// 일일 학습 목표 진행률 바. "오늘 학습" 탭에서만 노출 — 명확한 KPI로 학습 동기 부여.
-function DailyGoalBar({ done, goal }: { done: number; goal: number }) {
-  const ratio = Math.min(1, done / goal);
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-[13px] font-bold text-[color:var(--primary)]">
-        <span aria-hidden="true">🎯</span>
-        <span>오늘 {done} / {goal} 단어</span>
-      </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full bg-[color:var(--primary)] transition-all duration-300"
-          style={{ width: `${ratio * 100}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-/// 세션 완료 축하 카드 — Duolingo/Anki 패턴. 오늘 학습한 단어 수 + 누적 마스터.
-function SessionCompleteCard({
-  todayCount,
-  masteredCount,
-}: {
-  todayCount: number;
-  masteredCount: number;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-4 rounded-3xl border border-border bg-card p-8 text-center">
-      <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[color:var(--primary)]/15 text-5xl">
-        ✓
-      </div>
-      <div className="space-y-1">
-        <h3 className="text-2xl font-black text-foreground">오늘 학습 완료!</h3>
-        <p className="text-sm text-muted-foreground">
-          오늘 {todayCount}개 단어를 학습했어요
-        </p>
-      </div>
-      {masteredCount > 0 ? (
-        <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--primary)]/15 px-3 py-1 text-sm font-bold text-[color:var(--primary)]">
-          ★ 누적 마스터 {masteredCount}개
-        </span>
-      ) : null}
-      <p className="max-w-[280px] text-xs text-muted-foreground">
-        다음 복습은 단어마다 정해진 시간에 다시 알려드릴게요.
-      </p>
-    </div>
-  );
-}
-
-/// 단어 카드 좌상단 학습 상태 칩 — 새 / 다시 학습 / 학습 중 / (마스터는 deck에서 빠짐).
-function CardStateChip({ state, level }: { state: CardState; level: number }) {
-  if (state === 'mastered') return null;
-
-  const config = (() => {
-    switch (state) {
-      case 'new':
-        return { label: 'NEW', emoji: '✨', fg: '#1E6FB8', bg: '#E2F0FB' };
-      case 'relearning':
-        return { label: '다시 학습', emoji: '↻', fg: '#C73E1F', bg: '#FDE2DD' };
-      case 'learning':
-        return { label: `Lv.${level}`, emoji: '🎓', fg: '#8A6300', bg: '#FCEDC1' };
-    }
-  })();
-
-  return (
-    <span
-      className="pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
-      style={{ color: config.fg, backgroundColor: config.bg }}
-    >
-      <span aria-hidden="true">{config.emoji}</span>
-      <span>{config.label}</span>
-    </span>
-  );
-}
-
-function TabBar({
-  tab,
-  onChange,
-  dueCount,
-  unknownCount,
-  totalCount,
-  masteredCount,
-}: {
-  tab: Tab;
-  onChange: (t: Tab) => void;
-  dueCount: number;
-  unknownCount: number;
-  totalCount: number;
-  masteredCount: number;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div
-        role="tablist"
-        className="inline-flex flex-wrap rounded-full border border-border bg-card p-0.5"
-      >
-        <TabItem
-          active={tab === 'review'}
-          onClick={() => onChange('review')}
-          label="오늘 학습"
-          badge={dueCount}
-        />
-        <TabItem
-          active={tab === 'unknown'}
-          onClick={() => onChange('unknown')}
-          label="다시 학습"
-          badge={unknownCount}
-        />
-        <TabItem
-          active={tab === 'all'}
-          onClick={() => onChange('all')}
-          label="전체"
-          badge={totalCount}
-        />
-      </div>
-      {masteredCount > 0 ? (
-        <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--primary)]/15 px-2.5 py-1 text-xs font-bold text-[color:var(--primary)]">
-          ✓ 마스터 {masteredCount}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function TabItem({
-  active,
-  onClick,
-  label,
-  badge,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  badge: number;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={`relative rounded-full px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        active
-          ? 'bg-primary text-primary-foreground shadow-sm'
-          : 'text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      {label}
-      <span className="ml-1.5 rounded bg-background/40 px-1.5 text-[10px] tabular-nums">
-        {badge}
-      </span>
-    </button>
-  );
-}
-
-function GradeButton({
-  label,
-  tone,
-  onClick,
-}: {
-  label: string;
-  tone: 'destructive' | 'good';
-  onClick: () => void;
-}) {
-  const toneClass =
-    tone === 'destructive'
-      ? 'border-[color:var(--destructive)]/40 bg-[color:var(--destructive)]/10 text-[color:var(--destructive)] hover:bg-[color:var(--destructive)]/15'
-      : 'border-[color:var(--level-a1)]/60 bg-[color:var(--level-a1)]/50 text-[color:var(--level-a1-fg)] hover:bg-[color:var(--level-a1)]/70';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center justify-center rounded-xl border py-3 text-base font-bold transition press-scale focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${toneClass}`}
-    >
-      {label}
-    </button>
-  );
-}
-
-/**
- * 발음 재생 버튼 — 카드(button) 안의 내포된 button 충돌을 피하려고 <span role="button">.
- * 부모 카드 버튼은 flip, 이 버튼은 TTS 재생이라 역할이 다르다.
- */
-function PronounceButton({
-  word,
-  onSpeak,
-  speaking,
-  size = 'md',
-}: {
-  word: string;
-  onSpeak: (word: string) => void;
-  speaking: boolean;
-  size?: 'sm' | 'md';
-}) {
-  function handle(e: MouseEvent) {
-    e.stopPropagation();
-    e.preventDefault();
-    if (speaking) return;
-    onSpeak(word);
-  }
-  const dim = size === 'sm' ? 'h-7 w-7' : 'h-10 w-10';
-  const icon = size === 'sm' ? 'h-3.5 w-3.5' : 'h-5 w-5';
-  // Kokoro TTS 첫 합성은 1~3초 걸릴 수 있어, 명시적 spinner가 없으면 사용자가
-  // 버튼이 안 눌린 줄 알고 연타한다. speaking 중에는 Loader2(spin)로 교체 +
-  // 클릭 차단 + aria-busy 표시.
-  return (
-    <span
-      role="button"
-      aria-label={`${word} 듣기`}
-      aria-busy={speaking}
-      aria-disabled={speaking}
-      tabIndex={0}
-      onClick={handle}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.stopPropagation();
-          e.preventDefault();
-          if (speaking) return;
-          onSpeak(word);
-        }
-      }}
-      className={`inline-flex ${dim} shrink-0 items-center justify-center rounded-full border border-border bg-card text-primary shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-        speaking
-          ? 'cursor-wait opacity-70'
-          : 'hover:bg-primary hover:text-primary-foreground'
-      }`}
-    >
-      {speaking ? (
-        <Loader2 aria-hidden className={`${icon} animate-spin`} />
-      ) : (
-        <Volume2 aria-hidden className={icon} />
-      )}
-    </span>
-  );
-}
-
-function Skeleton() {
-  return (
-    <div className="space-y-5">
-      <div className="shimmer h-2 w-full rounded-full" />
-      <div className="shimmer h-64 w-full rounded-2xl" />
     </div>
   );
 }

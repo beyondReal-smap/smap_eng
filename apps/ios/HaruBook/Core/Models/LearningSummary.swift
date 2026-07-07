@@ -6,6 +6,8 @@ struct LearningSummary: Decodable, Sendable {
     let totalBooksRead: Int
     let totalFinishedSessions: Int
     let totalPerfectScores: Int
+    /// 마스터한 단어 수 (vocab_progress.level >= 3). 구서버 응답에는 없어 optional — 사용처에서 0 폴백.
+    let masteredWords: Int?
     /// 0~1 또는 null. null이면 평가된 퀴즈가 없음.
     let averageAccuracy: Double?
     /// epoch seconds 또는 null.

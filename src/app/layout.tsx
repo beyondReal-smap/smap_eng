@@ -13,11 +13,11 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://eng.smap.site'),
   // template은 자식 페이지에서 title을 지정하면 "[제목] | 하루책" 형태로 자동 합성.
   title: {
-    default: '하루책 | AI가 매일 만드는 아이 맞춤 영어 동화',
+    default: '하루책 | 매일 새로 만나는 아이 맞춤 영어 동화',
     template: '%s | 하루책',
   },
   description:
-    '하루책은 아이의 연령과 영어 수준에 맞춘 동화, TTS 낭독, 퀴즈, 단어장을 제공하는 AI 영어 리딩 서비스입니다.',
+    '하루책은 아이의 연령과 영어 수준에 맞춘 동화, TTS 낭독, 퀴즈, 단어장을 제공하는 영어 리딩 서비스입니다.',
   manifest: '/manifest.webmanifest',
   applicationName: '하루책',
   appleWebApp: {
@@ -42,15 +42,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: '하루책',
-    title: 'AI가 매일 만드는 아이 맞춤 영어 동화',
-    description: '영어 동화 생성, 문장별 낭독, 퀴즈와 단어 복습까지 한 번에 이어지는 리딩 루틴.',
+    title: '매일 새로 만나는 아이 맞춤 영어 동화',
+    description: '영어 동화, 문장별 낭독, 퀴즈와 단어 복습까지 한 번에 이어지는 리딩 루틴.',
     url: 'https://eng.smap.site/',
     images: [{ url: '/book_icon.png', width: 128, height: 128, alt: '하루책' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AI가 매일 만드는 아이 맞춤 영어 동화',
-    description: '영어 동화 생성, 문장별 낭독, 퀴즈와 단어 복습까지 한 번에 이어지는 리딩 루틴.',
+    title: '매일 새로 만나는 아이 맞춤 영어 동화',
+    description: '영어 동화, 문장별 낭독, 퀴즈와 단어 복습까지 한 번에 이어지는 리딩 루틴.',
     images: ['/book_icon.png'],
   },
 };

@@ -8,6 +8,13 @@ struct PassageView: View {
     let showsKorean: Bool
     let isPlaying: Bool
     let textScale: ReaderTextScale
+    /// 이 passage의 책 속 미션. nil이면(레거시 책 포함) 미션 UI 없이 기존과 동일하게 렌더.
+    let mission: Mission?
+    let missionDone: Bool
+    /// 밑줄 단어 팝오버가 열릴 때 탭한 단어를 전달 — 워드 헌트 완료 판정용(ReaderViewModel).
+    let onWordTap: (String) -> Void
+    /// 확인 질문(check) 정답 시 호출.
+    let onMissionComplete: () -> Void
 
     var body: some View {
         ScrollView {
@@ -20,6 +27,15 @@ struct PassageView: View {
                         isPlaying ? Color.smapPrimarySoft : Color.clear,
                         in: RoundedRectangle(cornerRadius: 12)
                     )
+
+                // 책 속 미션 — 본문 아래·한글 해석 위(웹 reader와 동일 순서). 진행을 막지 않는 재미 요소.
+                if let mission {
+                    PassageMissionCard(
+                        mission: mission,
+                        done: missionDone,
+                        onComplete: onMissionComplete,
+                    )
+                }
 
                 if showsKorean, let textKo = passage.textKo, !textKo.isEmpty {
                     koreanCard(textKo: textKo)
@@ -92,6 +108,7 @@ struct PassageView: View {
                 text: passage.textEn,
                 vocabMap: vocabMap,
                 fontSize: textScale.fontSize,
+                onWordTap: onWordTap,
             )
         }
     }
@@ -136,12 +153,14 @@ private struct VocabAwarePassageText: View {
     let text: String
     let vocabMap: [String: VocabularyEntry]
     let fontSize: CGFloat
+    /// 밑줄 단어 탭(팝오버 열림) 시 표시 단어를 상위로 전달 — 워드 헌트 판정용.
+    let onWordTap: (String) -> Void
 
     var body: some View {
         FlowLayout(spacing: 0) {
             ForEach(tokens) { token in
                 if token.isWord, let entry = vocabMap[PassageView.normalize(token.text)] {
-                    VocabWord(displayWord: token.text, entry: entry, fontSize: fontSize)
+                    VocabWord(displayWord: token.text, entry: entry, fontSize: fontSize, onTap: onWordTap)
                 } else {
                     Text(token.text)
                         .font(Font.atozRegular(fontSize))
@@ -242,11 +261,14 @@ private struct VocabWord: View {
     let displayWord: String
     let entry: VocabularyEntry
     let fontSize: CGFloat
+    /// 팝오버가 열릴 때 탭한 표시 단어를 상위로 알린다 — 기존 뜻 보기 동작은 그대로.
+    let onTap: (String) -> Void
     @State private var showsPopover: Bool = false
 
     var body: some View {
         Button {
             showsPopover = true
+            onTap(displayWord)
         } label: {
             Text(displayWord)
                 .font(Font.atozRegular(fontSize))

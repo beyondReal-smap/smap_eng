@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { profiles, sessions, users } from "@/lib/db/schema";
+import { grantSignupBonus } from "@/lib/billing/credits";
 import {
   LoginSchema,
   SignupSchema,
@@ -188,6 +189,7 @@ export async function signupAction(
   const email = normalizeEmail(parsed.data.email);
   const passwordHash = await hashPassword(parsed.data.password);
   let userId = "";
+  let isNewUser = false;
 
   try {
     await db.transaction(async (tx) => {
@@ -208,6 +210,7 @@ export async function signupAction(
 
       const linkedUser = existingUsers[0];
       userId = linkedUser?.id ?? randomUUID();
+      isNewUser = !linkedUser;
       const displayName = linkedUser?.name ?? `${parsed.data.childName} 보호자`;
 
       if (linkedUser) {
@@ -255,6 +258,17 @@ export async function signupAction(
   }
 
   if (!userId) throw new Error("회원가입 세션 생성에 실패했습니다.");
+
+  // 신규 가입자에게만 웰컴 보너스 지급. 멱등이지만 기존 계정(비밀번호 추가 연결)에는
+  // 불필요하므로 isNewUser로 한 번 더 거른다. 실패해도 가입은 성공 처리.
+  if (isNewUser) {
+    try {
+      await grantSignupBonus(userId);
+    } catch (err) {
+      console.error("[signup-bonus] email signup grant failed", userId, err);
+    }
+  }
+
   await createDatabaseSession(userId);
 
   return {

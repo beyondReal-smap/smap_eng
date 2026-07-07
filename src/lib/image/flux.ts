@@ -3,6 +3,16 @@
 
 const FLUX_BASE_URL = process.env.FLUX_BASE_URL ?? 'http://localhost:8890';
 
+// FLUX CPU 추론은 수십 초가 걸린다. 워커 과부하/데드락 시 동기 사용자 POST가
+// 장시간 대기하지 않도록 상한 타임아웃을 둔다. 잘못된 env는 기본값으로 안전 폴백.
+const FLUX_TIMEOUT_MS = (() => {
+  const raw = process.env.FLUX_TIMEOUT_MS;
+  if (!raw) return 90_000;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 90_000;
+  return n;
+})();
+
 export class ImageError extends Error {
   constructor(
     message: string,
@@ -32,12 +42,29 @@ export async function generateImage({
   guidance = 3.5,
   signal,
 }: GenerateImageOptions): Promise<Uint8Array> {
-  const res = await fetch(`${FLUX_BASE_URL}/v1/image`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ prompt, width, height, steps, seed, guidance }),
-    signal,
-  });
+  // 외부 취소 signal과 내부 타임아웃을 합성 — 먼저 발화하는 쪽이 fetch를 abort.
+  const timeoutSignal = AbortSignal.timeout(FLUX_TIMEOUT_MS);
+  const fetchSignal = signal
+    ? AbortSignal.any([signal, timeoutSignal])
+    : timeoutSignal;
+  let res: Response;
+  try {
+    res = await fetch(`${FLUX_BASE_URL}/v1/image`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt, width, height, steps, seed, guidance }),
+      signal: fetchSignal,
+    });
+  } catch (err) {
+    // 외부 취소는 호출자에 그대로 전달, 내부 타임아웃·네트워크 실패는 ImageError로 정규화.
+    if (signal?.aborted) throw err;
+    if (timeoutSignal.aborted) {
+      throw new ImageError(`FLUX timeout after ${FLUX_TIMEOUT_MS}ms`);
+    }
+    throw new ImageError(
+      `FLUX unreachable: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');

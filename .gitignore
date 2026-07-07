@@ -53,6 +53,8 @@ next-env.d.ts
 
 # 모노레포 백업/실험 디렉토리
 /apps/landing-astro-backup/
+# 폐기된 Expo/RN 모바일 잔여물 (node_modules·.expo만 남음, iOS/Android 네이티브로 대체)
+/apps/mobile/
 *.db
 *.db-journal
 *.db-shm
@@ -88,4 +90,9 @@ services/*/*/__pycache__/
 /login-*.png
 /signup-*.png
 /subscribe-*.png
+/eng-*.png
+/profile-*.png
 /book_icon.png
+
+# 일회성 디버그 스크립트 (하드코딩 ID 포함, 커밋 제외)
+/scripts/test-fcm.mjs

@@ -1,7 +1,7 @@
 ---
 name: session
 description: smap_eng 프로젝트 현재 상태. 세션 시작 시 현재 상태 파악용.
-last-updated: 2026-04-29 (Expo/RN 앱 폐기 + HaruBook 네이티브 iOS·Android 도입)
+last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네이티브 앱·FCM·IAP 작업 로그 동기화)
 ---
 
 # 세션 상태
@@ -15,7 +15,7 @@ last-updated: 2026-04-29 (Expo/RN 앱 폐기 + HaruBook 네이티브 iOS·Androi
 | 항목 | 내용 |
 |------|------|
 | **도구** | GitHub Issues |
-| **레포** | [github.com/bluemusk/smap_eng](https://github.com/bluemusk/smap_eng) (clone: `git@github.com:bluemusk/smap_eng.git`) |
+| **레포** | [github.com/beyondReal-smap/smap_eng](https://github.com/beyondReal-smap/smap_eng) (clone: `git@github.com:beyondReal-smap/smap_eng.git`) |
 | **라벨 규칙** | `priority:P0/P1/P2`, `type:feat/fix/docs/chore`, `area:llm/tts/image/ui/db` |
 | **조회 명령** | `gh issue list --label "priority:P0"` |
 
@@ -23,20 +23,17 @@ last-updated: 2026-04-29 (Expo/RN 앱 폐기 + HaruBook 네이티브 iOS·Androi
 
 ## 다음 작업
 
+> **MVP 웹앱 완료** (Next.js 16 + Drizzle + OpenAI 동화 생성 + Kokoro TTS + FLUX 이미지 +
+> 퀴즈·단어장(SRS)·통계·보호자모드·결제). **네이티브 iOS·Android 앱 완료** (iOS 패리티,
+> FCM 푸시, StoreKit 2 / Google Play Billing). 4/20~5/18 구현분은 아래 "최근 세션" 참조.
+> 현재 초점: 양 스토어 심사 제출 및 운영.
+
 | 우선순위 | 작업 | 상태 |
 |---------|------|------|
-| **P0** | ~~Next.js 14 초기화~~ → **Next.js 16.2.4 + Tailwind 4 + React 19** 스캐폴딩 | ✅ Done (2026-04-20) |
-| **P0** | ~~Ollama + Gemma 4 E4B 로드~~ → **OpenAI API 전환** (`gpt-5.2-chat-latest`) | ✅ Done (2026-04-20, 대표님 키 입력 대기) |
-| **P0** | `src/lib/db/` Drizzle 스키마 구현 (`profiles` / `books` / `passages` / `quizzes` / `reading_logs`) | Todo |
-| **P1** | `src/lib/llm/` OpenAI 클라이언트 + 레벨별 동화 프롬프트 + Zod 스키마 | ✅ Done (2026-04-20) |
-| **P0** | OpenAI API 키 입력 (`.env.local`) + 실제 호출 스모크 테스트 | 🔄 대표님 키 입력 대기 |
-| **P1** | `src/lib/tts/` Kokoro-82M TTS 연동 | Todo |
-| **P1** | `src/lib/image/` FLUX.1-schnell 이미지 생성 (책 표지 + 장면 삽화) | Todo |
-| **P1** | shadcn/ui 설치 + Bookshelf / Reader / QuizCard 컴포넌트 | Todo |
-| **P1** | API 라우트: `/api/books`, `/api/tts`, `/api/image`, `/api/quiz`, `/api/logs` | Todo |
-| **P1** | 한글 해석 토글 (문장/단락) | Todo |
-| **P2** | Zustand 스토어 (가족 프로필 전환 2~3명) | Todo |
-| **P2** | 독서 로그/재독 UI + 쿼리 |Todo |
+| **P0** | iOS App Store 심사 제출 | 심사 준비 완료 (IAP 가격·앱 아이콘·splash·인앱 약관/계정삭제) |
+| **P0** | Android Google Play 심사 제출 | 심사 준비 완료 (versionCode 2, Billing v7, splash 패리티) |
+| **P1** | 관리자 푸시 발송 페이지 운영 (FCM 통합) | ✅ Done (2026-05-18) |
+| **P2** | 향후 오픈 LLM(Gemma 등) 재검토 시 LLM 레이어 인터페이스 교체 | 분기별 재평가 |
 
 ---
 
@@ -44,9 +41,9 @@ last-updated: 2026-04-29 (Expo/RN 앱 폐기 + HaruBook 네이티브 iOS·Androi
 
 | # | 질문 | 상태 |
 |---|------|------|
-| 1 | Kokoro 구동 방식 (별도 Python 서버 vs Node 내 임베딩) | 구현 시 결정 |
-| 2 | FLUX.1-schnell 구동 방식 (ComfyUI API vs Diffusers Python 서버) | 구현 시 결정 |
-| 3 | 향후 오픈 LLM 재검토 (Gemma 4 Ollama 지원 안정화 시 전환 가능성) | 분기별 재평가 |
+| 1 | Kokoro 구동 방식 | ✅ 해결 — 별도 FastAPI 서버 (`KOKORO_BASE_URL=localhost:8880`) |
+| 2 | FLUX.1-schnell 구동 방식 | ✅ 해결 — Diffusers CPU 서버 (`FLUX_BASE_URL=localhost:8890`) |
+| 3 | 향후 오픈 LLM 재검토 (Gemma 등 안정화 시 전환) | 분기별 재평가 |
 | 4 | Next.js 16 브레이킹 체인지 — `AGENTS.md` 지침 준수 | 구현 중 상시 확인 |
 | 5 | `/usr/local/bin/ollama` 잔여 심링크 삭제 (root 소유, `sudo rm /usr/local/bin/ollama`) | 대표님 수동 처리 |
 
@@ -59,6 +56,100 @@ last-updated: 2026-04-29 (Expo/RN 앱 폐기 + HaruBook 네이티브 iOS·Androi
 ---
 
 ## 최근 세션
+
+### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + 대형 파일 9종 리팩토링)
+
+#### 세션 목표
+- 워킹트리에 누적된 미커밋 변경(성능·안정성·캐시) 검증 후 커밋. 폐기 잔여물 정리. SESSION.md 백필.
+- 후반: God 모듈/컴포넌트 2종(`queries.ts` 1123줄, `reader.tsx` 1388줄) 리팩토링 — 동작 보존하며 도메인/관심사 분리.
+
+#### 변경 / 커밋 (origin/main push 완료)
+| 커밋 | 성격 | 내용 |
+|------|------|------|
+| `7456427` | fix(ui) | 인증 이미지 라우트(`/images`·`/audio`) 표지·장면 `unoptimized` — next/image optimizer 쿠키 미전달 404 복구 |
+| `23b5f63` | perf(media) | TTS·이미지 hang 상한 타임아웃(`AbortSignal.timeout`+`any`), `KOKORO_SPEED(0.85)`·`*_TIMEOUT_MS` env 검증, 정적 라우트 `private`+약한 ETag 304 재검증, `/api/books` books·stats `Promise.all` 병렬화 |
+| `6bf315f` | chore | 폐기 Expo 잔여(`apps/mobile/`)·디버그 PNG(`eng-*`·`profile-*`)·`scripts/test-fcm.mjs` gitignore |
+| `67c9b14`·`4f98cde` | docs(session) | 4/30~5/30 작업 로그 동기화 + 레포 URL 정정(bluemusk→beyondReal-smap) |
+| `2c9c2fc` | refactor(db) | `queries.ts` 1123줄 → 도메인별 10파일 + barrel |
+| `709534d` | refactor(reader) | `reader.tsx` 1388 → 943줄, `reader/` 하위 6파일 분리 |
+| `afc5c43` | refactor(auth) | `auth.ts` 875 → 42줄, `lib/auth/` 하위 4파일 분리 |
+| `809a757` | refactor(cover-art) | `cover-art.tsx` 791 → 135줄, 일러스트 24종 → `cover-art/illustrations.tsx` |
+| `7a74b2b` | refactor(create-book-dialog) | `create-book-dialog.tsx` 773 → 454줄, Step 6종 + 상수/타입 분리 |
+| `750c5af` | refactor(vocab-deck) | `vocab-deck.tsx` 757 → 514줄, 보조 컴포넌트 8종 → `vocab-deck/components.tsx` |
+| `839befc` | refactor(bookshelf) | `bookshelf.tsx` 656 → 328줄, 보조 7종 + 상수 → `bookshelf/`, LevelBadge·SkeletonGrid re-export |
+| `95d9684` | refactor(learning-summary) | `learning-summary.tsx` 588 → 361줄, 보조 3종 → `learning-summary/components.tsx` |
+| `0020f8d` | refactor(quiz-runner) | `quiz-runner.tsx` 571 → 441줄, 보조 4종 → `quiz-runner/components.tsx` |
+
+#### 리팩토링 상세
+- **`refactor(db)` queries.ts** — 1123줄 38함수를 도메인 경계로 분리. `queries.ts`는 barrel(re-export)로 전환해 **호출처 37개 파일 import 경로 변경 0**. 도메인: `queries/{profiles,books,vocab,passages,quizzes,reading-logs,parental,learning,admin}.ts` + 공유 헬퍼 `_shared.ts`(parseJsonColumn·toYMD). 의존 단방향(parental→books, admin→books). 동작 변화 0(순수 이동).
+- **`refactor(reader)` reader.tsx** — 1388→943줄(−445). 강결합 본체 effect(TTS 폴링·백그라운드 합성·복구·자동재생·키보드)는 회귀 위험이 커 **유지**하고, 회귀 위험 낮은 응집 단위만 추출: `reader/{shared.ts, passage-text.tsx, ending-choice-dialog.tsx, reader-settings.tsx, use-reading-log.ts, use-font-size.ts}`. 동작 보존 의도(코드 이동 + 응집 훅화).
+  - ⚠️ **수동 QA 권장**: effect 순서 의존 동작(낭독 재생/다시듣기·자동재생 연속·진도 저장)은 빌드로 회귀를 못 잡음 → 배포 전 실기기 확인.
+  - 기존 lint 이슈(범위 밖, 원본부터 존재): `setState-in-effect`(진행복원), `requestTts` 사용순서, `setSceneCache` 미사용.
+
+- **`refactor(auth)` auth.ts** — 875→42줄. NextAuth 코어 + 모바일 인증 핸들러 + crypto/PKCE 헬퍼를 순환 없는 단방향으로 분리: `lib/auth/{password.ts, mobile-shared.ts, next-auth-instance.ts, mobile-handlers.ts}`. 의존 방향 password·mobile-shared(순수) ← mobile-handlers → next-auth-instance, auth.ts가 조립. public API(handlers·auth·signIn·signOut) 유지, 호출처 7개 변경 0. 보안 핵심이라 회귀를 직접 대조 검증(scrypt 파라미터·PKCE 정규식·timingSafeEqual·`for('update')` 락·dev-issue 3중 가드·쿠키 보안 속성 일치). security-reviewer 에이전트는 파싱 오류로 실패 → 수동 대조로 대체.
+
+- **`refactor(cover-art)` cover-art.tsx** — 791→135줄. hook 0개 순수 프레젠테이션 — SVG 일러스트 24종 + Svg 래퍼를 `cover-art/illustrations.tsx`(659줄)로 이동, CoverArt 본체·타입·PALETTES·TEMPLATES·pickVariant만 유지. 동작 변화 0(순수 이동). tsc + eslint + build 통과.
+- **`refactor(create-book-dialog)` create-book-dialog.tsx** — 773→454줄. 5단계 마법사. 강결합 본체 hook(open·step·genre·cefr·intake)은 회귀 위험으로 유지하고, 순수 프레젠테이션 Step 6종(Genre/GenreCard/Cefr/Intake/Topic/Review)을 `create-book-dialog/steps.tsx`(333줄), 상수·타입을 `create-book-dialog/shared.ts`(28줄)로 분리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
+- **`refactor(vocab-deck)` vocab-deck.tsx** — 757→514줄. 단어장 플래시카드 + SRS. 강결합 본체 hook(20개 — 덱/평가/발음/키보드)은 회귀 위험으로 유지하고, 순수 프레젠테이션 컴포넌트 8종(DailyGoalBar/SessionCompleteCard/CardStateChip/TabBar/TabItem/GradeButton/PronounceButton/Skeleton) + Tab 타입을 `vocab-deck/components.tsx`(252줄)로 분리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
+- **`refactor(bookshelf)` bookshelf.tsx** — 656→328줄. 책장 그리드. 강결합 본체 hook(SSR fetch·필터·디바운스·recent)은 회귀 위험으로 유지하고, 보조 컴포넌트 7종(RecentCard/BookCard/CoverGenButton/FilterGroup/LevelPill/LevelBadge/SkeletonGrid)을 `bookshelf/components.tsx`(315줄), 상수·헬퍼를 `bookshelf/shared.ts`(40줄)로 분리. 외부 공개 컴포넌트(LevelBadge·SkeletonGrid)는 본체에서 re-export해 호출처 변경 0(app/loading.tsx의 SkeletonGrid import 유지). 동작 변화 0(코드 이동). tsc + eslint + build 통과.
+- **`refactor(learning-summary)` learning-summary.tsx** — 588→361줄. 홈 상단 학습 요약. 강결합 본체 hook(SSR fetch·프로필 동기화·인사말)은 회귀 위험으로 유지하고, 순수 프레젠테이션 3종(MonthlyTrace/ContinueCard/StatCard) + WEEKDAY_LABELS를 `learning-summary/components.tsx`(236줄)로 분리. 보조로 이동한 import(Image·CoverArt·Progress·일부 아이콘) 정리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
+- **`refactor(quiz-runner)` quiz-runner.tsx** — 571→441줄. 4지선다 퀴즈 진행. 강결합 본체 hook(답안·제출·즉시피드백) + 본체 전용 헬퍼(saveReadingLog·normalizeQuiz)는 회귀 위험으로 유지하고, 순수/독립 프레젠테이션 4종(ScoreHeader/ConfettiBurst/GeneratingState/ImmediateToggle)을 `quiz-runner/components.tsx`(141줄)로 분리. 동작 변화 0(코드 이동). tsc + eslint + build 통과.
+
+#### 리팩토링 총괄 (대형 파일 6종, 모두 push 완료)
+| 대상 | before→after | 분리 |
+|------|------|------|
+| `queries.ts` | 1123 → 21(barrel) | 도메인 10파일 |
+| `reader.tsx` | 1388 → 943 | shared·보조 4·훅 2 (`reader/`) |
+| `auth.ts` | 875 → 42 | `lib/auth/` 4파일(순환 없는 단방향) |
+| `cover-art.tsx` | 791 → 135 | 일러스트 24종(`cover-art/illustrations.tsx`) |
+| `create-book-dialog.tsx` | 773 → 454 | Step 6 + shared(`create-book-dialog/`) |
+| `vocab-deck.tsx` | 757 → 514 | 보조 8 + Tab(`vocab-deck/components.tsx`) |
+| `bookshelf.tsx` | 656 → 328 | 보조 7 + 상수(`bookshelf/`, re-export로 호환) |
+| `learning-summary.tsx` | 588 → 361 | 보조 3(`learning-summary/components.tsx`) |
+| `quiz-runner.tsx` | 571 → 441 | 보조 4(`quiz-runner/components.tsx`) |
+
+> 공통 원칙: **순수 프레젠테이션/헬퍼/상수만 추출, 강결합 본체 hook은 유지**(회귀 위험 회피). 호출처 import 경로 변경 0, 각 단계 tsc+eslint+build 검증. ⚠️ reader는 effect 순서 의존 동작이 있어 배포 전 실기기 QA 권장.
+
+#### 검증
+- `tsc --noEmit` 0 에러 · `npm run build` 성공(각 Phase 독립 검증) · 정합성 리뷰 통과.
+
+#### 메모
+- SESSION.md 4/29 섹션의 커밋 해시(`b4c0311` 등)는 별도 macOS 작업분으로 **현재 main에 미존재**. 실제 main은 4/30~5/18에 네이티브 앱·FCM·IAP가 집중 진행됨(아래 백필).
+
+---
+
+### 2026-05-17~18 (Android iOS 패리티 클린 재작성 + FCM 통합 + 스토어 준비)
+
+> ⚠️ 사후 백필(2026-05-30). 당시 세션 단위 상세 로그 없이 커밋 이력 기준 요약.
+
+- **Android 전면 재작성**: 기존 앱 제거 후 iOS 패리티로 클린 재작성. Phase 1~7 — 빌드 시스템/DesignSystem/Core → Auth·Profiles·Bookshelf → Reader·Quiz·CreateBook 마법사·AudioPlayer → 4탭 홈(Stats·Vocab·Settings·Parents·Push·SRS·Legal·Store) → 단어 popover·일러스트 폴백 → **FCM 원격 푸시 + Google Play Billing v7**.
+- **FCM 통합**: iOS도 APNs 직접 통신을 폐기하고 **FCM SDK로 통일**(Phase 9). `applicationId` 통일 + Firebase 자산 매칭 + 시크릿 보호.
+- **iOS 패리티 마감**: Reader·통계·퀴즈·프로필·설정·보호자·스토어 화면 디자인 통일, A2Z 손글씨 폰트, CEFR 배지 색.
+- **스토어 준비**: IAP 가격 실거래가 갱신(₩1,100/5,500/11,000), `CFBundleIconName`, splash 패리티(iOS UILaunchScreen 동등), Android versionCode 2.
+- **기타**: 데이터 삭제 요청 안내 legal 페이지, 관리자 푸시 발송 페이지(발송 시간 표시 일관화 + 확인/결과 모달).
+
+---
+
+### 2026-05-15~16 (iOS Phase 4~5 + 대량 UI 정비 + 단어장/IAP)
+
+> ⚠️ 사후 백필(2026-05-30). 커밋 이력 기준 요약.
+
+- **iOS Phase 4**: 인앱 약관/설정/계정 삭제(App Store 심사 차단 해소), 이메일 가입/로그인 + 첫 프로필 온보딩, 학습 통계 + 단어장(SRS), 보호자 모드(PIN 게이트 + 주간 리포트), TabBar 재구성 + Privacy Manifest.
+- **iOS Phase 5**: Sign in with Apple, StoreKit 2 IAP, APNs 푸시, StoreKit Configuration + App Store Server Notifications V2.
+- **UI 대정비**: Color+Theme를 웹 `globals.css` oklch 토큰과 일치, A2Z 폰트 전역, 책장·리더·단어장·설정 패리티, WCAG AA 대비 교정, 결말 분기 TTS 사전 합성.
+- **vocab**: 학습 진도 서버 동기화 + 평가 이벤트 로깅, 마스터 단어 카운트 차감.
+- **api**: 모바일 OAuth callback origin 복원(`x-forwarded-host` 기반).
+
+---
+
+### 2026-04-30 (네이티브 Phase 3 — 동화 생성 마법사 + 이미지 + Expo 폐기 완료)
+
+> ⚠️ 사후 백필(2026-05-30). 커밋 이력 기준 요약.
+
+- **Phase 3 (iOS + Android)**: 동화 생성 intake 마법사(`/api/books/intake/questions`, `POST /api/books`) + 책 표지/장면 이미지(`/api/image/book/[bookId]/cover`, `/api/image/passage/[passageId]`).
+- Expo/RN 앱 retire 완료, 네이티브 전환 문서 정정 + Compose deprecation 정리, Apple Developer Team ID 적용 + xcodegen 산출물 추적 해제.
+
+---
 
 ### 2026-04-29 (HaruBook 네이티브 iOS·Android Phase 1+2 도입 + Expo/RN 폐기)
 

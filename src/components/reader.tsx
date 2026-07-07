@@ -3,17 +3,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Popover } from '@base-ui/react/popover';
-import { Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiFetch } from '@/lib/api-client';
@@ -22,158 +13,44 @@ import { APP_HOME } from '@/lib/paths';
 import type {
   AlternateEnding,
   Book,
-  CefrLevel,
   EndingPassage,
   FunFact,
+  Mission,
   Passage,
   VocabularyEntry,
 } from '@/lib/db/schema';
 import { useKeyboardNav } from '@/lib/hooks/use-keyboard-nav';
 import { useProfileStore } from '@/stores/profile';
+import {
+  autoplayKey,
+  BACKGROUND_TTS_GAP_MS,
+  BACKGROUND_TTS_RETRY_MS,
+  branchKey,
+  buildVocabMap,
+  LEVEL_CLASS,
+  missionKey,
+  normalize,
+  PASSAGE_FONT_CLASS,
+  progressKey,
+  wait,
+  type Branch,
+  type SlideDir,
+  type TtsResponse,
+} from './reader/shared';
+import { PassageText } from './reader/passage-text';
+import { PassageMission } from './reader/passage-mission';
+import { EndingChoiceDialog } from './reader/ending-choice-dialog';
+import { FontSizePicker, ReaderSettingsButton } from './reader/reader-settings';
+import { useReadingLog } from './reader/use-reading-log';
+import { useFontSize } from './reader/use-font-size';
 
 interface Props {
   book: Book;
   passages: Passage[];
 }
 
-interface TtsResponse {
-  passageId: number;
-  audioPath: string;
-  cached: boolean;
-}
-
-type SlideDir = 'next' | 'prev' | null;
-
-const LEVEL_CLASS: Record<CefrLevel, string> = {
-  A1: 'level-a1',
-  A2: 'level-a2',
-  B1: 'level-b1',
-  B2: 'level-b2',
-};
-
-const progressKey = (bookId: number) => `reader:progress:${bookId}`;
-const autoplayKey = (bookId: number) => `reader:autoplay:${bookId}`;
-const branchKey = (bookId: number) => `reader:branch:${bookId}`;
-const logKey = (profileId: number, bookId: number) =>
-  `reader:log:${profileId}:${bookId}`;
-const fontSizeKey = 'reader:font-size';
-// 백그라운드 prefetch는 직렬(while + await)이지만 GAP이 너무 짧으면 Kokoro
-// PyTorch 모델의 메모리가 GC되기 전에 다음 합성이 시작되며 누적 spike가
-// 발생해 PM2 max_memory_restart가 30초 주기로 트리거됐다(2026-04-26 사례).
-// 1.5초 gap으로 매 합성 사이에 GC + soundfile buffer 해제 시간을 확보한다.
-const BACKGROUND_TTS_GAP_MS = 1500;
-const BACKGROUND_TTS_RETRY_MS = 10_000;
-
-type Branch = 'A' | 'B';
-
-type FontSize = 'sm' | 'md' | 'lg';
-
-/** Reader 본문 영단어 문장의 타이포 클래스 — 3단계. */
-const PASSAGE_FONT_CLASS: Record<FontSize, string> = {
-  sm: 'text-xl leading-relaxed sm:text-[24px] sm:leading-[1.5]',
-  md: 'text-2xl leading-relaxed sm:text-[30px] sm:leading-[1.4]',
-  lg: 'text-3xl leading-relaxed sm:text-[38px] sm:leading-[1.35]',
-};
-
-function isFontSize(v: unknown): v is FontSize {
-  return v === 'sm' || v === 'md' || v === 'lg';
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// 어휘 단어를 본문과 매칭하기 위한 정규화 키.
-// 단순 lowercase — 복수형/시제 변화는 MVP 범위 밖.
-// null/undefined 방어 — LLM 응답 vocabulary 누락 항목, 또는 split/capture group에서
-// 나올 수 있는 undefined token을 안전하게 빈 문자열로 처리.
-const normalize = (w: string | null | undefined): string =>
-  (w ?? '').trim().toLowerCase().replace(/[.,!?;:"']/g, '');
-
-function buildVocabMap(list: VocabularyEntry[] | null | undefined) {
-  const map = new Map<string, VocabularyEntry>();
-  if (!list) return map;
-  for (const entry of list) {
-    if (!entry?.word) continue;
-    const key = normalize(entry.word);
-    if (key && !map.has(key)) map.set(key, entry);
-  }
-  return map;
-}
-
-// 영문 본문을 단어·공백·구두점 토큰으로 분할.
-// /(\w[\w'-]*)/ 는 "don't", "long-lost" 같은 복합 단어도 하나로 유지.
-// 빈 문자열/undefined 입력과 split capture group의 undefined 결과를 모두 걸러낸다.
-function tokenize(text: string | null | undefined): string[] {
-  if (!text) return [];
-  return text
-    .split(/(\w[\w'-]*)/g)
-    .filter((t): t is string => typeof t === 'string' && t !== '');
-}
-
-/** 본문에서 vocabulary와 매칭되는 단어를 Popover trigger로 감싸 렌더. */
-function PassageText({
-  text,
-  vocabMap,
-}: {
-  text: string;
-  vocabMap: Map<string, VocabularyEntry>;
-}) {
-  if (vocabMap.size === 0) {
-    return <>{text}</>;
-  }
-  const tokens = tokenize(text);
-  return (
-    <>
-      {tokens.map((tok, i) => {
-        const entry = vocabMap.get(normalize(tok));
-        if (!entry) {
-          return <span key={i}>{tok}</span>;
-        }
-        return <VocabWord key={i} word={tok} entry={entry} />;
-      })}
-    </>
-  );
-}
-
-function VocabWord({
-  word,
-  entry,
-}: {
-  word: string;
-  entry: VocabularyEntry;
-}) {
-  return (
-    <Popover.Root>
-      <Popover.Trigger
-        render={
-          <button
-            type="button"
-            className="relative inline-block cursor-help rounded px-0.5 text-inherit underline decoration-primary/50 decoration-wavy decoration-2 underline-offset-[6px] transition-colors hover:bg-primary/10 focus:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            aria-label={`${entry.word} 뜻 보기`}
-          />
-        }
-      >
-        {word}
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner sideOffset={8} align="center">
-          <Popover.Popup className="animate-bounce-in z-50 max-w-[260px] rounded-2xl border border-border/60 bg-popover px-4 py-3 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 outline-none">
-            <div className="font-bold text-primary">{entry.word}</div>
-            <div className="mt-0.5 text-[15px] font-medium leading-snug">
-              {entry.meaning}
-            </div>
-            <Popover.Arrow className="text-border" />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-}
-
 export function Reader({ book, passages }: Props) {
   const profileId = useProfileStore((s) => s.currentProfileId);
-  const [logId, setLogId] = useState<number | null>(null);
   const [idx, setIdx] = useState(0);
   const [slideDir, setSlideDir] = useState<SlideDir>(null);
   const [showKo, setShowKo] = useState(false);
@@ -199,7 +76,7 @@ export function Reader({ book, passages }: Props) {
   const [playedPassages, setPlayedPassages] = useState<ReadonlySet<number>>(
     () => new Set(),
   );
-  const [fontSize, setFontSize] = useState<FontSize>('md');
+  const [fontSize, setFontSize] = useFontSize();
   const [branch, setBranch] = useState<Branch | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -299,6 +176,59 @@ export function Reader({ book, passages }: Props) {
   );
   const vocabMap = useMemo(() => buildVocabMap(vocabulary), [vocabulary]);
 
+  // 책 속 미션 — passageIndex → Mission 맵. 저장 시 서버가 범위/단어 존재를 이미
+  // 검증했지만(fail-soft), 레거시/수동 편집 대비 워드 헌트는 vocabMap에 있는
+  // 단어일 때만 유효로 간주한다(탭 대상이 밑줄 단어뿐이므로).
+  const missionByIdx = useMemo(() => {
+    const parsed = parseJsonField<Mission[]>(book.missions);
+    const map = new Map<number, Mission>();
+    if (!Array.isArray(parsed)) return map;
+    for (const m of parsed) {
+      if (typeof m?.passageIndex !== 'number') continue;
+      const wordHunt =
+        m.wordHunt && vocabMap.has(normalize(m.wordHunt.targetWord))
+          ? m.wordHunt
+          : undefined;
+      if (!wordHunt && !m.check) continue;
+      map.set(m.passageIndex, { ...m, wordHunt });
+    }
+    return map;
+  }, [book.missions, vocabMap]);
+  const currentMission = !isEndingStep ? missionByIdx.get(idx) : undefined;
+  // 완료한 미션의 passageIndex 집합 — localStorage 복원은 마운트 effect에서.
+  const [missionsDone, setMissionsDone] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+  const completeMission = useCallback(
+    (passageIndex: number) => {
+      setMissionsDone((prev) => {
+        if (prev.has(passageIndex)) return prev;
+        const next = new Set(prev);
+        next.add(passageIndex);
+        try {
+          window.localStorage.setItem(
+            missionKey(book.id),
+            JSON.stringify(Array.from(next)),
+          );
+        } catch {
+          /* storage 접근 실패 무시 — 세션 내 상태로만 유지 */
+        }
+        return next;
+      });
+    },
+    [book.id],
+  );
+  // 워드 헌트 판정 — 현재 passage에 미완료 워드 헌트가 있고, 탭한 단어가
+  // targetWord와 일치하면 완료. 그 외의 단어 탭은 기존 뜻 보기 동작 그대로.
+  const handleWordTap = useCallback(
+    (word: string) => {
+      const hunt = currentMission?.wordHunt;
+      if (!hunt || missionsDone.has(idx)) return;
+      if (normalize(word) === normalize(hunt.targetWord)) completeMission(idx);
+    },
+    [currentMission, missionsDone, idx, completeMission],
+  );
+
   useEffect(() => {
     audioCacheRef.current = audioCache;
   }, [audioCache]);
@@ -323,6 +253,16 @@ export function Reader({ book, passages }: Props) {
       }
       const savedAutoplay = window.localStorage.getItem(autoplayKey(book.id));
       if (savedAutoplay === '1') setAutoplay(true);
+      // 완료한 미션 복원 — 숫자 배열(JSON)만 신뢰.
+      const savedMissions = window.localStorage.getItem(missionKey(book.id));
+      if (savedMissions) {
+        const arr = JSON.parse(savedMissions) as unknown;
+        if (Array.isArray(arr)) {
+          setMissionsDone(
+            new Set(arr.filter((n): n is number => typeof n === 'number')),
+          );
+        }
+      }
     } catch {
       /* storage 접근 실패 무시 */
     }
@@ -450,6 +390,21 @@ export function Reader({ book, passages }: Props) {
     };
   }, [allTtsReady, book.id, passages]);
 
+  // 퀴즈 prefetch — 마지막 페이지에 도달하면 백그라운드로 퀴즈 생성을 미리
+  // 시작해 "퀴즈 풀러 가기" 진입 시 LLM 대기(수 초~수십 초)를 제거한다.
+  // POST /api/books/[id]/quiz는 멱등 + 서버 in-flight 병합이라 퀴즈 화면의
+  // 본 호출과 겹쳐도 LLM은 한 번만 실행된다. 실패는 무시 — 퀴즈 화면이 재시도.
+  const quizPrefetchedRef = useRef(false);
+  useEffect(() => {
+    if (!isLast || quizPrefetchedRef.current) return;
+    quizPrefetchedRef.current = true;
+    void apiFetch(`/api/books/${book.id}/quiz`, { method: 'POST' }).catch(
+      () => {
+        quizPrefetchedRef.current = false;
+      },
+    );
+  }, [isLast, book.id]);
+
   // 자동재생 토글 저장
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -459,17 +414,6 @@ export function Reader({ book, passages }: Props) {
       /* ignore */
     }
   }, [autoplay, book.id]);
-
-  // 글자 크기 복원 + 저장
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const saved = window.localStorage.getItem(fontSizeKey);
-      if (isFontSize(saved)) setFontSize(saved);
-    } catch {
-      /* ignore */
-    }
-  }, []);
 
   // 선택한 분기 저장
   useEffect(() => {
@@ -485,104 +429,14 @@ export function Reader({ book, passages }: Props) {
     }
   }, [branch, book.id]);
 
-  /**
-   * 서버 진도 로그 세션 확보.
-   *  - localStorage에 진행 중 log id가 있으면 재사용
-   *  - 없으면 POST /api/logs 로 새 세션 생성 후 id 저장
-   *  - 네트워크 실패해도 Reader UX에는 영향 없음(진도 저장만 누락)
-   */
-  useEffect(() => {
-    if (!profileId) return;
-    let cancelled = false;
-    const key = logKey(profileId, book.id);
-    try {
-      const cached = window.localStorage.getItem(key);
-      if (cached) {
-        const n = Number(cached);
-        if (Number.isFinite(n)) {
-          setLogId(n);
-          return;
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    apiFetch<{ log: { id: number } }>('/api/logs', {
-      method: 'POST',
-      body: JSON.stringify({ profileId, bookId: book.id }),
-    })
-      .then((res) => {
-        if (cancelled) return;
-        setLogId(res.log.id);
-        try {
-          window.localStorage.setItem(key, String(res.log.id));
-        } catch {
-          /* ignore */
-        }
-      })
-      .catch(() => void 0);
-    return () => {
-      cancelled = true;
-    };
-  }, [profileId, book.id]);
-
-  // 진도 업데이트.
-  //  - idx 변경 후 짧은 debounce(200ms)로 서버 PATCH → "읽은 만큼" 빠르게 반영
-  //  - Reader를 떠날 때(뒤로가기/라우트 전환) 아직 안 날아간 PATCH가 있으면 cleanup에서
-  //    `fetch keepalive: true`로 한 번 더 fire — 책장 진도 갱신 누락 방지.
-  //
-  // latestRatioRef는 최신 ratio를 컴포넌트 수명 내내 보관해 unmount 시 참조한다.
-  const latestRatioRef = useRef(0);
-  const ratioDirtyRef = useRef(false);
-  useEffect(() => {
-    if (!logId) return;
-    const ratio = isEndingStep
-      ? 1
-      : commonCount > 0
-        ? Math.min(1, (idx + 1) / commonCount)
-        : 0;
-    latestRatioRef.current = ratio;
-    ratioDirtyRef.current = true;
-    const t = window.setTimeout(() => {
-      apiFetch('/api/logs', {
-        method: 'PATCH',
-        body: JSON.stringify({ id: logId, progressRatio: ratio }),
-      })
-        .then(() => {
-          ratioDirtyRef.current = false;
-        })
-        .catch(() => void 0);
-    }, 200);
-    return () => window.clearTimeout(t);
-  }, [logId, idx, commonCount, isEndingStep]);
-
-  // 뒤로가기 등 unmount 시 — 아직 전송 안 된 PATCH가 있으면 keepalive로 한 번 더.
-  useEffect(() => {
-    return () => {
-      if (!logId || !ratioDirtyRef.current) return;
-      try {
-        fetch('/api/logs', {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            id: logId,
-            progressRatio: latestRatioRef.current,
-          }),
-          keepalive: true,
-        }).catch(() => void 0);
-      } catch {
-        /* unmount race — 무시 */
-      }
-    };
-  }, [logId]);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(fontSizeKey, fontSize);
-    } catch {
-      /* ignore */
-    }
-  }, [fontSize]);
+  // 서버 진도 로그 세션 확보 + idx 변경 시 debounce PATCH + 이탈 시 keepalive 보정.
+  useReadingLog({
+    profileId,
+    bookId: book.id,
+    idx,
+    commonCount,
+    isEndingStep,
+  });
 
   /**
    * TTS 생성 호출. 엔딩 passage는 사전 합성 경로만 사용하므로 서버 재호출 경로가 없다.
@@ -634,8 +488,8 @@ export function Reader({ book, passages }: Props) {
           ? `/api/tts/${currentCommon.id}?force=1`
           : `/api/tts/${currentCommon.id}`;
         const res = await apiFetch<TtsResponse>(url, { method: 'POST' });
-        // force 재생성 시 wav 파일명은 동일(passage-<id>.wav)하므로 브라우저 HTTP
-        // 캐시에 묶여 새 wav가 로드되지 않을 수 있다. cache-buster 쿼리로 audio
+        // force 재생성 시 파일명은 동일(passage-<id>.mp3)하므로 브라우저 HTTP
+        // 캐시에 묶여 새 오디오가 로드되지 않을 수 있다. cache-buster 쿼리로 audio
         // src를 강제로 새 URL로 만들어 <audio>가 다시 fetch하게 한다.
         const cachedPath = force
           ? `${res.audioPath}?v=${Date.now()}`
@@ -952,11 +806,14 @@ export function Reader({ book, passages }: Props) {
         <div className="relative">
           {currentScene ? (
             <div className="mb-5 overflow-hidden rounded-2xl border-2 border-border/60 sticker-shadow animate-pop-in">
+              {/* 장면 이미지는 쿠키 인증 동적 라우트(/images/*)라 optimizer가
+                  쿠키를 전달하지 못해 404가 된다 → 원본 직접 서빙. */}
               <Image
                 src={currentScene}
                 alt={currentTextEn}
                 width={1024}
                 height={768}
+                unoptimized
                 className="aspect-[4/3] w-full object-cover"
                 priority={idx === 0}
                 sizes="(max-width: 640px) 100vw, 640px"
@@ -972,12 +829,25 @@ export function Reader({ book, passages }: Props) {
           <p
             className={`whitespace-pre-wrap font-semibold text-foreground ${PASSAGE_FONT_CLASS[fontSize]}`}
           >
-            <PassageText text={currentTextEn} vocabMap={vocabMap} />
+            <PassageText
+              text={currentTextEn}
+              vocabMap={vocabMap}
+              onWordTap={handleWordTap}
+            />
           </p>
           {vocabMap.size > 0 ? (
             <p className="mt-2 text-[11px] text-muted-foreground">
               💡 밑줄 친 단어를 눌러 뜻을 볼 수 있어요
             </p>
+          ) : null}
+
+          {/* 책 속 미션 — 이 passage에 미션이 있을 때만. 진행을 막지 않는 재미 요소. */}
+          {currentMission ? (
+            <PassageMission
+              mission={currentMission}
+              done={missionsDone.has(idx)}
+              onComplete={() => completeMission(idx)}
+            />
           ) : null}
 
           <div
@@ -1164,222 +1034,5 @@ export function Reader({ book, passages }: Props) {
         />
       ) : null}
     </div>
-  );
-}
-
-/**
- * 엔딩 분기 선택 Dialog — 2개 라벨 카드 중 하나를 고르면 해당 브랜치의 엔딩 passages로 이동.
- */
-function EndingChoiceDialog({
-  open,
-  onOpenChange,
-  labelA,
-  labelB,
-  onPick,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  labelA: string;
-  labelB: string;
-  onPick: (b: Branch) => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>결말을 골라봐</DialogTitle>
-          <DialogDescription>
-            이야기의 마지막이 둘 중 어느 길로 흘러갈까? 언제든 돌아와 다른 결말을 볼 수 있어.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <ChoiceCard letter="A" label={labelA} onClick={() => onPick('A')} />
-          <ChoiceCard letter="B" label={labelB} onClick={() => onPick('B')} />
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ChoiceCard({
-  letter,
-  label,
-  onClick,
-}: {
-  letter: Branch;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex flex-col items-start gap-2 rounded-2xl border-2 border-border bg-card p-5 text-left transition press-scale sticker-shadow hover:border-primary/50 hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
-        {letter}
-      </span>
-      <span className="text-lg font-bold leading-snug">{label}</span>
-      <span className="text-xs text-muted-foreground group-hover:text-foreground">
-        이 결말로 가기 →
-      </span>
-    </button>
-  );
-}
-
-/**
- * 본문 글자 크기 3단계 선택. 접근성/아동 저시력 대응.
- * 값은 Reader state + localStorage('reader:font-size')에만 영향, 외부 페이지엔 영향 없음.
- */
-function FontSizePicker({
-  value,
-  onChange,
-}: {
-  value: FontSize;
-  onChange: (v: FontSize) => void;
-}) {
-  const items: Array<{ v: FontSize; label: string; sample: string }> = [
-    { v: 'sm', label: '작게', sample: 'A' },
-    { v: 'md', label: '기본', sample: 'A' },
-    { v: 'lg', label: '크게', sample: 'A' },
-  ];
-  const sampleSize: Record<FontSize, string> = {
-    sm: 'text-[11px]',
-    md: 'text-sm',
-    lg: 'text-base',
-  };
-  return (
-    <div
-      role="radiogroup"
-      aria-label="본문 글자 크기"
-      className="hidden items-center gap-0.5 rounded-full border border-border/60 bg-card p-0.5 sm:inline-flex"
-    >
-      {items.map((it) => {
-        const active = value === it.v;
-        return (
-          <button
-            key={it.v}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={it.label}
-            title={it.label}
-            onClick={() => onChange(it.v)}
-            className={`flex h-7 w-7 items-center justify-center rounded-full font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              active
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            } ${sampleSize[it.v]}`}
-          >
-            {it.sample}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/**
- * 모바일(<640px) 전용 Reader 설정 버튼.
- * 헤더의 FontSizePicker는 데스크탑에서만 노출되므로, 모바일에서는 톱니 아이콘 버튼으로
- * Popover를 열어 폰트 크기 + 자동재생 토글을 한 곳에서 다룬다.
- * 본문 카드 안의 자동재생 버튼은 컨텐츠 흐름에 직접 묶여 있으므로 그대로 유지.
- */
-function ReaderSettingsButton({
-  fontSize,
-  onFontSizeChange,
-  autoplay,
-  onAutoplayToggle,
-  isEndingStep,
-}: {
-  fontSize: FontSize;
-  onFontSizeChange: (v: FontSize) => void;
-  autoplay: boolean;
-  onAutoplayToggle: () => void;
-  isEndingStep: boolean;
-}) {
-  const items: Array<{ v: FontSize; label: string; sample: string }> = [
-    { v: 'sm', label: '작게', sample: 'A' },
-    { v: 'md', label: '기본', sample: 'A' },
-    { v: 'lg', label: '크게', sample: 'A' },
-  ];
-  return (
-    <Popover.Root>
-      <Popover.Trigger
-        aria-label="읽기 설정"
-        className="press-scale grid h-9 w-9 place-items-center rounded-full border-2 border-border bg-background text-foreground/80 transition hover:bg-muted hover:text-foreground sm:hidden"
-      >
-        <Settings2 aria-hidden className="size-4" strokeWidth={2.4} />
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner sideOffset={8} align="end" alignOffset={-4}>
-          <Popover.Popup className="z-50 w-[260px] rounded-2xl border border-border bg-popover p-3 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 outline-none animate-fade-up">
-            <div className="flex flex-col gap-3">
-              <div>
-                <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  글자 크기
-                </p>
-                <div
-                  role="radiogroup"
-                  aria-label="본문 글자 크기"
-                  className="flex items-center gap-1 rounded-full border border-border/60 bg-card p-0.5"
-                >
-                  {items.map((it) => {
-                    const active = fontSize === it.v;
-                    return (
-                      <button
-                        key={it.v}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        onClick={() => onFontSizeChange(it.v)}
-                        className={`flex min-h-[44px] flex-1 items-center justify-center rounded-full px-2 font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                          active
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {it.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              {!isEndingStep ? (
-                <div>
-                  <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    자동재생
-                  </p>
-                  <button
-                    type="button"
-                    onClick={onAutoplayToggle}
-                    aria-pressed={autoplay}
-                    className={`flex min-h-[44px] w-full items-center justify-between rounded-xl border-2 px-3 py-2 text-left font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      autoplay
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-border bg-card text-foreground/70 hover:bg-muted'
-                    }`}
-                  >
-                    <span>한 문장 끝나면 다음 문장으로</span>
-                    <span
-                      aria-hidden
-                      className={`ml-2 inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 transition ${
-                        autoplay ? 'border-primary bg-primary' : 'border-border bg-muted'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block size-3.5 rounded-full bg-background shadow-sm transition ${
-                          autoplay ? 'translate-x-4' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
   );
 }

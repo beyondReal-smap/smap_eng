@@ -37,21 +37,22 @@ export type PackageComparisonFeature = {
   values: Record<StarPackId, boolean | string>;
 };
 
-// 가격 정책 (.env.local에서 주입, fallback은 2026-04-22 확정값)
-//  - small: 1,900원 · 별 1개 (맛보기)
-//  - medium: 9,900원 · 별 50개 (추천)
-//  - large: 89,000원 · 별 600개
+// 가격 정책 (.env.local에서 주입, fallback은 2026-06-15 확정값)
+// iOS/Android IAP(App Store Connect·Play Console 책정가)와 동일하게 통일:
+//  - small: 1,100원 · 별 1개 (맛보기)
+//  - medium: 5,500원 · 별 60개 (추천)
+//  - large: 11,000원 · 별 130개
 const SMALL_PRICE = parseEnvNonNegativeInt(
   'NEXT_PUBLIC_STAR_PACK_SMALL_PRICE_KRW',
-  1_900,
+  1_100,
 );
 const MEDIUM_PRICE = parseEnvNonNegativeInt(
   'NEXT_PUBLIC_STAR_PACK_MEDIUM_PRICE_KRW',
-  9_900,
+  5_500,
 );
 const LARGE_PRICE = parseEnvNonNegativeInt(
   'NEXT_PUBLIC_STAR_PACK_LARGE_PRICE_KRW',
-  89_000,
+  11_000,
 );
 
 export const STAR_PACKAGES: StarPackage[] = [
@@ -73,36 +74,36 @@ export const STAR_PACKAGES: StarPackage[] = [
   },
   {
     id: 'medium',
-    stars: 50,
+    stars: 60,
     priceKrw: MEDIUM_PRICE,
-    perStarKrw: Math.round(MEDIUM_PRICE / 50),
-    name: '별 50개 팩',
+    perStarKrw: Math.round(MEDIUM_PRICE / 60),
+    name: '별 60개 팩',
     tagline: '우리 집 책장을 든든하게',
     features: [
-      '동화 50권 생성 (가족 합산)',
+      '동화 60권 생성 (가족 합산)',
       '가족 프로필 2~3명 전환',
       '문장별 낭독 + 한글 해석',
       '단어장 SRS · 퀴즈 · 독서 로그',
       '보호자 모드 · 주간 학습 리포트',
     ],
     highlighted: true,
-    cta: '별 50개 담기',
+    cta: '별 60개 담기',
   },
   {
     id: 'large',
-    stars: 600,
+    stars: 130,
     priceKrw: LARGE_PRICE,
-    perStarKrw: Math.round(LARGE_PRICE / 600),
-    name: '별 600개 팩',
+    perStarKrw: Math.round(LARGE_PRICE / 130),
+    name: '별 130개 팩',
     tagline: '1년 내내 쭉~',
     features: [
-      '별 50개 팩의 모든 기능',
-      '동화 600권 생성',
+      '별 60개 팩의 모든 기능',
+      '동화 130권 생성',
       '연말 학습 성장 리포트',
       '우선 고객 지원',
       '신기능 우선 체험',
     ],
-    cta: '별 600개 담기',
+    cta: '별 130개 담기',
   },
 ];
 
@@ -111,16 +112,16 @@ export const PACKAGE_COMPARISON: PackageComparisonFeature[] = [
     label: '충전되는 별',
     values: {
       small: '1개',
-      medium: '50개',
-      large: '600개',
+      medium: '60개',
+      large: '130개',
     },
   },
   {
     label: '동화 생성 권수',
     values: {
       small: '1권',
-      medium: '50권',
-      large: '600권',
+      medium: '60권',
+      large: '130권',
     },
   },
   {

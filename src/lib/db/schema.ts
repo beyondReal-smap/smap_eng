@@ -170,6 +170,27 @@ export interface FunFact {
   body: string;
 }
 
+// 책 속 미션 — 리더가 특정 passage에서 노출하는 게임 요소. LLM이 책과 함께 생성.
+// wordHunt: 해당 passage 본문에 실제로 나오는 vocabulary 단어를 찾아 탭하는 미션.
+// check: 해당 passage 내용으로 답할 수 있는 2지선다 확인 질문.
+// 둘 다 optional — LLM 변동성에 fail-soft (미션 없어도 책은 유효).
+export interface MissionCheck {
+  question: string;
+  choices: [string, string];
+  answerIndex: 0 | 1;
+}
+export interface Mission {
+  /** passages.orderIndex와 매칭되는 0-based 인덱스. */
+  passageIndex: number;
+  wordHunt?: {
+    /** 해당 passage의 en 본문에 그대로 등장하는 단어. */
+    targetWord: string;
+    /** 아이에게 보여줄 한국어 힌트 (예: "'용감한'이라는 뜻의 단어를 찾아봐!"). */
+    hintKo: string;
+  };
+  check?: MissionCheck;
+}
+
 // 생성 단계 인테이크 — 마법사가 LLM에서 받은 질문 + 사용자 답변을 그대로 보관.
 // 답변이 비어 있으면 text=null(건너뜀)로 정규화 저장.
 export interface BookIntakeQuestion {
@@ -203,13 +224,15 @@ export const books = mysqlTable(
     vocabulary: json('vocabulary').$type<VocabularyEntry[]>(),
     alternateEnding: json('alternate_ending').$type<AlternateEnding>(),
     // 결말 분기 passages의 사전 합성 TTS 경로. orderIndex 순으로 정렬된
-    // 웹 경로(`/audio/ending-<bookId>-A-<idx>.wav`) 배열. 책 생성 직후
+    // 웹 경로(`/audio/ending-<bookId>-A-<idx>.mp3`, 구버전은 .wav) 배열. 책 생성 직후
     // after()로 합성된다. 합성 실패한 슬롯은 ''(빈 문자열)로 보존하여
     // 인덱스 정렬을 유지한다. 합성 전(혹은 레거시 책)은 NULL.
     endingAudioPathsA: json('ending_audio_paths_a').$type<string[]>(),
     endingAudioPathsB: json('ending_audio_paths_b').$type<string[]>(),
     // 논픽션 전용. 픽션은 NULL.
     funFacts: json('fun_facts').$type<FunFact[]>(),
+    // 책 속 미션(워드 헌트 + 확인 질문). NULL=레거시 책 또는 LLM 미출력 — 미션 없이 렌더.
+    missions: json('missions').$type<Mission[]>(),
     // 마법사 인테이크 원본 보존(재생성/품질 회귀 분석용).
     intake: json('intake').$type<BookIntake>(),
     createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -295,8 +318,17 @@ export const creditBalances = mysqlTable('credit_balances', {
 });
 
 // 크레딧 원장 — 감사 추적·환불 대비. 양수=적립/음수=차감.
-// kind: 'purchase'(패키지 구매), 'consume'(책 생성), 'grant'(운영자 지급), 'refund'(환불)
-export const CREDIT_TX_KINDS = ['purchase', 'consume', 'grant', 'refund'] as const;
+// kind: 'purchase'(패키지 구매), 'consume'(책 생성), 'grant'(운영자 지급),
+//       'refund'(환불), 'signup'(신규 가입 웰컴 보너스 — 유저당 1회, grantSignupBonus가 멱등 보장)
+// 주의: Drizzle의 enum 옵션은 TS 타입 검증용일 뿐 MySQL 컬럼은 varchar(16)이므로
+//       값 추가에 별도 DB 마이그레이션이 필요 없다('signup'은 16자 이내).
+export const CREDIT_TX_KINDS = [
+  'purchase',
+  'consume',
+  'grant',
+  'refund',
+  'signup',
+] as const;
 export type CreditTxKind = (typeof CREDIT_TX_KINDS)[number];
 
 export const creditTransactions = mysqlTable(
@@ -327,9 +359,9 @@ export const creditTransactions = mysqlTable(
   ],
 );
 
-// 결제 주문 — 포트원 V2 결제 모듈 경유.
-// 흐름: client checkout → status='pending' → 포트원 결제창 → redirectUrl(/subscribe/success) →
-//       서버 confirm → 포트원 GET /payments/{id} → grantCredits → status='confirmed'.
+// 결제 주문 — 부트페이(Bootpay) 웹 결제 경유.
+// 흐름: client checkout → status='pending' → 부트페이 결제창 → done(receipt_id) →
+//       /subscribe/success → 서버 confirm → 부트페이 GET /v2/receipt/{id} 검증 → 적립 → status='confirmed'.
 // 환불 정책: 환불 불가(요구사항). status='cancelled'/'refunded'는 미사용.
 export const ORDER_STATUSES = [
   'pending',
@@ -350,28 +382,28 @@ export const orders = mysqlTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** 별 패키지 ID — 'small' | 'medium' | 'large'. */
     packageId: varchar('package_id', { length: 16, enum: STAR_PACK_IDS }).notNull(),
-    /** 정가(원) — 패키지 정의 시점에 고정. 포트원 결제창에 보내는 금액과 일치해야 함. */
+    /** 정가(원) — 패키지 정의 시점에 고정. 부트페이 결제창에 보내는 금액과 일치해야 함. */
     amount: int('amount').notNull(),
     /** 적립 예정 별 개수. */
     stars: int('stars').notNull(),
     /**
-     * 우리 시스템이 발급하는 unique paymentId — PortOne `requestPayment`에 그대로 전달.
-     * 포트원 V2 paymentId 규격: 영문/숫자/-/_ 6~64자 — UUID v4 (36자) 호환.
+     * 우리 시스템이 발급하는 unique paymentId — 부트페이 결제창의 order_id 로 전달.
+     * confirm 시 영수증의 order_id 와 대조해 도용/교차 claim 을 차단한다. UUID v4(36자).
      */
     paymentId: varchar('payment_id', { length: 64 }).notNull().unique(),
     /**
-     * PG 거래 식별자 — confirm 시 포트원 단건 조회 응답의 `transactionId`를 저장.
-     * 환불·CS 시 포트원 콘솔에서 거래 추적 키.
+     * PG 거래 식별자 — confirm 시 부트페이 영수증의 receipt_id 를 저장.
+     * 환불·CS 시 부트페이 콘솔에서 거래 추적 키.
      */
     pgTxId: varchar('pg_tx_id', { length: 200 }),
-    /** 결제 수단 — confirm 응답의 `method.type` ('Card','EasyPay' 등). */
+    /** 결제 수단 — confirm 시 부트페이 영수증의 `method` ('카드','간편결제' 등). */
     payMethod: varchar('pay_method', { length: 32 }),
-    /** 영수증 URL — PG가 발급(포트원이 그대로 중계). */
+    /** 영수증 URL — PG가 발급(부트페이가 그대로 중계). */
     receiptUrl: varchar('receipt_url', { length: 500 }),
     status: varchar('status', { length: 16, enum: ORDER_STATUSES })
       .notNull()
       .default('pending'),
-    /** 실패 사유 코드 — PG/포트원이 반환하면 저장(예: 'PG_ERROR','USER_CANCEL'). */
+    /** 실패 사유 코드 — 검증 실패 시 저장(예: 'AMOUNT_MISMATCH','ORDER_ID_MISMATCH'). */
     failureCode: varchar('failure_code', { length: 64 }),
     confirmedAt: timestamp('confirmed_at'),
     createdAt: timestamp('created_at').notNull().defaultNow(),

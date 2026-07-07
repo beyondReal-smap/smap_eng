@@ -32,12 +32,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import site.smap.harubook.core.models.Mission
 import site.smap.harubook.core.models.Passage
 import site.smap.harubook.core.models.VocabularyEntry
 import site.smap.harubook.core.srs.SrsGrade
@@ -70,6 +76,12 @@ fun PassageView(
     generatingScene: Boolean,
     onGradeVocab: (VocabularyEntry, SrsGrade) -> Unit,
     modifier: Modifier = Modifier,
+    /** 이 passage의 미션 — 없으면(레거시 책) 미션 UI 미노출. 웹 passage-mission 패리티. */
+    mission: Mission? = null,
+    missionDone: Boolean = false,
+    onMissionComplete: () -> Unit = {},
+    /** 밑줄 단어 popover 열림 시 원본 단어 전달 — 워드 헌트 완료 판정용. */
+    onWordTap: (String) -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -92,7 +104,17 @@ fun PassageView(
             isPlaying = isPlaying,
             textScale = textScale,
             onGradeVocab = onGradeVocab,
+            onWordTap = onWordTap,
         )
+
+        // 책 속 미션 — 웹과 동일하게 본문 아래·한글 카드 위. 진행을 막지 않는 재미 요소.
+        if (mission != null) {
+            PassageMissionCard(
+                mission = mission,
+                done = missionDone,
+                onComplete = onMissionComplete,
+            )
+        }
 
         if (showsKorean && !passage.textKo.isNullOrEmpty()) {
             KoreanCard(textKo = passage.textKo, baseSp = textScale.sp)
@@ -108,6 +130,7 @@ private fun PassageBody(
     isPlaying: Boolean,
     textScale: ReaderTextScale,
     onGradeVocab: (VocabularyEntry, SrsGrade) -> Unit,
+    onWordTap: (String) -> Unit,
 ) {
     val vocabMap = remember(vocabulary) { buildVocabMap(vocabulary) }
     val tokens = remember(text) { tokenizePassage(text) }
@@ -137,6 +160,8 @@ private fun PassageBody(
                     entry = match,
                     bodyStyle = bodyStyle,
                     onGrade = { grade -> onGradeVocab(match, grade) },
+                    // popover 열림 = "단어를 찾았다" 신호 — 워드 헌트 완료 판정(웹 handleWordTap 패리티).
+                    onOpen = { onWordTap(token.text) },
                 )
             } else {
                 Text(text = token.text, style = bodyStyle, color = SmapText)
@@ -155,6 +180,7 @@ private fun VocabTokenWithPopup(
     entry: VocabularyEntry,
     bodyStyle: androidx.compose.ui.text.TextStyle,
     onGrade: (SrsGrade) -> Unit,
+    onOpen: () -> Unit = {},
 ) {
     var shows by remember { mutableStateOf(false) }
     Box {
@@ -162,14 +188,35 @@ private fun VocabTokenWithPopup(
             text = displayWord,
             style = bodyStyle.copy(textDecoration = TextDecoration.Underline),
             color = SmapPrimary,
-            modifier = Modifier.clickable { shows = true },
+            modifier = Modifier.clickable {
+                shows = true
+                onOpen()
+            },
         )
         if (shows) {
-            // 오프셋 음수 Y — 토큰 위쪽에 카드가 뜨도록. Popup 은 anchor 의 좌상단을 기준으로 그려져
-            // 추가 패딩 없이 자연스럽게 위치한다.
+            // 카드 실측 크기 기반으로 "단어 바로 위 + 화면 안"에 배치.
+            // 이전의 고정 offset(-200)은 dp가 아닌 raw 픽셀이라 기기 밀도에 따라
+            // 카드가 단어를 덮거나(고밀도) 엉뚱하게 멀리 떠서(저밀도) 오조작을 유발했다.
+            val gapPx = with(LocalDensity.current) { 8.dp.roundToPx() }
+            val positionProvider = remember(gapPx) {
+                object : PopupPositionProvider {
+                    override fun calculatePosition(
+                        anchorBounds: IntRect,
+                        windowSize: IntSize,
+                        layoutDirection: LayoutDirection,
+                        popupContentSize: IntSize,
+                    ): IntOffset {
+                        val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
+                            .coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+                        // 기본은 단어 위, 화면 상단을 벗어나면 단어 아래로 반전.
+                        val above = anchorBounds.top - popupContentSize.height - gapPx
+                        val y = if (above >= 0) above else anchorBounds.bottom + gapPx
+                        return IntOffset(x, y)
+                    }
+                }
+            }
             Popup(
-                alignment = Alignment.TopCenter,
-                offset = IntOffset(x = 0, y = -200),
+                popupPositionProvider = positionProvider,
                 onDismissRequest = { shows = false },
                 properties = PopupProperties(focusable = true),
             ) {

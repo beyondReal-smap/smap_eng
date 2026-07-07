@@ -45,6 +45,31 @@ export const BookSchema = z.object({
     .min(2)
     .max(4)
     .optional(),
+  // 책 속 미션(워드 헌트 + 확인 질문) — alternateEnding/funFacts와 동일한
+  // fail-soft optional. LLM이 못 채워도 전체 생성은 성공해야 한다.
+  // targetWord가 실제 passage에 존재하는지는 여기서 검증하지 않고(false-positive
+  // Zod 실패 방지) 리더가 매칭 실패 시 해당 미션을 조용히 숨긴다.
+  missions: z
+    .array(
+      z.object({
+        passageIndex: z.number().int().min(0),
+        wordHunt: z
+          .object({
+            targetWord: z.string().min(1).max(40),
+            hintKo: z.string().min(1).max(120),
+          })
+          .optional(),
+        check: z
+          .object({
+            question: z.string().min(1).max(200),
+            choices: z.tuple([z.string().min(1), z.string().min(1)]),
+            answerIndex: z.union([z.literal(0), z.literal(1)]),
+          })
+          .optional(),
+      }),
+    )
+    .max(8)
+    .optional(),
 });
 export type Book = z.infer<typeof BookSchema>;
 

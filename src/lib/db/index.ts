@@ -30,6 +30,7 @@ function createPool(): mysql.Pool {
         'choices',
         'fun_facts',
         'intake',
+        'missions',
         'vocabulary',
       ]);
       if (JSON_COLUMNS.has(field.name)) {

@@ -3,8 +3,10 @@ package site.smap.harubook.features.vocab
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,6 +55,9 @@ class VocabViewModel(
     /** AudioPlayer 는 Int passageId 키 — 단어별 고정 정수 발급해 캐시 적중률을 유지. */
     private val ttsKeyMap = mutableMapOf<String, Int>()
     private var nextTtsKey: Int = 1_000_000
+
+    /** 컴패니언 idle 복귀 타이머 — 연속 평가 시 이전 타이머 취소(웹 companionTimerRef 패리티). */
+    private var companionJob: Job? = null
 
     private val _state = MutableStateFlow(VocabUiState())
     val state: StateFlow<VocabUiState> = _state.asStateFlow()
@@ -117,6 +122,15 @@ class VocabViewModel(
         val cur = currentEntry() ?: return
         srs.grade(cur.word, g)
 
+        // 컴패니언 반응 — 정답으로 마스터에 도달하면 축하, 아니면 정/오답 반응.
+        // 잠시 뒤 idle 복귀(연속 평가 시 타이머 리셋). 웹 vocab-deck grade 패리티.
+        val mastered = g == SrsGrade.Good && srs.isMastered(cur.word)
+        val companion = when {
+            mastered -> CompanionState.Celebrate
+            g == SrsGrade.Good -> CompanionState.Correct
+            else -> CompanionState.Wrong
+        }
+
         _state.update { st ->
             if (g == SrsGrade.Again) {
                 // 현재 단어를 entries 끝으로 이동 — 즉시 한 번 더 노출.
@@ -129,13 +143,27 @@ class VocabViewModel(
                     index = st.index.coerceAtMost((newDeckSize - 1).coerceAtLeast(0)),
                     isFlipped = false,
                     srsTickKey = st.srsTickKey + 1,
+                    companionState = companion,
+                    companionPulse = st.companionPulse + 1,
                 )
             } else {
                 // 한 칸 전진 — 마지막이면 유지. (good 의 경우 mastered 되면 deck 에서 빠져 자연스레 다음 단어 노출.)
                 val newDeckSize = computeDeck(st.entries, st.tab).size
                 val next = (st.index + 1).coerceAtMost((newDeckSize - 1).coerceAtLeast(0))
-                st.copy(index = next, isFlipped = false, srsTickKey = st.srsTickKey + 1)
+                st.copy(
+                    index = next,
+                    isFlipped = false,
+                    srsTickKey = st.srsTickKey + 1,
+                    companionState = companion,
+                    companionPulse = st.companionPulse + 1,
+                )
             }
+        }
+
+        companionJob?.cancel()
+        companionJob = viewModelScope.launch {
+            delay(if (mastered) 2_600 else 1_800)
+            _state.update { it.copy(companionState = CompanionState.Idle) }
         }
     }
 
@@ -228,6 +256,10 @@ data class VocabUiState(
     val error: String? = null,
     val speakingWord: String? = null,
     val srsTickKey: Int = 0,
+    /** 학습 컴패니언 — 평가 이벤트에 반응 후 idle 복귀. 웹 companionState 패리티. */
+    val companionState: CompanionState = CompanionState.Idle,
+    /** 같은 상태 연속 시에도 연출·문구가 갱신되도록 하는 카운터. */
+    val companionPulse: Int = 0,
 )
 
 @Serializable

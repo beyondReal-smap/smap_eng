@@ -4,7 +4,7 @@ import Observation
 
 /// passage 단위 오디오 재생기.
 ///
-/// 백엔드 TTS는 `/audio/passage-N.wav` 같은 인증 게이트 경로를 반환하므로,
+/// 백엔드 TTS는 `/audio/passage-N.mp3` 같은 인증 게이트 경로를 반환하므로,
 /// 단순히 URL을 `AVPlayer` 에 넘기는 대신 `Authorization: Bearer …` 헤더를 부착해
 /// 데이터를 다운로드한 뒤 `AVAudioPlayer`(in-memory) 로 재생한다.
 ///
@@ -16,6 +16,9 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
 
     /// 현재 재생 중인 passage id. nil 이면 정지 상태.
     private(set) var nowPlayingPassageId: Int?
+    /// 일시정지 여부. `player`가 @ObservationIgnored라 pause/play 자체는 뷰에 전파되지
+    /// 않으므로, 버튼 라벨("듣기"↔"정지")이 pause에 반응하려면 이 관찰 가능 플래그가 필요하다.
+    private(set) var isPaused: Bool = false
     /// 다운로드/디코드 중인 passage id (UI 인디케이터용).
     private(set) var preparingPassageId: Int?
     /// 마지막으로 발생한 사용자용 에러 메시지.
@@ -31,12 +34,24 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
 
     var isPlaying: Bool { nowPlayingPassageId != nil && (player?.isPlaying ?? false) }
 
+    /// 해당 passage가 "실제로 소리를 내며 재생 중"인지 — 버튼 라벨/본문 하이라이트 판정용.
+    /// nowPlayingPassageId만 보면 pause 상태에서도 true라 "정지" 라벨이 고착된다.
+    func isActivelyPlaying(passageId: Int) -> Bool {
+        nowPlayingPassageId == passageId && !isPaused
+    }
+
     /// passage 재생 토글.
     /// - 이미 같은 passage가 재생 중이면 일시정지, 일시정지 상태면 재개, 다른 passage면 교체 재생.
     func toggle(passageId: Int, audioPath: String?) {
         if nowPlayingPassageId == passageId {
             if let player = player {
-                if player.isPlaying { player.pause() } else { player.play() }
+                if player.isPlaying {
+                    player.pause()
+                    isPaused = true
+                } else {
+                    player.play()
+                    isPaused = false
+                }
             }
             return
         }
@@ -52,6 +67,7 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
         player?.stop()
         player = nil
         nowPlayingPassageId = nil
+        isPaused = false
         preparingPassageId = nil
         inFlightTask?.cancel()
         inFlightTask = nil
@@ -59,8 +75,13 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
 
     private func startNew(passageId: Int, audioPath: String) {
         inFlightTask?.cancel()
+        // 이전 passage 오디오를 즉시 정지 — 새 오디오 다운로드/디코드 동안(수 초)
+        // 이전 문장이 계속 낭독되어 두 소리가 겹치는 혼란을 막는다.
+        player?.stop()
+        player = nil
         preparingPassageId = passageId
         nowPlayingPassageId = nil
+        isPaused = false
 
         inFlightTask = Task { [weak self] in
             guard let self else { return }
@@ -74,6 +95,7 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
                 self.player = p
                 self.nowPlayingPassageId = passageId
                 self.preparingPassageId = nil
+                self.isPaused = false
                 self.lastError = nil
             } catch is CancellationError {
                 // 다른 passage가 들어오면서 취소 — silent
@@ -119,6 +141,7 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor [weak self] in
             self?.nowPlayingPassageId = nil
+            self?.isPaused = false
         }
     }
 }

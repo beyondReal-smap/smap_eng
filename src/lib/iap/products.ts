@@ -9,7 +9,7 @@
  */
 
 export const IAP_PRODUCTS: Record<string, { stars: number; label: string }> = {
-  'com.smap.harubook.star_small': { stars: 10, label: '별 10개' },
+  'com.smap.harubook.star_small': { stars: 1, label: '별 1개' },
   'com.smap.harubook.star_medium': { stars: 60, label: '별 60개' },
   'com.smap.harubook.star_large': { stars: 130, label: '별 130개' },
 } as const;

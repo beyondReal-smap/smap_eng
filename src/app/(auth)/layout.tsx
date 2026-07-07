@@ -65,7 +65,7 @@ function BrandPanel() {
           어떤 이야기를 들려줄까요?
         </h1>
         <p className="text-base leading-relaxed text-muted-foreground">
-          아이 연령과 영어 수준에 맞춘 동화를 AI가 매일 만들어 드려요. 낭독,
+          아이 연령과 영어 수준에 맞춘 동화를 매일 만들어 드려요. 낭독,
           한글 해석, 퀴즈, 단어장까지 한 곳에서.
         </p>
       </div>

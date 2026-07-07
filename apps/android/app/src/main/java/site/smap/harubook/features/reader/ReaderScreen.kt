@@ -149,11 +149,19 @@ fun ReaderScreen(
                         passage = passage,
                         vocabulary = state.vocabulary,
                         showsKorean = state.showsKorean,
-                        isPlaying = audio.nowPlayingPassageId == passage.id,
+                        // pause 상태에서도 nowPlayingPassageId는 유지되므로 isActivelyPlaying으로
+                        // 판정해야 하이라이트/라벨이 정지에 반응한다.
+                        isPlaying = audio.isActivelyPlaying(passage.id),
                         textScale = state.textScale,
                         generatingScene = state.generatingScenePassageId == passage.id,
                         // 인라인 Popup 으로 단어 옆에 즉시 평가 가능 — 전역 ModalBottomSheet 제거.
                         onGradeVocab = viewModel::gradeVocab,
+                        // 책 속 미션 — 웹 reader.tsx 패리티. 레거시 책(missions 없음)은 null.
+                        mission = state.missionByIndex[index],
+                        missionDone = state.completedMissions.contains(index),
+                        onMissionComplete = { viewModel.completeMission(index) },
+                        // pager 사전 구성(pre-composition) 페이지도 있어 index 를 명시적으로 전달.
+                        onWordTap = { word -> viewModel.reportWordTapped(index, word) },
                     )
                 }
 
@@ -162,7 +170,7 @@ fun ReaderScreen(
                 BottomBar(
                     currentIndex = state.currentIndex,
                     total = state.passages.size,
-                    isPlaying = audio.nowPlayingPassageId == current?.id,
+                    isPlaying = audio.isActivelyPlaying(current?.id),
                     isPreparing = audio.preparingPassageId == current?.id ||
                         state.synthesizingPassageId == current?.id,
                     showsKorean = state.showsKorean,

@@ -17,6 +17,7 @@ if [[ ! -f "$BUILD_ID_PATH" ]]; then
 fi
 
 PORT="${PORT:-5029}"
-echo "[start-next] BUILD_ID=$(cat "$BUILD_ID_PATH") PORT=$PORT"
+HOST="${HOST:-127.0.0.1}"
+echo "[start-next] BUILD_ID=$(cat "$BUILD_ID_PATH") HOST=$HOST PORT=$PORT"
 
-exec ./node_modules/.bin/next start -p "$PORT"
+exec ./node_modules/.bin/next start -H "$HOST" -p "$PORT"
