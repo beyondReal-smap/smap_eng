@@ -39,18 +39,22 @@ function friendlyConfirmErrorMessage(code: string | undefined): string {
       return "세션이 만료되었어요. 다시 로그인 후 시도해 주세요.";
     case "payment_not_paid":
       return "결제가 완료되지 않았어요. 다시 결제해 주세요.";
+    case "invalid_receipt":
+    case "order_mismatch":
+      return "결제 정보가 일치하지 않아요. 고객센터로 문의해 주세요.";
+    case "toss_confirm_failed":
+      return "결제 승인 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.";
+    case "amount_mismatch":
+      return "결제 금액이 맞지 않아 결제가 취소됐어요. 다시 시도해 주세요.";
     default:
       return "결제 확인에 실패했어요. 잠시 후 다시 시도해 주세요.";
   }
 }
 
 /**
- * 포트원 V2 redirect URL 파라미터(paymentId/code/message)를 받아
- * /api/payments/confirm 호출 → 서버가 포트원 GET /payments/{id} 로 검증 후 적립.
- *
- * code 분기:
- *  - "Success" 또는 미설정: 정상 흐름(포트원이 성공 시 code 미부착하는 경우 있음).
- *  - "Fail" 또는 그 외: /subscribe/fail 로 라우팅(클라이언트 측 1차 분기).
+ * 토스 결제창 successUrl 리다이렉트로 붙은 파라미터(paymentKey/orderId/amount + pack)를
+ * 받아 /api/payments/confirm 호출 → 서버가 토스 confirm(승인)으로 검증 후 적립.
+ * (결제 실패·취소는 토스가 failUrl 로 직접 보내므로 이 성공 경로에는 도달하지 않는다.)
  *
  * 컴포넌트 마운트 1회만 호출(StrictMode 이중 마운트 방지: ref 가드).
  * confirm 라우트는 idempotent 하므로 안전하지만, 불필요한 호출을 줄인다.
@@ -58,12 +62,22 @@ function friendlyConfirmErrorMessage(code: string | undefined): string {
 export function PaymentConfirmFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [phase, setPhase] = useState<Phase>({ kind: "verifying" });
+  // 파라미터 누락은 렌더 시점에 확정되는 파생 상태 — effect 내 setState(cascading render)를
+  // 피하려 초기값으로 계산한다. 정상 파라미터면 verifying 으로 시작해 effect가 confirm 한다.
+  const [phase, setPhase] = useState<Phase>(() => {
+    const oid = searchParams.get("orderId");
+    const pk = searchParams.get("paymentKey");
+    const amt = Number(searchParams.get("amount"));
+    return !oid || !pk || !Number.isFinite(amt)
+      ? { kind: "error", message: "결제 정보가 누락되어 확인할 수 없어요." }
+      : { kind: "verifying" };
+  });
   const calledRef = useRef(false);
 
-  const paymentId = searchParams.get("paymentId");
-  const code = searchParams.get("code");
-  const message = searchParams.get("message");
+  // 토스 successUrl 파라미터. orderId 는 우리 서버가 발급한 paymentId(UUID).
+  const orderId = searchParams.get("orderId");
+  const paymentKey = searchParams.get("paymentKey");
+  const amountParam = searchParams.get("amount");
   // 우리가 추가한 표시용 파라미터(없을 수도 있음).
   const packId = searchParams.get("pack");
 
@@ -71,27 +85,15 @@ export function PaymentConfirmFlow() {
     if (calledRef.current) return;
     calledRef.current = true;
 
-    // 포트원 redirect 시 결제 실패/취소면 code=Fail. 즉시 fail 라우트로.
-    if (code && code !== "Success") {
-      const params = new URLSearchParams();
-      params.set("error", "portone_redirect_fail");
-      params.set("code", code);
-      if (message) params.set("message", message);
-      router.replace(`/subscribe/fail?${params.toString()}`);
-      return;
-    }
-
-    if (!paymentId) {
-      setPhase({
-        kind: "error",
-        message: "결제 정보가 누락되어 확인할 수 없어요.",
-      });
+    const amount = Number(amountParam);
+    if (!orderId || !paymentKey || !Number.isFinite(amount)) {
+      // 초기 phase 가 이미 error 로 설정됨 — effect 내 setState 없이 종료.
       return;
     }
 
     apiFetch<ConfirmResponse>("/api/payments/confirm", {
       method: "POST",
-      body: JSON.stringify({ paymentId }),
+      body: JSON.stringify({ paymentId: orderId, paymentKey, amount }),
     })
       .then((res) => {
         setPhase({
@@ -101,28 +103,29 @@ export function PaymentConfirmFlow() {
         });
       })
       .catch((err: unknown) => {
-        // 포트원 원문 메시지(method/카드사 코드 등)는 클라이언트에 전달되지 않는다.
+        // 토스 원문 메시지(method/카드사 코드 등)는 클라이언트에 전달되지 않는다.
         // 사용자 친화 메시지는 friendlyConfirmErrorMessage()로 매핑.
         const apiBody = err instanceof ApiError ? err.body : undefined;
         const error = apiBody?.error;
-        const portoneCode = (apiBody as { code?: unknown } | undefined)?.code;
+        const tossCode = (apiBody as { code?: unknown } | undefined)?.code;
         if (
-          error === "portone_lookup_failed" ||
-          error === "amount_mismatch_upstream" ||
+          error === "toss_confirm_failed" ||
+          error === "amount_mismatch" ||
+          error === "order_mismatch" ||
           error === "order_failed" ||
           error === "payment_not_paid"
         ) {
           const params = new URLSearchParams();
           params.set("error", error);
-          if (typeof portoneCode === "string" && portoneCode.length > 0) {
-            params.set("code", portoneCode);
+          if (typeof tossCode === "string" && tossCode.length > 0) {
+            params.set("code", tossCode);
           }
           router.replace(`/subscribe/fail?${params.toString()}`);
           return;
         }
         setPhase({ kind: "error", message: friendlyConfirmErrorMessage(error) });
       });
-  }, [paymentId, code, message, router]);
+  }, [orderId, paymentKey, amountParam, router]);
 
   if (phase.kind === "verifying") {
     return (

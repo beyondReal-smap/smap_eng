@@ -125,15 +125,6 @@ final class StoreViewModel {
         }
     }
 
-    /// "복원" 버튼 — Consumable이라 실제 복원은 없지만 App Store 가이드상 화면에 노출해야 한다.
-    /// AppStore.sync()로 unfinished transaction을 다시 전달받게 한다.
-    func restore() async {
-        do {
-            try await AppStore.sync()
-        } catch {
-            errorMessage = "복원 처리 중 문제가 발생했어요."
-        }
-    }
 }
 
 private struct VerifyRequest: Encodable {

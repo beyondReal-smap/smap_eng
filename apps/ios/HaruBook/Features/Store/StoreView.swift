@@ -4,7 +4,6 @@ import StoreKit
 /// 별 충전(IAP) 화면.
 ///
 /// App Store Review Guideline 3.1.1 — 디지털 콘텐츠는 IAP만. 토스 결제 페이지 링크 금지.
-/// 3.1.1(c) — Consumable에도 "구매 복원" 버튼이 화면에 있어야 함.
 struct StoreView: View {
     @State private var viewModel = StoreViewModel()
 
@@ -39,8 +38,6 @@ struct StoreView: View {
                             .padding(.horizontal, 8)
                     }
 
-                    restoreSection
-                        .padding(.top, 8)
                     policySection
                 }
                 .padding(.horizontal, 20)
@@ -180,24 +177,6 @@ struct StoreView: View {
 
     // MARK: - Footer
 
-    private var restoreSection: some View {
-        VStack(alignment: .center, spacing: 6) {
-            Button {
-                Task { await viewModel.restore() }
-            } label: {
-                Label("구매 복원", systemImage: "arrow.clockwise")
-                    .font(Font.atozBold(14))
-                    .foregroundStyle(Color.smapPrimary)
-            }
-            .buttonStyle(.plain)
-            Text("기기 변경·재설치 후 미반영된 거래가 있다면 여기를 탭하세요.")
-                .font(.smapCaption)
-                .foregroundStyle(Color.smapMuted)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
     private var policySection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
@@ -209,7 +188,7 @@ struct StoreView: View {
             .foregroundStyle(Color.smapMuted)
 
             Text(
-                "결제는 Apple App Store를 통해 안전하게 처리되며 영수증은 Apple ID 이메일로 발송됩니다. 별은 사용한 후에는 환불이 어려울 수 있고, 환불은 ‘설정 → Apple ID → 미디어 및 구매 → 구매 기록’에서 신청합니다.",
+                "결제는 Apple App Store를 통해 안전하게 처리되며 영수증은 Apple ID 이메일로 발송됩니다. 별 잔액은 로그인 계정에 저장되므로 같은 계정으로 로그인하면 기기 변경·재설치 후에도 이어서 사용할 수 있습니다. 별은 사용한 후에는 환불이 어려울 수 있고, 환불은 ‘설정 → Apple ID → 미디어 및 구매 → 구매 기록’에서 신청합니다.",
             )
             .font(.smapCaption)
             .foregroundStyle(Color.smapMuted)

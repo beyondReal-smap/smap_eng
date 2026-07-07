@@ -1,6 +1,15 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { creditBalances, creditTransactions } from '@/lib/db/schema';
+import { parseEnvNonNegativeInt } from '@/lib/env';
+
+/**
+ * 신규 가입 웰컴 보너스로 지급할 별 개수.
+ *
+ * 별 1개 = 동화 1권 체험. 과다 지급은 결제 전환을 떨어뜨리므로 기본 1개로 두고,
+ * 캠페인에 따라 .env로 조정한다(0이면 보너스 비활성). 잘못된 값은 부팅 시 throw.
+ */
+const SIGNUP_BONUS_STARS = parseEnvNonNegativeInt('SIGNUP_BONUS_STARS', 1);
 
 /**
  * 크레딧(별) 원장 관리 — 잔액 갱신 + 원장 기록을 원자적으로 수행.
@@ -93,6 +102,85 @@ export async function grantCredits(
       .$returningId();
 
     return { balance: next, txId: id };
+  });
+}
+
+export interface SignupBonusResult {
+  /** 'granted' = 이번 호출에서 새로 지급, 'noop' = 이미 받았거나 비활성(멱등). */
+  status: 'granted' | 'noop';
+  /** 지급 후(또는 현재) 잔액. */
+  balance: number;
+  /** 이번에 지급한 별 개수(noop이면 0). */
+  granted: number;
+}
+
+/**
+ * 신규 가입 웰컴 보너스 지급 — **유저당 1회**를 DB 레벨에서 멱등 보장한다.
+ *
+ * 가입 경로가 4갈래(웹 이메일 server action · 웹 OAuth · 모바일 가입 · 모바일 Apple)이고
+ * user 생성 방식이 제각각이라, 각 신규 생성 지점에서 이 함수를 호출하되 어디서 몇 번
+ * 호출돼도 중복 지급되지 않도록 설계했다.
+ *
+ * 멱등 키: `credit_transactions`의 (user_id, kind='signup') 행 존재 여부.
+ *
+ * 동시성: 가입 직후 두 요청이 경쟁(예: signup→즉시 signIn)해도,
+ *  1) `credit_balances` 행을 먼저 `FOR UPDATE`로 잠가 직렬화한 뒤
+ *  2) 잠금 안에서 signup 원장 존재를 확인하므로
+ *  뒤따른 트랜잭션은 앞선 커밋을 본 뒤 'noop'으로 빠진다.
+ *
+ * `SIGNUP_BONUS_STARS=0`이면 지급 없이 'noop'.
+ */
+export async function grantSignupBonus(
+  userId: string,
+): Promise<SignupBonusResult> {
+  if (SIGNUP_BONUS_STARS <= 0) {
+    const { balance } = await getCreditBalance(userId);
+    return { status: 'noop', balance, granted: 0 };
+  }
+
+  return db.transaction(async (tx) => {
+    // 1) 잔액 행 선삽입(존재 보장). 이미 있으면 no-op.
+    await tx.execute(
+      sql`INSERT INTO ${creditBalances} (user_id, balance, total_purchased)
+          VALUES (${userId}, 0, 0)
+          ON DUPLICATE KEY UPDATE user_id = user_id`,
+    );
+
+    // 2) 잔액 행 FOR UPDATE 잠금 → 동시 가입 보너스/충전과 직렬화.
+    const locked = (await tx.execute(
+      sql`SELECT balance FROM ${creditBalances}
+          WHERE user_id = ${userId} FOR UPDATE`,
+    )) as unknown as [Array<{ balance: number | string }>, unknown];
+    const current = Number(locked[0]?.[0]?.balance ?? 0);
+
+    // 3) 멱등 체크 — 이미 signup 보너스를 받았으면 그대로 반환(잠금 이후라 race-safe).
+    const [existing] = await tx
+      .select({ id: creditTransactions.id })
+      .from(creditTransactions)
+      .where(
+        and(
+          eq(creditTransactions.userId, userId),
+          eq(creditTransactions.kind, 'signup'),
+        ),
+      )
+      .limit(1);
+
+    if (existing) {
+      return { status: 'noop', balance: current, granted: 0 };
+    }
+
+    // 4) 잔액 적립 + 원장 기록 (kind='signup').
+    const next = current + SIGNUP_BONUS_STARS;
+    await tx
+      .update(creditBalances)
+      .set({ balance: next })
+      .where(eq(creditBalances.userId, userId));
+
+    await tx
+      .insert(creditTransactions)
+      .values({ userId, kind: 'signup', delta: SIGNUP_BONUS_STARS });
+
+    return { status: 'granted', balance: next, granted: SIGNUP_BONUS_STARS };
   });
 }
 

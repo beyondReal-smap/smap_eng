@@ -11,17 +11,17 @@ import { cn } from "@/lib/utils";
 /**
  * 결제 실패 페이지.
  *
- * 진입 경로(포트원 V2):
- *  1) 포트원 결제창에서 사용자가 취소/실패 → redirectUrl=/subscribe/success 로 가지만
- *     `?code=Fail&message=...` 가 붙어 success 페이지가 이 fail 라우트로 replace.
- *  2) /api/payments/confirm 이 4xx/5xx → success 페이지가 라우터 replace 로 진입.
+ * 진입 경로:
+ *  1) /api/payments/confirm 이 4xx/5xx → success 페이지(PaymentConfirmFlow)가
+ *     라우터 replace 로 이 fail 라우트로 진입.
+ *  2) (방어) 결제창이 code!=='Success' 를 URL 에 붙여 오면 success 페이지가 replace.
  *
  * 환불 정책: 환불 불가. 결제가 실제로 성공했지만 confirm 이 실패한 케이스는
- * 운영자가 포트원 콘솔에서 수동 확인 후 별 적립 처리.
+ * 운영자가 토스페이먼츠 콘솔에서 수동 확인 후 별 적립 처리.
  */
 /**
  * 결제 에러 코드 → 사용자 친화 메시지.
- * PG/포트원이 보낸 message 원문은 카드사·내부 거래 ID 등 민감 정보를 포함할 수
+ * PG/토스가 보낸 message 원문은 카드사·내부 거래 ID 등 민감 정보를 포함할 수
  * 있어 표시하지 않는다.
  */
 function friendlyErrorMessage(code: string): string {
@@ -38,14 +38,16 @@ function friendlyErrorMessage(code: string): string {
     case "EXCEED_MAX_DAILY_PAYMENT_COUNT":
     case "EXCEED_MAX_PAYMENT_AMOUNT":
       return "카드사에서 결제를 거절했어요. 다른 카드 또는 결제 수단을 사용해 보세요.";
-    case "amount_mismatch_upstream":
-      return "결제 금액 검증 중 문제가 발생했어요. 결제는 처리되지 않았어요.";
+    case "amount_mismatch":
+      return "결제 금액이 상품 가격과 달라 결제가 취소되었어요. 다시 시도해 주세요.";
+    case "order_mismatch":
+    case "invalid_receipt":
+      return "결제 정보가 일치하지 않아요. 결제 페이지에서 새로 시작해 주세요.";
     case "order_failed":
       return "이미 처리에 실패한 주문이에요. 결제 페이지에서 새로 시작해 주세요.";
     case "payment_not_paid":
       return "결제가 완료 처리되지 않았어요. 다시 시도해 주세요.";
-    case "portone_redirect_fail":
-    case "portone_lookup_failed":
+    case "toss_confirm_failed":
       return "결제 검증 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.";
     default:
       return "결제가 정상적으로 처리되지 않았어요.";
