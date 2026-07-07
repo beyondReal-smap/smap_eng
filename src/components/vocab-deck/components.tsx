@@ -208,7 +208,7 @@ export function PronounceButton({
   }
   const dim = size === 'sm' ? 'h-7 w-7' : 'h-10 w-10';
   const icon = size === 'sm' ? 'h-3.5 w-3.5' : 'h-5 w-5';
-  // Kokoro TTS 첫 합성은 1~3초 걸릴 수 있어, 명시적 spinner가 없으면 사용자가
+  // TTS 첫 합성은 1~3초 걸릴 수 있어, 명시적 spinner가 없으면 사용자가
   // 버튼이 안 눌린 줄 알고 연타한다. speaking 중에는 Loader2(spin)로 교체 +
   // 클릭 차단 + aria-busy 표시.
   return (

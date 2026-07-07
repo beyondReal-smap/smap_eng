@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { mobileAuthTokens, profiles, users } from '@/lib/db/schema';
+import { grantSignupBonus } from '@/lib/billing/credits';
 import { LoginSchema, SignupSchema } from '@/lib/auth/schemas';
 import {
   AppleJwksError,
@@ -285,6 +286,7 @@ export async function handleMobileSignup(req: Request): Promise<Response> {
   const passwordHash = await hashPassword(parsed.data.password);
   let userId = '';
   let duplicateEmail = false;
+  let isNewUser = false;
 
   await db.transaction(async (tx) => {
     const existingUsers = await tx
@@ -305,6 +307,7 @@ export async function handleMobileSignup(req: Request): Promise<Response> {
 
     const linkedUser = existingUsers[0];
     userId = linkedUser?.id ?? randomUUID();
+    isNewUser = !linkedUser;
     const displayName = linkedUser?.name ?? `${parsed.data.childName} 보호자`;
 
     if (linkedUser) {
@@ -351,6 +354,15 @@ export async function handleMobileSignup(req: Request): Promise<Response> {
 
   if (!userId) {
     return jsonError('signup_failed', 500);
+  }
+
+  // 신규 가입자에게만 웰컴 보너스. 멱등이라 안전하지만 기존 계정 연결에는 불필요.
+  if (isNewUser) {
+    try {
+      await grantSignupBonus(userId);
+    } catch (err) {
+      console.error('[signup-bonus] mobile signup grant failed', userId, err);
+    }
   }
 
   const token = await insertMobileToken(
@@ -527,6 +539,7 @@ export async function handleMobileApple(req: Request): Promise<Response> {
   const fullName = `${familyName}${givenName}`.trim();
 
   let userId = '';
+  let isNewUser = false;
 
   await db.transaction(async (tx) => {
     // 1) email 일치하는 기존 user — 자동 연결.
@@ -544,6 +557,7 @@ export async function handleMobileApple(req: Request): Promise<Response> {
 
     // 2) 신규 user 생성 + 기본 프로필.
     userId = randomUUID();
+    isNewUser = true;
     const displayName = fullName.length > 0 ? `${fullName} 보호자` : '하루책 보호자';
     await tx.insert(users).values({
       id: userId,
@@ -566,6 +580,15 @@ export async function handleMobileApple(req: Request): Promise<Response> {
 
   if (!userId) {
     return jsonError('signup_failed', 500);
+  }
+
+  // 신규 Apple 가입자에게만 웰컴 보너스. 기존 이메일 계정 자동 연결 시에는 미지급.
+  if (isNewUser) {
+    try {
+      await grantSignupBonus(userId);
+    } catch (err) {
+      console.error('[signup-bonus] apple signup grant failed', userId, err);
+    }
   }
 
   const token = await insertMobileToken(

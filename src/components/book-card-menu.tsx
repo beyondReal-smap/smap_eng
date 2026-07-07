@@ -86,7 +86,7 @@ export function BookCardMenu({ book, onChanged }: Props) {
       return;
     }
     const controller = new AbortController();
-    const toastId = toast.loading('AI가 새 표지를 그리는 중… (30~60초)', {
+    const toastId = toast.loading('새 표지를 그리는 중… (30~60초)', {
       action: {
         label: '취소',
         onClick: () => controller.abort(),
@@ -308,7 +308,7 @@ export function BookCardMenu({ book, onChanged }: Props) {
             <DialogTitle>이 책을 신고할까요?</DialogTitle>
             <DialogDescription>
               신고된 책은 책장에서 숨겨지고, 보호자 모드에서 다시 검토할 수 있어요.
-              AI가 만든 내용에 문제가 있을 때 이용해 주세요.
+              동화 내용에 문제가 있을 때 이용해 주세요.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-1">

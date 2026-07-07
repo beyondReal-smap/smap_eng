@@ -190,7 +190,7 @@ export function CoverGenButton({
     e.stopPropagation();
     if (loading) return;
     setLoading(true);
-    toast.info('AI가 표지를 그리는 중… (30~60초)');
+    toast.info('표지를 그리는 중… (30~60초)');
     try {
       await apiFetch(`/api/image/book/${bookId}/cover`, { method: 'POST' });
       toast.success('표지 완성');

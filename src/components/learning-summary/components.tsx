@@ -151,9 +151,12 @@ export function ContinueCard({
       <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-muted">
         {hasCover ? (
           <Image
+            // 표지는 쿠키 인증 동적 라우트(/images/*)라 next/image optimizer가
+            // upstream fetch에 쿠키를 전달하지 못해 404가 된다 → 원본 직접 서빙.
             src={book.coverImagePath!}
             alt={book.title}
             fill
+            unoptimized
             className="object-cover"
             sizes="96px"
           />

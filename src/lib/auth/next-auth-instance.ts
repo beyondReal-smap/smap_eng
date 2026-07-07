@@ -10,6 +10,7 @@ import {
   verificationTokens,
 } from '@/lib/db/schema';
 import { isAdminEmail } from '@/lib/auth/admin-emails';
+import { grantSignupBonus } from '@/lib/billing/credits';
 import authConfig from '@/auth.config';
 
 /**
@@ -29,6 +30,18 @@ const nextAuth = NextAuth({
   // 매 로그인 시 role='admin'으로 sync. 첫 로그인 시 자동 승격 + 이후 강등 방지.
   // DB에서 role을 직접 'user'로 바꾸고 싶다면 먼저 화이트리스트에서 제거해야 함.
   events: {
+    // OAuth(Google/Kakao) 신규 가입 — Adapter가 users 행을 만드는 이 시점에만 1회 발생.
+    // 웹 이메일·모바일 가입은 Adapter를 거치지 않으므로 각 핸들러에서 직접 grantSignupBonus를
+    // 호출한다. grantSignupBonus는 멱등이라 중복 호출돼도 1회만 지급된다.
+    async createUser({ user }) {
+      if (!user?.id) return;
+      try {
+        await grantSignupBonus(user.id);
+      } catch (err) {
+        // 보너스 누락은 가입을 막지 않는다(가입 성공 > 보너스). 추적용으로만 로깅.
+        console.error('[signup-bonus] createUser grant failed', user.id, err);
+      }
+    },
     async signIn({ user }) {
       if (!user?.id) return;
 

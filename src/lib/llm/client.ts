@@ -94,6 +94,12 @@ export interface ChatJsonOptions<T> {
   maxCompletionTokens?: number;
   /** primary/fallback 모두에 적용되는 모델 강제. 미지정 시 각 클라이언트 기본값. */
   model?: string;
+  /**
+   * 이 호출 1회에 적용할 요청 타임아웃(ms) — primary/fallback 클라이언트 기본값
+   * (45s/60s)을 덮어쓴다. 긴 출력(책 생성 12k 토큰)은 기본값으로 도중에 끊겨
+   * SDK 재시도까지 유발하므로 호출자가 상향한다.
+   */
+  timeoutMs?: number;
   signal?: AbortSignal;
   /**
    * 파싱된 JSON을 도메인 타입으로 검증·변환. throw하면 해당 시도가 실패로 간주되어
@@ -102,12 +108,22 @@ export interface ChatJsonOptions<T> {
   validate?: (raw: unknown) => T;
 }
 
+// 디스커버리 실패 negative cache — primary가 죽어 있으면 GET /v1/models가
+// 매 chatJson 호출마다 timeout(최대 45s)을 그대로 떠안는다. 실패 후 일정 시간은
+// 재시도 없이 즉시 fallback으로 직행해 사용자 지연을 차단한다.
+const MODEL_DISCOVERY_COOLDOWN_MS = 30_000;
+let modelDiscoveryFailedAt = 0;
+
 /**
  * primary 모델 ID를 lazy하게 결정. env로 강제했으면 그 값, 아니면 GET /v1/models
  * 첫 결과를 캐싱. 디스커버리 실패 시 null 반환 → 호출자는 primary skip.
+ * 실패는 30초간 negative cache되어 연속 호출이 디스커버리 지연을 반복하지 않는다.
  */
 async function resolvePrimaryModel(client: OpenAI): Promise<string | null> {
   if (state.primaryModel) return state.primaryModel;
+  if (Date.now() - modelDiscoveryFailedAt < MODEL_DISCOVERY_COOLDOWN_MS) {
+    return null;
+  }
   try {
     const list = await client.models.list();
     const first = list.data?.[0]?.id;
@@ -115,6 +131,7 @@ async function resolvePrimaryModel(client: OpenAI): Promise<string | null> {
     state.primaryModel = first;
     return first;
   } catch (err) {
+    modelDiscoveryFailedAt = Date.now();
     console.warn(
       `[llm] primary model discovery failed: ${(err as Error).message}`,
     );
@@ -122,20 +139,47 @@ async function resolvePrimaryModel(client: OpenAI): Promise<string | null> {
   }
 }
 
+// primary 단순 circuit breaker — primary가 hang/장애 상태면 모든 요청이
+// timeout 페널티(최대 45s)를 먼저 치르고 fallback으로 간다. 연속 실패가
+// 임계치에 닿으면 일정 시간 primary를 건너뛰어 지연 전파를 끊는다.
+// 단일 프로세스 메모리 기준 — 수평 확장 시 공유 저장소로 교체.
+const PRIMARY_BREAKER_THRESHOLD = 2;
+const PRIMARY_BREAKER_COOLDOWN_MS = 60_000;
+let primaryConsecutiveFailures = 0;
+let primarySkipUntil = 0;
+
+function recordPrimaryFailure(): void {
+  primaryConsecutiveFailures += 1;
+  if (primaryConsecutiveFailures >= PRIMARY_BREAKER_THRESHOLD) {
+    primarySkipUntil = Date.now() + PRIMARY_BREAKER_COOLDOWN_MS;
+    primaryConsecutiveFailures = 0;
+    console.warn(
+      `[llm] primary breaker open for ${PRIMARY_BREAKER_COOLDOWN_MS}ms`,
+    );
+  }
+}
+
 interface AttemptOptions<T> {
   client: OpenAI;
+  /** 로그 식별용 — 어떤 계층이 응답했는지 추적. */
+  tier: 'primary' | 'fallback';
   model: string;
   body: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;
+  timeoutMs?: number;
   signal?: AbortSignal;
   validate?: (raw: unknown) => T;
 }
 
 /** 단일 클라이언트로 1회 시도 — 호출 + content 추출 + JSON parse + validate. */
 async function attempt<T>(opts: AttemptOptions<T>): Promise<T> {
-  const { client, body, signal, validate } = opts;
+  const { client, tier, model, body, timeoutMs, signal, validate } = opts;
+  const t0 = Date.now();
   let response;
   try {
-    response = await client.chat.completions.create(body, { signal });
+    response = await client.chat.completions.create(body, {
+      signal,
+      ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
+    });
   } catch (err) {
     if (err instanceof OpenAI.APIError) {
       throw new LLMError(
@@ -154,6 +198,15 @@ async function attempt<T>(opts: AttemptOptions<T>): Promise<T> {
       `empty content (finish_reason=${choice?.finish_reason ?? 'unknown'})`,
     );
   }
+
+  // 비용·지연 추적용 — usage는 호환 프록시에 따라 누락될 수 있어 optional 처리.
+  const usage = response.usage;
+  console.info(
+    `[llm] ${tier} ok model=${model} ${Date.now() - t0}ms` +
+      (usage
+        ? ` tokens=${usage.prompt_tokens}in+${usage.completion_tokens}out`
+        : ''),
+  );
 
   let parsed: unknown;
   try {
@@ -195,6 +248,7 @@ export async function chatJson<T>(opts: ChatJsonOptions<T>): Promise<T> {
     topP,
     maxCompletionTokens = DEFAULT_MAX_COMPLETION_TOKENS,
     model,
+    timeoutMs,
     signal,
     validate,
   } = opts;
@@ -210,21 +264,26 @@ export async function chatJson<T>(opts: ChatJsonOptions<T>): Promise<T> {
     ...(topP !== undefined ? { top_p: topP } : {}),
   };
 
-  // 1) primary 시도
-  if (state.primary) {
+  // 1) primary 시도 — breaker가 열려 있으면 timeout 페널티 없이 fallback 직행
+  if (state.primary && Date.now() >= primarySkipUntil) {
     const primaryModel = model ?? (await resolvePrimaryModel(state.primary));
     if (primaryModel) {
       try {
         const result = await attempt<T>({
           client: state.primary,
+          tier: 'primary',
           model: primaryModel,
           body: { ...baseBody, model: primaryModel },
+          timeoutMs,
           signal,
           validate,
         });
-        console.info(`[llm] primary ok (model=${primaryModel})`);
+        primaryConsecutiveFailures = 0;
         return result;
       } catch (err) {
+        // 사용자 취소는 실패 집계 없이 그대로 전파 — fallback도 의미 없다.
+        if (signal?.aborted) throw err;
+        recordPrimaryFailure();
         const reason = err instanceof Error ? err.message : String(err);
         console.warn(`[llm] primary failed: ${reason}; using fallback`);
       }
@@ -237,8 +296,10 @@ export async function chatJson<T>(opts: ChatJsonOptions<T>): Promise<T> {
   const fallbackModel = model ?? OPENAI_MODEL;
   return attempt<T>({
     client: state.fallback,
+    tier: 'fallback',
     model: fallbackModel,
     body: { ...baseBody, model: fallbackModel },
+    timeoutMs,
     signal,
     validate,
   });
