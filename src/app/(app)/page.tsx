@@ -1,8 +1,7 @@
 import { auth } from '@/auth';
 import { Bookshelf } from '@/components/bookshelf';
+import { TAB_PAGE_SHELL } from '@/components/haru';
 import { LandingPage } from '@/components/landing/landing-page';
-import { LearningSummary } from '@/components/learning-summary';
-import { UpgradeBanner } from '@/components/subscribe/upgrade-banner';
 import { getCreditBalance } from '@/lib/billing/credits';
 import {
   type BookProgressStat,
@@ -23,8 +22,10 @@ export const dynamic = 'force-dynamic';
  *
  * - 비로그인 → <LandingPage/> (자체 landing 헤더). (app)/layout.tsx의 SiteHeader는
  *   비로그인일 때 server에서 null 처리되므로 헤더가 중복되지 않는다.
- * - 로그인  → 기존 책장(Bookshelf + LearningSummary + UpgradeBanner). SiteHeader는
- *   상위 (app)/layout.tsx가 보유해 페이지 이동 사이에도 마운트가 유지된다.
+ * - 로그인  → 그림책 세계 책장(Bookshelf — 제목·칩·곰 인사·나무 책장, 2026-09-30).
+ *   기존 학습 요약 카드(LearningSummary)·별 충전 배너(UpgradeBanner)는 네이티브 책장처럼
+ *   ★ 칩(→ 별 충전)·곰 인사(이어 읽기)·🔥 칩(이번 주 기록)으로 대체했다.
+ *   SiteHeader는 상위 (app)/layout.tsx가 보유해 페이지 이동 사이에도 마운트가 유지된다.
  *
  * 2026-05-14 — 새로고침 시 layout shift가 잡혀 "움찔거린다"는 피드백을 받고
  * 책장·학습요약·잔액 배너의 초기 데이터를 server에서 일괄 페치해 props로 주입.
@@ -63,35 +64,18 @@ export default async function Home() {
     LearningSummaryData | null,
   ];
 
-  // 이어 읽기 책: summary.continueBookId가 있으면 books에서 찾아 채워둔다.
-  // 단건 API(/api/books/[id])를 안 거치고도 prop으로 바로 표시 가능.
-  const continueBookId = initialSummary?.continueBookId ?? null;
-  const initialContinueBook = continueBookId
-    ? (initialBooks.find((b) => b.id === continueBookId) ?? null)
-    : null;
-  const initialContinueStat =
-    continueBookId !== null ? (initialStats[continueBookId] ?? null) : null;
-
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pb-24 pt-6 sm:px-6">
-      {/* 별 보유 여부와 무관하게 추가 충전 CTA를 항상 노출한다. */}
-      <UpgradeBanner initialCredits={credits} />
-
-      <LearningSummary
+    // 데스크톱에서는 상단 헤더와 같은 폭(최대 1160px) — 좁은 책장이 헤더보다 안쪽에 있어
+    // 왼쪽으로 치우쳐 보이던 문제(웹 1단계 캡처)를 헤더 가장자리에 맞춰 해결.
+    <main className={TAB_PAGE_SHELL}>
+      <Bookshelf
         initialProfileId={profileId}
-        initialProfileName={activeProfile?.name ?? null}
+        initialProfiles={profiles}
+        initialBooks={initialBooks}
+        initialStats={initialStats}
         initialSummary={initialSummary}
-        initialContinueBook={initialContinueBook}
-        initialContinueStat={initialContinueStat}
+        initialCredits={credits}
       />
-
-      <div id="bookshelf">
-        <Bookshelf
-          initialProfileId={profileId}
-          initialBooks={initialBooks}
-          initialStats={initialStats}
-        />
-      </div>
     </main>
   );
 }

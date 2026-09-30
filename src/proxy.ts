@@ -13,11 +13,27 @@ import { auth } from '@/auth';
 // '/' 추가 사유: 랜딩(구 :5027 apps/landing) 통합 후, 루트는 인증 여부에 따라
 // page.tsx에서 LandingPage / Bookshelf로 분기 렌더된다. 따라서 비로그인 진입을
 // /login으로 튕기지 않고 통과시켜야 한다.
-const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/subscribe', '/mobile']);
+// '/link'는 유니버설 링크/앱 링크 폴백(스토어 리다이렉트) — 비로그인 접근 필수.
+// '/about', '/faq', '/pricing', '/samples'는 AI 검색·크롤러를 겨냥한 공개 콘텐츠
+// 페이지(src/app/(public)/)다. 비로그인 방문자와 크롤러가 주 독자이므로 반드시 공개.
+const PUBLIC_PATHS = new Set([
+  '/',
+  '/login',
+  '/signup',
+  '/subscribe',
+  '/mobile',
+  '/link',
+  '/about',
+  '/faq',
+  '/pricing',
+  '/samples',
+]);
 // prefix 기반 공개 경로. 전자상거래법 §10이 요구하는 사업자정보·약관 4종은
 // 비로그인 사용자(랜딩 푸터 클릭 포함)도 반드시 접근 가능해야 한다. /legal/* 전체를 공개.
 // /mobile/* 는 Expo 정적 웹 앱 엔트리다. 실제 API 권한은 Route Handler에서 검증한다.
-const PUBLIC_PREFIXES = ['/legal/', '/mobile/'];
+// /link/* 는 앱 딥링크 네임스페이스의 웹 폴백. 앱 미설치 사용자가 도달하므로 공개.
+// /samples/* 는 샘플 동화 상세(공개 콘텐츠). 사용자 소유 책(/book/*)과 달리 정적 데이터다.
+const PUBLIC_PREFIXES = ['/legal/', '/mobile/', '/link/', '/samples/'];
 // 로그인된 유저가 진입하면 홈으로 돌려보낼 "인증 페이지"만 별도 집합.
 // /subscribe는 로그인 유저도 결제/업그레이드 목적으로 자유 접근 가능해야 함.
 const AUTH_ONLY_PATHS = new Set(['/login', '/signup']);
@@ -25,6 +41,20 @@ const AUTH_ONLY_PATHS = new Set(['/login', '/signup']);
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
+
+  // 앱 딥링크 폴백(/link*) — 앱 미설치로 브라우저에 떨어진 요청을 OS별 스토어로 307.
+  // 페이지(app/link/page.tsx)에서 redirect()하면 root layout(auth() await) 스트리밍이
+  // 먼저 시작돼 200 + 클라이언트 리다이렉트(JS 의존)가 되므로 프록시에서 처리한다.
+  // 데스크톱·스토어 URL 미설정 시엔 통과 → 페이지가 스토어 링크 UI를 렌더.
+  if (pathname === '/link' || pathname.startsWith('/link/')) {
+    const ua = req.headers.get('user-agent') ?? '';
+    const target = /iPad|iPhone|iPod/.test(ua)
+      ? process.env.NEXT_PUBLIC_APP_STORE_URL
+      : /Android/.test(ua)
+        ? process.env.NEXT_PUBLIC_PLAY_STORE_URL
+        : '';
+    if (target) return NextResponse.redirect(target);
+  }
   const isPublic =
     PUBLIC_PATHS.has(pathname) ||
     PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
@@ -63,8 +93,13 @@ export default auth((req) => {
 //    업데이트 check 시 /login HTML을 받으면 SW 교체가 실패하고 구버전 캐시가 영구 고착됨.
 // ⚠️ woff/woff2 등 폰트도 제외 — Next.js의 next/font가 빌드 산출물 외 정적 폰트
 //    파일을 fetch할 때 인증 리다이렉트로 막히면 CORS 에러가 발생.
+// ⚠️ /.well-known/* 제외 — apple-app-site-association은 확장자가 없어 확장자
+//    필터를 통과하지 못한다. Apple CDN/Google 검증기가 /login 리다이렉트를 받으면
+//    유니버설 링크/앱 링크 검증이 실패한다.
+// ⚠️ md 확장자 제외 — /about.md 등 AI 크롤러용 마크다운 미러가 인증 리다이렉트에
+//    걸리면 크롤러가 본문 대신 로그인 페이지를 수집한다(/llms.txt는 txt 필터로 커버).
 export const config = {
   matcher: [
-    '/((?!api/|_next/|favicon\\.ico|sitemap\\.xml|robots\\.txt|sw\\.js|manifest\\.webmanifest|.*\\.(?:css|map|png|jpg|jpeg|gif|svg|webp|ico|js|json|txt|xml|woff|woff2|ttf|otf|eot|wav|mp3|m4a|ogg|webm|flac|aac)$).*)',
+    '/((?!api/|_next/|\\.well-known/|favicon\\.ico|sitemap\\.xml|robots\\.txt|sw\\.js|manifest\\.webmanifest|.*\\.(?:css|map|png|jpg|jpeg|gif|svg|webp|ico|js|json|txt|md|xml|woff|woff2|ttf|otf|eot|wav|mp3|m4a|ogg|webm|flac|aac)$).*)',
   ],
 };

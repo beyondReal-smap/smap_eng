@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, Home, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
-import { buttonVariants } from "@/components/ui/button";
+import { Mascot } from "@/components/haru";
 import { APP_HOME } from "@/lib/paths";
-import { cn } from "@/lib/utils";
 
 /**
  * 결제 실패 페이지.
@@ -68,56 +67,40 @@ export function PaymentFailContent() {
     code === "USER_CANCELED";
   const title = isUserCancel ? "결제가 취소되었어요" : "결제에 실패했어요";
 
+  // 화면만 그림책 세계 톤(2026-09-30) — 사유 문구·코드 매핑은 그대로.
   return (
-    <div className="flex flex-col items-center gap-6 text-center animate-fade-up">
-      <span
-        aria-hidden
-        className="inline-flex size-16 items-center justify-center rounded-full bg-destructive/15 text-destructive ring-4 ring-destructive/10"
-      >
-        <AlertTriangle className="size-8" strokeWidth={2.2} />
-      </span>
+    <div className="flex flex-col items-center gap-5 text-center animate-fade-up">
+      <Mascot pose="worried" size={150} />
 
-      <div className="space-y-3">
-        <h1 className="font-heading text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-          {title}
-        </h1>
-        <p className="text-base text-muted-foreground">{message}</p>
+      <div className="space-y-2">
+        <h1 className="text-[28px] font-extrabold leading-tight text-haru-ink">{title}</h1>
+        <p className="text-base font-bold text-haru-ink">{message}</p>
         {displayCode ? (
-          <p
-            className="font-mono text-xs text-muted-foreground"
-            aria-label="에러 코드"
-          >
+          <p className="font-mono text-xs text-haru-muted" aria-label="에러 코드">
             오류 코드: {displayCode}
           </p>
         ) : null}
         {!isUserCancel ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs font-bold text-haru-muted">
             카드사·결제 수단 문제일 수 있어요. 잠시 후 다시 시도해 주세요.
             <br />문제가 계속되면 보호자 이메일로 문의 주시면 빠르게 도와드릴게요.
           </p>
         ) : null}
       </div>
 
-      <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:justify-center">
+      <div className="flex w-full flex-col gap-2.5">
         <Link
           href="/subscribe"
-          className={cn(
-            buttonVariants({ variant: "complete", size: "lg" }),
-            "h-12 px-6 text-base",
-          )}
+          className="inline-flex min-h-[62px] items-center justify-center gap-2 rounded-full bg-haru-coral px-6 text-lg font-extrabold text-haru-on-coral shadow-[0_10px_20px_rgb(245_131_92/0.35)] transition-transform hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
         >
-          <RefreshCw className="size-4" />
+          <RefreshCw aria-hidden className="size-5" />
           다시 결제하기
         </Link>
         <Link
           href={APP_HOME}
-          className={cn(
-            buttonVariants({ variant: "outline", size: "lg" }),
-            "h-12 px-6 text-base",
-          )}
+          className="inline-flex min-h-[56px] items-center justify-center rounded-full border-[2.5px] border-[#ebc9b6] bg-white/80 px-6 text-base font-extrabold text-haru-ink transition-transform active:scale-[0.98] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
         >
-          <Home className="size-4" />
-          홈으로
+          책장으로
         </Link>
       </div>
     </div>

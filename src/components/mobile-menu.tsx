@@ -11,49 +11,40 @@ import {
   Menu,
   ShieldCheck,
   Sparkles,
-  Users,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { signOut as nextAuthSignOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { AddProfileDialog, ProfileSwitcher } from '@/components/profile-switcher';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { buttonVariants } from '@/components/ui/button';
 import { useCreditBalance } from '@/lib/hooks/use-credit-balance';
 import { formatStars } from '@/lib/billing/terminology';
 import { APP_HOME } from '@/lib/paths';
 import { cn } from '@/lib/utils';
-import { useProfileStore } from '@/stores/profile';
 
 /**
  * 모바일(<640px) 전용 햄버거 메뉴.
  *
- * 데스크탑 헤더의 ProfileSwitcher / AccountMenu가 좁은 화면에서는 우측 클러스터를
- * 빽빽하게 만들어 단일 entry-point가 필요하다. 다만 "햄버거 panel 안에 또 popover를
+ * 데스크탑 헤더의 AccountMenu 콘텐츠를 좁은 화면에서 단일 entry-point로 펼친다. 다만 "햄버거 panel 안에 또 popover를
  * 여는 AccountMenu를 통째로 넣는" 이전 구조는 이중 메뉴를 만들어 "로그아웃이 어디
  * 있는지 안 보인다"는 피드백을 받았다.
  *
  * 이번 구조는 햄버거 panel 안에 AccountMenu의 popover 콘텐츠를 평탄하게(flat) 펼친다:
  *   1) 사용자 헤더 (아바타·이름·이메일·별 잔액) — 비로그인 시 로그인 CTA
- *   2) ProfileSwitcher (자체 popover로 가족 구성원 전환)
- *   3) 바로가기 (단어장·통계·보호자, 로그인 시 별 충전 추가)
- *   4) 로그아웃 (destructive 톤으로 시각 분리, 로그인 시에만 노출)
+ *   2) 바로가기 (책장·단어장·통계, 로그인 시 보호자 모드·별 충전 추가)
+ *   3) 로그아웃 (구분선으로 분리, 로그인 시에만 노출)
+ *
+ * 아이 전환은 이 메뉴에 두지 않는다 — 책장 제목 줄 아바타 한 곳(네이티브와 같은 위치).
+ * 헤더·메뉴·책장에 전환 UI가 겹쳐 있다는 피드백(2026-09-30).
  *
  * 햄버거 트리거는 44×44pt 터치 타깃을 만족하고, panel은 우상단 anchor로 iOS safe-area를
  * 침범하지 않는다.
  */
 export function MobileMenu() {
   const { data: session, status } = useSession();
-  const router = useRouter();
-  const setCurrentProfile = useProfileStore((s) => s.setCurrentProfile);
   const [open, setOpen] = useState(false);
-  // '프로필 추가' 다이얼로그를 MobileMenu Popover 외부에 마운트한다.
-  // ProfileSwitcher 내부에 다이얼로그를 두면 메뉴가 닫히는 순간 React tree에서
-  // 함께 unmount되어 다이얼로그도 사라져 버린다(2026-05-14 버그 수정).
-  const [addProfileOpen, setAddProfileOpen] = useState(false);
   // hooks 규칙: 조건부 호출 금지 → 항상 호출하되 미인증 시 enabled=false로 페치 차단.
   const { credits, loading: creditsLoading } = useCreditBalance({
     enabled: status === 'authenticated',
@@ -107,7 +98,6 @@ export function MobileMenu() {
   }
 
   return (
-    <>
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         aria-label="메뉴 열기"
@@ -177,20 +167,7 @@ export function MobileMenu() {
                 </Link>
               )}
 
-              {/* 2) 프로필 전환 — 모바일에서는 중첩 Popover 대신 패널 안에 직접 표시.
-                  '프로필 추가' 다이얼로그는 메뉴 외부(아래)에 마운트해 메뉴 unmount와 독립시킨다. */}
-              <div>
-                <ProfileSwitcher
-                  variant="inline"
-                  onProfileSelected={() => setOpen(false)}
-                  onAddProfileClick={() => {
-                    setOpen(false);
-                    setAddProfileOpen(true);
-                  }}
-                />
-              </div>
-
-              {/* 3) 바로가기 */}
+              {/* 2) 바로가기 */}
               <div className="border-t border-border/60 pt-3">
                 <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   바로가기
@@ -214,20 +191,6 @@ export function MobileMenu() {
                     label="통계"
                     onSelect={() => setOpen(false)}
                   />
-                  <ShortcutItem
-                    href="/parents"
-                    icon={<Users className="size-4 text-foreground/60" />}
-                    label="보호자"
-                    onSelect={() => setOpen(false)}
-                  />
-                  {user ? (
-                    <ShortcutItem
-                      href="/subscribe"
-                      icon={<CreditCard className="size-4 text-foreground/60" />}
-                      label="별 충전"
-                      onSelect={() => setOpen(false)}
-                    />
-                  ) : null}
                   {user ? (
                     <ShortcutItem
                       href="/parents"
@@ -236,18 +199,26 @@ export function MobileMenu() {
                       onSelect={() => setOpen(false)}
                     />
                   ) : null}
+                  {user ? (
+                    <ShortcutItem
+                      href="/subscribe"
+                      icon={<CreditCard className="size-4 text-foreground/60" />}
+                      label="별 충전"
+                      onSelect={() => setOpen(false)}
+                    />
+                  ) : null}
                 </ul>
               </div>
 
-              {/* 4) 로그아웃 — destructive 톤으로 시각적으로 분리 */}
+              {/* 3) 로그아웃 — 구분선으로 분리 */}
               {user ? (
                 <div className="border-t border-border/60 pt-3">
                   <button
                     type="button"
                     onClick={handleSignOut}
-                    className="flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-destructive transition hover:bg-destructive/10"
+                    className="flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-haru-ink transition hover:bg-haru-paper"
                   >
-                    <span className="flex size-8 items-center justify-center rounded-full bg-destructive/10">
+                    <span className="flex size-8 items-center justify-center rounded-full bg-[#f2f0ed] text-haru-muted">
                       <LogOut aria-hidden className="size-4" />
                     </span>
                     로그아웃
@@ -259,20 +230,6 @@ export function MobileMenu() {
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
-
-      {/* AddProfileDialog는 의도적으로 Popover.Root 형제 위치에 둔다.
-          Popover 내부에 두면 메뉴가 닫힐 때 React tree unmount로 다이얼로그가 함께 사라진다. */}
-      <AddProfileDialog
-        open={addProfileOpen}
-        onOpenChange={setAddProfileOpen}
-        onCreated={(profile) => {
-          setCurrentProfile(profile.id, profile.age);
-          setAddProfileOpen(false);
-          router.push(APP_HOME);
-          router.refresh();
-        }}
-      />
-    </>
   );
 }
 

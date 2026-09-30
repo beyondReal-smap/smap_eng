@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { sql } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { iapTransactions, type IapPlatform } from '@/lib/db/schema';
+import { type IapPlatform } from '@/lib/db/schema';
 import { requireUserIdForApi } from '@/lib/auth/session';
-import { grantCredits } from '@/lib/billing/credits';
+import { grantIapCredits } from '@/lib/billing/credits';
 import { handleApiError } from '../../_lib/errors';
 import {
   AppleIapError,
@@ -41,7 +39,7 @@ const VerifyRequest = z.discriminatedUnion('platform', [
  *   iOS:     { "platform": "ios"|undefined, "jws": "<Transaction.jwsRepresentation>" }
  *   Android: { "platform": "android", "productId": "...", "purchaseToken": "..." }
  *
- * 검증 → 화이트리스트 → INSERT(UNIQUE transaction_id) → grantCredits → 푸시.
+ * 검증 → 화이트리스트 → 거래 기록+크레딧 원자 지급 → 푸시.
  * 응답 `granted=false` 는 "이미 처리된 거래"라는 의미라 클라이언트는 큐에서 제거(finish/consume).
  */
 export async function POST(req: NextRequest) {
@@ -105,59 +103,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'unknown_product' }, { status: 400 });
     }
 
-    // 같은 transactionId 의 동시 요청을 직렬화 — INSERT 가 UNIQUE 로 한쪽만 통과한다.
-    const isNew = await db.transaction(async (tx) => {
-      const existing = (await tx.execute(
-        sql`SELECT id FROM ${iapTransactions}
-            WHERE transaction_id = ${transactionId}
-            FOR UPDATE`,
-      )) as unknown as [Array<{ id: number }>, unknown];
-      if (existing[0]?.length > 0) {
-        return false;
-      }
-      await tx.insert(iapTransactions).values({
-        userId,
-        platform,
-        transactionId,
-        productId,
-        stars,
-        environment,
-        signedAt,
-        status: 'verified',
-      });
-      return true;
+    const result = await grantIapCredits({
+      userId,
+      platform,
+      transactionId,
+      productId,
+      stars,
+      environment,
+      signedAt,
     });
 
-    if (!isNew) {
+    if (result.status === 'noop') {
       return NextResponse.json({ granted: false, idempotent: true });
     }
 
-    try {
-      const result = await grantCredits(userId, stars);
+    void sendPushToUser(userId, {
+      title: '별 충전이 완료됐어요',
+      body: `별 ${stars}개가 추가됐어요. 동화를 만들어 보세요.`,
+      sound: 'default',
+      custom: { kind: 'iap_purchase' },
+    }).catch((err) => {
+      console.warn('[iap-verify] push failed', err);
+    });
 
-      void sendPushToUser(userId, {
-        title: '별 충전이 완료됐어요',
-        body: `별 ${stars}개가 추가됐어요. 동화를 만들어 보세요.`,
-        sound: 'default',
-        custom: { kind: 'iap_purchase', stars, productId },
-      }).catch((err) => {
-        console.warn('[iap-verify] push failed', err);
-      });
-
-      return NextResponse.json({
-        granted: true,
-        balance: result.balance,
-        stars,
-        productId,
-      });
-    } catch (err) {
-      console.error('[iap-verify] grant failed after insert', {
-        transactionId,
-        userId,
-        err,
-      });
-      throw err;
-    }
+    return NextResponse.json({
+      granted: true,
+      balance: result.balance,
+      stars,
+      productId,
+    });
   } catch (err) {
     return handleApiError(err);
   }

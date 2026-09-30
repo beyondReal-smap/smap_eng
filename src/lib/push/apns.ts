@@ -11,6 +11,7 @@
 
 import http2 from 'node:http2';
 import { createPrivateKey, createSign } from 'node:crypto';
+import type { PushCustomData } from './payload';
 
 const APNS_HOST_PROD = 'api.push.apple.com';
 const APNS_HOST_SANDBOX = 'api.sandbox.push.apple.com';
@@ -80,7 +81,7 @@ export interface ApnsAlertPayload {
   title?: string;
   body: string;
   /** 클라이언트가 사용하는 커스텀 데이터(딥링크 등). */
-  custom?: Record<string, unknown>;
+  custom?: PushCustomData;
   /** 배지 — 아이콘 우측 상단 숫자. 0이면 제거. */
   badge?: number;
   /** 알림 사운드. 'default'면 시스템 사운드. */

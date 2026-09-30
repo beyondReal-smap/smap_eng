@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.smap.harubook",
+      "sha256_cert_fingerprints": [
+        "7B:DE:F2:5A:2F:2E:07:06:28:51:B5:8A:4C:31:7F:DC:6D:9C:50:33:A7:82:9F:C5:C6:8E:A3:A3:30:83:55:31"
+      ]
+    }
+  }
+]

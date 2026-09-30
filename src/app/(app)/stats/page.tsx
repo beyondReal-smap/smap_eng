@@ -1,38 +1,21 @@
-import Link from 'next/link';
+import { auth } from '@/auth';
+import { TAB_PAGE_SHELL } from '@/components/haru';
 import { StatsDashboard } from '@/components/stats-dashboard';
-import { buttonVariants } from '@/components/ui/button';
-import { APP_HOME } from '@/lib/paths';
+import { listProfiles } from '@/lib/db/queries';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * SiteHeader는 (app)/layout.tsx가 보유해 페이지 이동 사이 마운트가 유지된다.
- * 책장 복귀 CTA는 본문 우측 상단의 outline `← 책장` 버튼(2026-04-27).
+ * 통계 — "{이름}의 독서 기록"(그림책 세계, 2026-09-30).
+ * SiteHeader는 (app)/layout.tsx가 보유해 페이지 이동 사이 마운트가 유지된다. 책장 복귀는 헤더 brand·메뉴.
+ * 제목에 아이 이름을 첫 paint부터 쓰려고 프로필 목록만 서버에서 읽고, 기록은 클라이언트가 기존 API로 받는다.
  */
-export default function StatsPage() {
+export default async function StatsPage() {
+  const session = await auth();
+  const profiles = session?.user ? await listProfiles(session.user.id) : [];
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            내 학습 통계
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            읽은 책, 레벨별 진도, 단어장, 최근 퀴즈 결과를 한눈에 봅니다.
-          </p>
-        </div>
-        <Link
-          href={APP_HOME}
-          className={buttonVariants({
-            variant: 'outline',
-            size: 'sm',
-            className: 'rounded-full press-scale shrink-0',
-          })}
-        >
-          ← 책장
-        </Link>
-      </header>
-      <StatsDashboard />
+    <main className={TAB_PAGE_SHELL}>
+      <StatsDashboard initialProfiles={profiles} />
     </main>
   );
 }

@@ -53,6 +53,8 @@ export interface BadgeDef {
   title: string;
   /** 달성 시점에 보여줄 축하 문구 — 결핍/압박 표현 금지. */
   description: string;
+  /** 아직 모으지 않은 스티커 아래 목표 문구 — "…으면 만나요"(iOS Rewards.hint와 같음, 결핍 표현 금지). */
+  hint: string;
   earned: (s: RewardStats) => boolean;
 }
 
@@ -63,6 +65,7 @@ export const BADGES: BadgeDef[] = [
     emoji: '🌱',
     title: '첫 걸음',
     description: '첫 번째 책을 끝까지 읽었어요',
+    hint: '첫 책을 끝까지 읽으면 만나요',
     earned: (s) => s.totalBooksRead >= 1,
   },
   {
@@ -70,6 +73,7 @@ export const BADGES: BadgeDef[] = [
     emoji: '📚',
     title: '책벌레',
     description: '책 5권을 완독했어요',
+    hint: '책 5권을 읽으면 만나요',
     earned: (s) => s.totalBooksRead >= 5,
   },
   {
@@ -77,6 +81,7 @@ export const BADGES: BadgeDef[] = [
     emoji: '🏆',
     title: '퍼펙트',
     description: '퀴즈 만점을 처음 받았어요',
+    hint: '퀴즈 만점을 받으면 만나요',
     earned: (s) => s.totalPerfectScores >= 1,
   },
   {
@@ -84,6 +89,7 @@ export const BADGES: BadgeDef[] = [
     emoji: '🌟',
     title: '퀴즈 마스터',
     description: '퀴즈 만점을 3번 받았어요',
+    hint: '만점을 3번 받으면 만나요',
     earned: (s) => s.totalPerfectScores >= 3,
   },
   {
@@ -91,6 +97,7 @@ export const BADGES: BadgeDef[] = [
     emoji: '🧠',
     title: '단어 수집가',
     description: '단어 10개를 마스터했어요',
+    hint: '단어 10개를 익히면 만나요',
     earned: (s) => s.masteredWords >= 10,
   },
   {
@@ -98,6 +105,7 @@ export const BADGES: BadgeDef[] = [
     emoji: '💎',
     title: '단어 박사',
     description: '단어 50개를 마스터했어요',
+    hint: '단어 50개를 익히면 만나요',
     earned: (s) => s.masteredWords >= 50,
   },
 ];

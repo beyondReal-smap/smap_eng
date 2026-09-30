@@ -13,9 +13,13 @@
  * 동작 변경 없음 — 링크/카피는 보존하고 시각 자산만 교체.
  */
 import Image from 'next/image';
+import Link from 'next/link';
 
 import { AppHeader } from '@/components/app-header';
+import { AppInstallFab } from '@/components/landing/app-install-fab';
+import { JsonLd } from '@/components/seo/json-ld';
 import { SiteFooter } from '@/components/site-footer';
+import { howToSchema, softwareApplicationSchema } from '@/lib/seo/json-ld';
 
 const steps = [
   {
@@ -143,6 +147,10 @@ const books = [
 export function LandingPage() {
   return (
     <>
+      {/* 루트(/)는 비로그인 방문자에게 이 랜딩을 SSR하므로, 검색·AI가 서비스 실체를
+          판정하는 구조화 데이터도 여기 실린다. Organization·WebSite 노드는 JsonLd가
+          자동으로 덧붙인다(같은 @graph 안에 있어야 @id 참조가 유효). */}
+      <JsonLd nodes={[softwareApplicationSchema(), howToSchema()]} />
       <AppHeader variant="landing" />
       <div className="landing-scope">
         <main>
@@ -233,6 +241,12 @@ export function LandingPage() {
               </article>
             ))}
           </div>
+          {/* 실제 생성 결과(본문·해석·단어장·퀴즈)를 공개한 샘플 페이지로 유도.
+              방문자에게는 "가입 전에 결과물 확인", 크롤러에게는 본문 콘텐츠로 가는
+              진입 링크가 된다. */}
+          <p style={{ marginTop: '1.4rem', textAlign: 'center' }}>
+            <Link href="/samples">샘플 동화 전문 보기 →</Link>
+          </p>
         </section>
 
         <section id="features" className="page section" aria-labelledby="features-title">
@@ -271,6 +285,8 @@ export function LandingPage() {
           않지만, 향후 랜딩 영역 안에서 별도 카피가 필요할 때 재사용 가능하도록
           스타일 정의는 그대로 둔다. */}
       <SiteFooter />
+      {/* PC·모바일 공통 앱 설치 유도 플로팅 CTA — 스크롤을 따라다닌다. */}
+      <AppInstallFab />
     </>
   );
 }

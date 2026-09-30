@@ -5,6 +5,7 @@ import { Check, ChevronDown, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { AvatarGlyph } from '@/components/haru';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,7 +25,7 @@ import { useProfileStore } from '@/stores/profile';
 
 const AVATAR_PRESETS = ['🦊', '🐻', '🐼', '🐱', '🐯', '🦁', '🐨', '🐰', '🦄', '🐢'];
 const AGE_OPTIONS = [5, 6, 7, 8, 9, 10] as const;
-type ProfileSwitcherVariant = 'popover' | 'inline';
+type ProfileSwitcherVariant = 'popover' | 'inline' | 'avatar';
 
 /**
  * 프로필 전환 — Popover 기반.
@@ -124,7 +125,7 @@ export function ProfileSwitcher({
                   >
                     <Avatar className="h-9 w-9 shrink-0">
                       <AvatarFallback className="bg-[color:var(--secondary)] text-lg">
-                        {p.avatar ?? '👤'}
+                        <ProfileAvatar emoji={p.avatar} size={36} />
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
@@ -158,9 +159,28 @@ export function ProfileSwitcher({
     );
   }
 
+  // 책장 헤더의 아바타 원(그림책 세계) — 누르면 같은 가족 프로필 팝오버가 열린다.
+  const avatarTrigger = (
+    <Popover.Trigger
+      render={
+        <button
+          type="button"
+          aria-label={current ? `프로필 전환, 지금 ${current.name}` : '프로필 전환'}
+          disabled={loading}
+          className="group flex size-11 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
+        />
+      }
+    >
+      <span className="flex size-[38px] items-center justify-center overflow-hidden rounded-full bg-[#b8d9f0] shadow-[0_4px_5px_rgb(168_111_63/0.15)] ring-[3px] ring-white transition-transform group-hover:scale-105 group-active:scale-95 motion-reduce:transition-none">
+        <ProfileAvatar emoji={current?.avatar ?? null} size={38} />
+      </span>
+    </Popover.Trigger>
+  );
+
   return (
     <>
       <Popover.Root open={popoverOpen} onOpenChange={setPopoverOpen}>
+        {variant === 'avatar' ? avatarTrigger : (
         <Popover.Trigger
           render={
             <button
@@ -179,7 +199,7 @@ export function ProfileSwitcher({
             <>
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-[color:var(--secondary)] text-base">
-                  {current.avatar ?? '👤'}
+                  <ProfileAvatar emoji={current.avatar} size={28} />
                 </AvatarFallback>
               </Avatar>
               <span className="max-w-[90px] truncate">{current.name}</span>
@@ -196,6 +216,7 @@ export function ProfileSwitcher({
             </>
           )}
         </Popover.Trigger>
+        )}
         <Popover.Portal>
           <Popover.Positioner sideOffset={8} align="end">
             <Popover.Popup className="z-50 w-[260px] overflow-hidden rounded-2xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 outline-none animate-fade-up">
@@ -223,7 +244,7 @@ export function ProfileSwitcher({
                         >
                           <Avatar className="h-9 w-9">
                             <AvatarFallback className="bg-[color:var(--secondary)] text-xl">
-                              {p.avatar ?? '👤'}
+                              <ProfileAvatar emoji={p.avatar} size={36} />
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0 flex-1">
@@ -272,6 +293,15 @@ export function ProfileSwitcher({
       />
     </>
   );
+}
+
+/**
+ * 프로필 아바타 원 안의 그림 — 이모지를 그림책 일러스트로(표에 없으면 글자).
+ * 옆에 이름이 함께 보이므로 장식으로 숨긴다. 아바타가 없으면 기존처럼 👤.
+ */
+function ProfileAvatar({ emoji, size }: { emoji: string | null; size: number }) {
+  if (!emoji) return <span aria-hidden>👤</span>;
+  return <AvatarGlyph emoji={emoji} size={size} decorative />;
 }
 
 /* ---------- Add Profile Dialog ---------- */
@@ -405,7 +435,7 @@ export function AddProfileDialog({
                         : 'border-border hover:bg-muted'
                     }`}
                   >
-                    {a}
+                    <AvatarGlyph emoji={a} size={44} decorative />
                   </button>
                 );
               })}

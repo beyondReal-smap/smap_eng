@@ -42,6 +42,21 @@ const nextConfig: NextConfig = {
       fallback: [],
     };
   },
+
+  /**
+   * iOS Universal Links용 AASA 파일은 확장자가 없어 기본 서빙 시
+   * Content-Type이 octet-stream으로 나간다. Apple CDN은 application/json을
+   * 요구하므로 헤더를 명시 오버라이드한다. (커스텀 헤더는 public/ 정적 파일에도
+   * 적용됨 — next.config headers 문서 참조)
+   */
+  async headers() {
+    return [
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -17,6 +17,27 @@ export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-border/60 bg-background/60 text-sm text-muted-foreground">
       <div className="mx-auto w-[min(1160px,calc(100%-36px))] py-8">
+        {/* 공개 콘텐츠 내비게이션. 모든 페이지 하단에 두어야 크롤러가 소개·FAQ·요금·
+            샘플 페이지를 발견한다(랜딩에서만 링크하면 진입 경로가 하나뿐이라 색인이
+            느리고, 내부 링크 수는 페이지 중요도 판정에도 쓰인다). */}
+        <nav aria-label="서비스 안내" className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <Link href="/about" className="hover:text-foreground hover:underline underline-offset-4">
+            하루책 소개
+          </Link>
+          <span aria-hidden className="select-none text-border">|</span>
+          <Link href="/samples" className="hover:text-foreground hover:underline underline-offset-4">
+            샘플 동화
+          </Link>
+          <span aria-hidden className="select-none text-border">|</span>
+          <Link href="/pricing" className="hover:text-foreground hover:underline underline-offset-4">
+            이용 요금
+          </Link>
+          <span aria-hidden className="select-none text-border">|</span>
+          <Link href="/faq" className="hover:text-foreground hover:underline underline-offset-4">
+            자주 묻는 질문
+          </Link>
+        </nav>
+
         <nav aria-label="약관 및 정책" className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-2">
           <Link href="/legal/terms" className="hover:text-foreground hover:underline underline-offset-4">
             이용약관

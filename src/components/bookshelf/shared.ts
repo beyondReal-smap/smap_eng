@@ -1,9 +1,7 @@
 // Bookshelf 공유 상수·헬퍼. 본체와 보조 컴포넌트가 공유.
 
+import type { BookProgressStat } from '@/lib/db/queries';
 import type { CefrLevel } from '@/lib/db/schema';
-
-export const IMAGE_GEN_ENABLED =
-  process.env.NEXT_PUBLIC_ENABLE_IMAGE_GEN === 'true';
 
 export const CEFRS: CefrLevel[] = ['A1', 'A2', 'B1', 'B2'];
 
@@ -14,27 +12,27 @@ export const LEVEL_CLASS: Record<CefrLevel, string> = {
   B2: 'level-b2',
 };
 
-export function readRecentIds(): number[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem('recent:books');
-    const list = raw ? (JSON.parse(raw) as unknown) : [];
-    if (!Array.isArray(list)) return [];
-    return list.filter((v): v is number => typeof v === 'number');
-  } catch {
-    return [];
-  }
+/** 끝까지 읽음 — 진행률 100% 또는 완료 시각 기록(iOS BookProgressStat.isFinished와 같다). */
+export function isFinished(stat: BookProgressStat | undefined): boolean {
+  return Boolean(stat && (stat.progressRatio >= 1 || stat.finishedAtUnix !== null));
 }
 
-// 방문마다 다른 인사말로 친근감 유도. 첫 요소가 SSR 기본값이며
-// 클라이언트 mount 후 랜덤 선택으로 교체된다(hydration mismatch 방지).
-export const BOOKSHELF_PROMPTS = [
-  '오늘은 어떤 책을 펼쳐볼까?',
-  '어떤 이야기가 궁금해?',
-  '마음에 드는 표지가 있을까?',
-  '다시 읽고 싶은 책이 있을까?',
-  '오늘은 어떤 주인공을 만나볼까?',
-  '어떤 책부터 읽어볼래?',
-  '기분 따라 한 권 골라볼까?',
-  '새로운 친구가 기다리고 있어.',
-];
+/** 읽는 중(0% 초과 100% 미만). */
+export function isInProgress(stat: BookProgressStat | undefined): boolean {
+  return Boolean(stat && !isFinished(stat) && stat.progressRatio > 0);
+}
+
+/** 화면 표시용 퍼센트(0~100 정수). */
+export function progressPercent(stat: BookProgressStat | undefined): number {
+  if (!stat) return 0;
+  return Math.round(Math.min(1, Math.max(0, stat.progressRatio)) * 100);
+}
+
+/** 스크린 리더 상태 — "읽는 중 50%" / "다 읽음, 별 5개" / "새 책". */
+export function bookStatusLabel(stat: BookProgressStat | undefined): string {
+  if (!stat) return '새 책';
+  if (isFinished(stat)) {
+    return stat.quizScore !== null ? `다 읽음, 별 ${stat.quizScore}개` : '다 읽음';
+  }
+  return isInProgress(stat) ? `읽는 중 ${progressPercent(stat)}%` : '새 책';
+}

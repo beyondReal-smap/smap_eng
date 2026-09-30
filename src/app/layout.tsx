@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@/components/ui/sonner';
+import { AppStoreBanner } from '@/components/app-store-banner';
 import { PwaRegister } from '@/components/pwa-register';
 import { ShortcutHelp } from '@/components/shortcut-help';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -25,10 +26,29 @@ export const metadata: Metadata = {
     title: '하루책',
     statusBarStyle: 'default',
   },
+  // iOS Safari 네이티브 스마트 앱 배너 — 앱 설치 시 '열기', 미설치 시 App Store 이동.
+  // Android는 동일한 네이티브 UX가 없어 <AppStoreBanner /> 커스텀 배너로 대응.
+  itunes: {
+    appId: '6770002427',
+  },
   robots: {
     index: true,
     follow: true,
     'max-image-preview': 'large',
+  },
+  // 검색엔진 웹마스터 도구 소유권 확인용 메타태그.
+  // 값은 각 콘솔이 발급하는 확인 코드이며 시크릿이 아니다(HTML에 그대로 노출되는 것이
+  // 확인 방식 자체). 미설정 시 Next.js가 해당 <meta>를 아예 렌더하지 않으므로,
+  // 코드를 받기 전까지는 빈 값으로 두어도 안전하다.
+  //   .env.local 예:
+  //     NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=abc123...   (Search Console → HTML 태그)
+  //     NEXT_PUBLIC_NAVER_SITE_VERIFICATION=def456...    (네이버 서치어드바이저)
+  // ⚠️ NEXT_PUBLIC_* 은 빌드 타임에 인라인되므로 값 추가 후 반드시 재배포해야 한다.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION
+      ? { 'naver-site-verification': process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION }
+      : {},
   },
   alternates: {
     canonical: '/',
@@ -57,8 +77,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   // 다크 모드 제거(2026-04-24) — light 단일 테마 컬러.
-  // '#faf6ea'는 warm paper 배경(oklch 0.982 0.012 92)에 대응.
-  themeColor: '#faf6ea',
+  // 그림책 세계 벽지(#FBF1E2, 2026-09-30)와 맞춘다.
+  themeColor: '#fbf1e2',
 };
 
 export default async function RootLayout({
@@ -74,27 +94,27 @@ export default async function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <head>
-        {/* 랜딩과 동일한 AtoZ 로컬 폰트 우선 로드 — CDN A2Z는 fallback.
-           초기 렌더 FOUT을 최소화하기 위해 주요 3 웨이트를 preload. */}
+        {/* 앱 기본 글꼴 SUITE(그림책 세계, 2026-09-30) — 초기 렌더 FOUT을 줄이려고
+           세 웨이트를 preload. 영어 읽기 글꼴 Andika는 화면에 쓰일 때만 받는다(27KB 서브셋). */}
         <link
           rel="preload"
           as="font"
           type="font/woff2"
-          href="/fonts/AtoZ-4Regular.woff2"
+          href="/fonts/SUITE-Regular.woff2"
           crossOrigin="anonymous"
         />
         <link
           rel="preload"
           as="font"
           type="font/woff2"
-          href="/fonts/AtoZ-7Bold.woff2"
+          href="/fonts/SUITE-Bold.woff2"
           crossOrigin="anonymous"
         />
         <link
           rel="preload"
           as="font"
           type="font/woff2"
-          href="/fonts/AtoZ-9Black.woff2"
+          href="/fonts/SUITE-ExtraBold.woff2"
           crossOrigin="anonymous"
         />
       </head>
@@ -113,6 +133,7 @@ export default async function RootLayout({
             <ShortcutHelp />
             <Toaster richColors position="bottom-center" />
             <PwaRegister />
+            <AppStoreBanner />
           </ThemeProvider>
         </AuthSessionProvider>
       </body>

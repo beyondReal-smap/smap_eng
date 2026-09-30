@@ -24,7 +24,7 @@ export function PassageMission({
   onComplete: () => void;
 }) {
   return (
-    <div className="mt-4 space-y-2" aria-live="polite">
+    <div className="space-y-2" aria-live="polite">
       {mission.wordHunt ? (
         <WordHuntCard hunt={mission.wordHunt} done={done} />
       ) : null}
@@ -51,7 +51,7 @@ function WordHuntCard({
   }
   return (
     <div className="rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 p-3.5">
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
+      <p className="text-xs font-bold uppercase tracking-[0.12em] text-haru-coral-ink">
         🔍 단어 찾기 미션
       </p>
       <p className="mt-1 text-sm font-medium leading-relaxed">
@@ -98,7 +98,7 @@ function CheckCard({
     >
       <p
         className={`text-xs font-bold uppercase tracking-[0.12em] ${
-          done ? 'text-[color:var(--level-a1-fg)]' : 'text-[color:var(--accent)]'
+          done ? 'text-[color:var(--level-a1-fg)]' : 'text-[color:var(--accent-foreground)]'
         }`}
       >
         {done ? '✅ 통과!' : '🧩 깜짝 질문'}

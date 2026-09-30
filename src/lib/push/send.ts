@@ -7,11 +7,14 @@ import {
   sendPushToDevice,
   type FcmAlertPayload,
 } from './fcm';
+import type { PushCustomData } from './payload';
 
 /** apns.ts 시그니처와 호환 — 기존 호출처(notify-weekly 등)가 그대로 import 가능. */
-export type PushAlertPayload = FcmAlertPayload;
+export type PushAlertPayload = Omit<FcmAlertPayload, 'custom'> & {
+  custom?: PushCustomData;
+};
 /** @deprecated send.ts 외부 호출자가 옛 이름을 그대로 쓰는 경우를 위한 alias. */
-export type ApnsAlertPayload = FcmAlertPayload;
+export type ApnsAlertPayload = PushAlertPayload;
 
 /**
  * 한 사용자의 모든 등록된 디바이스(iOS/Android)에 푸시 발송.

@@ -4,6 +4,8 @@ import { BUSINESS_INFO } from '@/lib/legal/business';
 export const metadata: Metadata = {
   title: '사업자정보',
   description: `${BUSINESS_INFO.serviceName} 운영사 ${BUSINESS_INFO.companyName}의 사업자 정보 안내.`,
+  // 루트 layout의 `canonical: '/'` 상속을 끊는다 — 미지정 시 색인에서 제외된다.
+  alternates: { canonical: '/legal/business' },
 };
 
 /**

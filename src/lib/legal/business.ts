@@ -42,7 +42,7 @@ export const BUSINESS_INFO = {
   /** 서비스 도메인 */
   serviceDomain: 'eng.smap.site',
   /** 결제 대행사 */
-  paymentProcessor: '포트원(PortOne) 주식회사 코리아포트원',
+  paymentProcessor: '토스페이먼츠 주식회사',
   /**
    * 약관/처리방침 시행일. 본문 변경 시 함께 갱신.
    * 사용자에게 공지된 마지막 개정일자를 의미.

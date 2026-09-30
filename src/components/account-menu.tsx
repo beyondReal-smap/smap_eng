@@ -4,12 +4,15 @@ import { Popover } from '@base-ui/react/popover';
 import Link from 'next/link';
 import { useState } from 'react';
 import {
+  BarChart3,
+  BookOpen,
   ChevronDown,
   CreditCard,
+  LibraryBig,
   LogIn,
   LogOut,
   ShieldCheck,
-  Sparkles,
+  Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSession, signOut as nextAuthSignOut } from 'next-auth/react';
@@ -17,12 +20,15 @@ import { useSession, signOut as nextAuthSignOut } from 'next-auth/react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useCreditBalance } from '@/lib/hooks/use-credit-balance';
 import { formatStars } from '@/lib/billing/terminology';
+import { APP_HOME } from '@/lib/paths';
 
 /**
  * 헤더 우측 계정 메뉴.
  *
  * 비로그인: "로그인" 버튼.
- * 로그인: 아바타(이니셜) + 이름/이메일 + Popover 메뉴(별 충전/보호자/로그아웃).
+ * 로그인: 아바타(이니셜) + 이름/이메일 + Popover 메뉴(책장·단어장·통계 / 보호자 모드·별 충전 / 로그아웃).
+ * 모바일 햄버거(MobileMenu)와 같은 항목 — 헤더에서 아이 전환을 뺀 뒤(2026-09-30) 데스크톱의
+ * 유일한 전역 메뉴라 화면 이동 바로가기도 여기 둔다.
  *
  * 인증 세션은 Auth.js(`useSession()`)에서 가져오고,
  * 별 잔액은 `/api/billing/credits` 페치 결과를 메뉴 헤더에 노출.
@@ -82,7 +88,7 @@ export function AccountMenu() {
         }
       >
         <Avatar className="h-7 w-7">
-          <AvatarFallback className="bg-primary/15 text-xs font-extrabold text-primary">
+          <AvatarFallback className="bg-haru-coral-soft text-xs font-extrabold text-haru-coral-ink">
             {initials}
           </AvatarFallback>
         </Avatar>
@@ -96,7 +102,7 @@ export function AccountMenu() {
           <Popover.Popup className="z-50 w-[260px] overflow-hidden rounded-2xl border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 outline-none animate-fade-up">
             <div className="flex items-center gap-2.5 px-2 py-2.5">
               <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-primary/15 text-base font-extrabold text-primary">
+                <AvatarFallback className="bg-haru-coral-soft text-base font-extrabold text-haru-coral-ink">
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -111,7 +117,7 @@ export function AccountMenu() {
                   className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground"
                   aria-live="polite"
                 >
-                  <Sparkles aria-hidden className="size-3" />
+                  <Star aria-hidden className="size-3 fill-[#e08a1e] text-[#e08a1e]" />
                   {creditsLoading
                     ? '잔액 확인 중…'
                     : credits === null
@@ -125,11 +131,23 @@ export function AccountMenu() {
 
             <div className="my-1 h-px bg-border/60" />
 
-            <MenuLink href="/subscribe" icon={<CreditCard className="size-4" />}>
-              별 충전
+            <MenuLink href={APP_HOME} icon={<LibraryBig className="size-4" />} onSelect={() => setOpen(false)}>
+              책장
             </MenuLink>
-            <MenuLink href="/parents" icon={<ShieldCheck className="size-4" />}>
+            <MenuLink href="/vocab" icon={<BookOpen className="size-4" />} onSelect={() => setOpen(false)}>
+              단어장
+            </MenuLink>
+            <MenuLink href="/stats" icon={<BarChart3 className="size-4" />} onSelect={() => setOpen(false)}>
+              통계
+            </MenuLink>
+
+            <div className="my-1 h-px bg-border/60" />
+
+            <MenuLink href="/parents" icon={<ShieldCheck className="size-4" />} onSelect={() => setOpen(false)}>
               보호자 모드
+            </MenuLink>
+            <MenuLink href="/subscribe" icon={<CreditCard className="size-4" />} onSelect={() => setOpen(false)}>
+              별 충전
             </MenuLink>
 
             <div className="my-1 h-px bg-border/60" />
@@ -137,9 +155,9 @@ export function AccountMenu() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-medium text-destructive transition hover:bg-destructive/10"
+              className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-bold text-haru-ink transition hover:bg-haru-paper"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f2f0ed] text-haru-muted">
                 <LogOut aria-hidden className="size-4" />
               </span>
               로그아웃
@@ -154,18 +172,22 @@ export function AccountMenu() {
 function MenuLink({
   href,
   icon,
+  onSelect,
   children,
 }: {
   href: string;
   icon: React.ReactNode;
+  /** 헤더는 layout에 남아 이동 후에도 마운트돼 있으므로, 누르면 메뉴를 직접 닫는다. */
+  onSelect: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
-      className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-medium text-foreground/85 transition hover:bg-muted"
+      onClick={onSelect}
+      className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-left text-sm font-bold text-haru-ink transition hover:bg-haru-paper"
     >
-      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-foreground/80">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-haru-coral-soft text-haru-coral-ink">
         {icon}
       </span>
       {children}

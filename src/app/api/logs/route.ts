@@ -71,16 +71,25 @@ export async function PATCH(req: NextRequest) {
 
 const ListLogsQuery = z.object({
   profileId: z.coerce.number().int().positive(),
+  bookId: z.coerce.number().int().positive().optional(),
 });
 
 export async function GET(req: NextRequest) {
   try {
+    const searchParams = new URL(req.url).searchParams;
     const parsed = ListLogsQuery.parse({
-      profileId: new URL(req.url).searchParams.get('profileId'),
+      profileId: searchParams.get('profileId'),
+      bookId: searchParams.get('bookId') ?? undefined,
     });
     await requireProfileOwnershipForApi(parsed.profileId);
+    if (parsed.bookId !== undefined) {
+      const ownedBook = await requireBookOwnershipForApi(parsed.bookId);
+      if (ownedBook.profileId !== parsed.profileId) {
+        throw new ApiAuthError('not_found', 404);
+      }
+    }
     return NextResponse.json({
-      logs: await listLogsByProfile(parsed.profileId),
+      logs: await listLogsByProfile(parsed.profileId, parsed.bookId),
     });
   } catch (err) {
     return handleApiError(err);

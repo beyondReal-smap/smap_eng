@@ -16,12 +16,15 @@ export const runtime = 'nodejs';
  * 동일 텍스트는 파일명이 같아 멱등(같은 응답). 클라이언트는 반환된 audioPath로
  * 곧바로 <audio> 재생 가능.
  *
- * 단어장(VocabDeck)에서 영단어를 듣기 위해 사용. passage 단위 TTS는 기존
- * `/api/tts/[passageId]` 라우트가 담당한다.
+ * 사용처: 단어장(VocabDeck)의 영단어 듣기, 리더의 문장 탭 재생(Reader).
+ * 둘 다 DB 행이 없는 임의 텍스트라 passage id 기반 캐시를 쓸 수 없다.
+ * passage 단위 TTS는 `/api/tts/[passageId]` 라우트가 담당한다.
  */
 
 const AUDIO_DIR = path.resolve(process.cwd(), 'public', 'audio');
 
+// 200자 상한 — 단어·짧은 구뿐 아니라 리더의 문장 탭 재생도 이 라우트를 쓴다.
+// 실측(본문 400건/문장 884개)상 문장 최대 123자, median 51자로 여유가 있다.
 const Schema = z.object({
   text: z.string().trim().min(1).max(200),
 });

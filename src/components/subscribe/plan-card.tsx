@@ -1,10 +1,9 @@
 "use client";
 
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -23,8 +22,9 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * 단일 별 충전 패키지 카드.
- * 추천 패키지(highlighted)는 story gold 링 + 상단 배지로 강조.
+ * 별 충전 결제 버튼 — 선택한 꾸러미 하나를 결제한다(그림책 세계 "별 꾸러미", 2026-09-30).
+ * 예전 카드별 구매 버튼(PlanCard)을 화면 하단 결제 버튼 하나로 옮긴 것으로,
+ * 아래 결제 흐름(handlePurchase)은 카드 시절과 한 글자도 다르지 않다 — 표현만 바뀌었다.
  *
  * 충전 흐름:
  *  1) 일반 웹 브라우저 — 서버 checkout(주문 생성) → 토스 결제창(리다이렉트) →
@@ -46,7 +46,7 @@ interface CheckoutResponse {
   customerKey: string;
 }
 
-export function PlanCard({ pack }: { pack: StarPackage }) {
+export function PackCheckout({ pack }: { pack: StarPackage }) {
   // 데스크톱 등 OS 미감지 시 스토어 선택 모달 표시.
   const [storePickerOpen, setStorePickerOpen] = useState(false);
   // 결제 진행 중 — 중복 클릭 차단 + 버튼 로딩 표시.
@@ -129,95 +129,30 @@ export function PlanCard({ pack }: { pack: StarPackage }) {
   };
 
   return (
-    <article
-      className={cn(
-        "relative flex h-full flex-col gap-6 rounded-3xl border bg-card/80 p-6 shadow-sm transition-all sm:p-7",
-        "animate-fade-up",
-        pack.highlighted
-          ? "border-primary/60 ring-2 ring-primary/50 shadow-md"
-          : "border-border hover:border-foreground/20",
-      )}
-      aria-labelledby={`pack-${pack.id}-title`}
-    >
-      {pack.highlighted && (
-        <span
-          className={cn(
-            "absolute -top-3 left-1/2 -translate-x-1/2",
-            "inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1",
-            "text-[11px] font-extrabold uppercase tracking-wider text-primary-foreground shadow-sm",
-          )}
-        >
-          <Sparkles className="size-3" strokeWidth={2.5} />
-          가장 인기
-        </span>
-      )}
-
-      <header className="space-y-1.5">
-        <h3
-          id={`pack-${pack.id}-title`}
-          className="font-heading text-lg font-bold tracking-tight"
-        >
-          {pack.name}
-        </h3>
-        <p className="text-sm text-muted-foreground">{pack.tagline}</p>
-      </header>
-
-      <div className="flex flex-col gap-1">
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-heading text-4xl font-extrabold tracking-tight">
-            {formatKrw(pack.priceKrw)}
-          </span>
-          <span className="text-sm font-medium text-muted-foreground">
-            / 별 {pack.stars.toLocaleString("ko-KR")}개
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          권당 {formatKrw(pack.perStarKrw)} · 만료 없음 · 가족 합산
-        </p>
-      </div>
-
-      <ul className="flex flex-1 flex-col gap-2.5 text-sm">
-        {pack.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2">
-            <span
-              className={cn(
-                "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full",
-                pack.highlighted
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-foreground",
-              )}
-              aria-hidden
-            >
-              <Check className="size-3" strokeWidth={3} />
-            </span>
-            <span className="leading-relaxed">{feature}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          onClick={handlePurchase}
-          disabled={processing}
-          variant={pack.highlighted ? "complete" : "outline"}
-          size="lg"
-          className="h-11 w-full text-base font-semibold"
-          aria-label={`${pack.name} 충전하기`}
-        >
-          {processing ? (
-            <>
-              <Loader2 className="size-4 animate-spin" strokeWidth={2.5} />
-              결제 준비 중…
-            </>
-          ) : (
-            pack.cta
-          )}
-        </Button>
-        <p className="text-center text-[11px] text-muted-foreground">
-          카드 결제 · 충전 후 환불 불가
-        </p>
-      </div>
+    <>
+      <button
+        type="button"
+        onClick={handlePurchase}
+        disabled={processing}
+        aria-busy={processing || undefined}
+        className="inline-flex min-h-[62px] w-full items-center justify-center gap-2 rounded-full bg-haru-coral px-6 text-lg font-extrabold text-haru-on-coral shadow-[0_10px_20px_rgb(245_131_92/0.35)] transition-transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-70 motion-reduce:transition-none"
+      >
+        {processing ? (
+          <>
+            <Loader2 aria-hidden className="size-5 animate-spin" strokeWidth={2.5} />
+            결제 준비 중…
+          </>
+        ) : (
+          `${formatKrw(pack.priceKrw)} 결제하기`
+        )}
+      </button>
+      {/* ⚠️ 환불 문구는 /legal/refund(전자상거래법 §17 준거)가 기준이다.
+          "충전 후 환불 불가"는 정책 본문(7일 내 미사용분 100% 환불)과 어긋나
+          2026-08-07 수정. 같은 사실을 말하는 곳: /subscribe 상단 고지 배너,
+          /pricing, src/lib/content/faq.ts. */}
+      <p className="text-center text-xs font-bold text-haru-muted">
+        {pack.name} · 카드 결제 · 7일 내 미사용분 환불
+      </p>
 
       {/* 데스크톱 등 OS 미감지 시 — 스토어 선택 모달 */}
       <Dialog open={storePickerOpen} onOpenChange={setStorePickerOpen}>
@@ -260,7 +195,7 @@ export function PlanCard({ pack }: { pack: StarPackage }) {
           </div>
         </DialogContent>
       </Dialog>
-    </article>
+    </>
   );
 }
 

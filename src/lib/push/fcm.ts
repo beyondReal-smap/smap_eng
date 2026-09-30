@@ -20,6 +20,7 @@
 
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getMessaging, type Message } from 'firebase-admin/messaging';
+import type { PushCustomData } from './payload';
 
 export class FcmError extends Error {
   constructor(
@@ -37,7 +38,7 @@ export interface FcmAlertPayload {
   title?: string;
   body: string;
   /** 딥링크 등 클라이언트 커스텀 데이터. FCM data field에 string으로만 전송 가능. */
-  custom?: Record<string, unknown>;
+  custom?: PushCustomData;
   /** iOS 배지 카운트. 0이면 제거. */
   badge?: number;
   sound?: 'default';
@@ -82,15 +83,13 @@ function getFirebaseApp(): App {
   return appCache;
 }
 
-/** FCM data field는 string만 허용 — number/boolean/object를 안전하게 직렬화. */
-function normalizeCustom(custom?: Record<string, unknown>): Record<string, string> | undefined {
+/** FCM data field는 string만 허용하므로 고정 계약의 숫자 식별자를 문자열로 변환한다. */
+function normalizeCustom(custom?: PushCustomData): Record<string, string> | undefined {
   if (!custom) return undefined;
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(custom)) {
-    if (v === null || v === undefined) continue;
-    out[k] = typeof v === 'string' ? v : JSON.stringify(v);
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
+  const out: Record<string, string> = { kind: custom.kind };
+  if (custom.bookId !== undefined) out.bookId = String(custom.bookId);
+  if (custom.profileId !== undefined) out.profileId = String(custom.profileId);
+  return out;
 }
 
 /**

@@ -19,11 +19,12 @@ function levelGuideline(level: Level): LevelGuideline {
 
   if (cefr === 'A1' && age <= 6) {
     return {
-      passageCount: [12, 16],
-      sentencesPerPassage: [3, 4],
+      passageCount: [17, 21],
+      sentencesPerPassage: [3, 3],
       wordsPerPassage: [12, 22],
-      // passage당 1~2개 어휘가 나오도록 상향
-      vocabCount: [18, 28],
+      // passage당 2개 내외. 12~22단어짜리 짧은 지문이라 이보다 늘리면 본문의 20% 이상이
+      // 밑줄이 되어 오히려 읽기 어려워진다.
+      vocabCount: [32, 40],
       grammar: 'present simple only, no contractions, avoid auxiliary verbs',
       style: 'very short, cheerful sentences a 5-year-old can read aloud',
       examples: '"The cat is small. It likes milk. It runs fast. It naps in the warm sun."',
@@ -31,11 +32,11 @@ function levelGuideline(level: Level): LevelGuideline {
   }
   if (cefr === 'A1' || (cefr === 'A2' && age <= 7)) {
     return {
-      passageCount: [14, 20],
-      sentencesPerPassage: [3, 4],
+      passageCount: [19, 25],
+      sentencesPerPassage: [3, 3],
       wordsPerPassage: [18, 32],
-      // passage당 2개 내외
-      vocabCount: [30, 42],
+      // passage당 2~3개
+      vocabCount: [48, 62],
       grammar: 'present and past simple, simple conjunctions (and, but, so)',
       style: 'simple storybook rhythm with repetition and clear cause-effect',
       examples:
@@ -44,11 +45,11 @@ function levelGuideline(level: Level): LevelGuideline {
   }
   if (cefr === 'A2') {
     return {
-      passageCount: [18, 24],
-      sentencesPerPassage: [3, 5],
+      passageCount: [23, 29],
+      sentencesPerPassage: [3, 3],
       wordsPerPassage: [30, 50],
-      // passage당 2~3개
-      vocabCount: [42, 60],
+      // passage당 3개 내외
+      vocabCount: [65, 85],
       grammar:
         'past simple/continuous, present perfect, time and reason conjunctions (when, while, because, so that), descriptive adjectives/adverbs, compound sentences',
       style:
@@ -59,11 +60,11 @@ function levelGuideline(level: Level): LevelGuideline {
   }
   if (cefr === 'B1') {
     return {
-      passageCount: [20, 28],
-      sentencesPerPassage: [3, 5],
+      passageCount: [25, 33],
+      sentencesPerPassage: [3, 3],
       wordsPerPassage: [45, 70],
-      // passage당 2~3개
-      vocabCount: [58, 80],
+      // passage당 3개 남짓
+      vocabCount: [80, 105],
       grammar:
         'past simple/continuous/perfect, relative clauses (who/which/that/where), reported speech, first/second conditionals, linking adverbs (however, suddenly, meanwhile), varied adjectives/adverbs',
       style:
@@ -74,11 +75,11 @@ function levelGuideline(level: Level): LevelGuideline {
   }
   // B2 — 9~10세 상위 도전 단계
   return {
-    passageCount: [22, 30],
-    sentencesPerPassage: [4, 6],
+    passageCount: [27, 35],
+    sentencesPerPassage: [3, 3],
     wordsPerPassage: [60, 95],
-    // passage당 3개 내외 — 가장 풍부한 어휘 노출
-    vocabCount: [75, 100],
+    // passage당 3~4개 — 지문이 가장 길어(60~95단어) 밀도를 높여도 본문이 덜 답답하다.
+    vocabCount: [100, 130],
     grammar:
       'full range of past and present tenses including past perfect continuous, mixed conditionals, passive voice where natural, complex relative clauses, participle phrases, advanced linking (nevertheless, despite, in spite of, as a result), idiomatic expressions used sparingly',
     style:
@@ -270,7 +271,7 @@ You are writing for Korean children aged ${age} at CEFR level ${cefr}.
 
 <length_rules>
 - Produce ${guide.passageCount[0]} to ${guide.passageCount[1]} passages.
-- Each passage is a mini-scene of ${guide.sentencesPerPassage[0]}-${guide.sentencesPerPassage[1]} connected sentences, approximately ${guide.wordsPerPassage[0]}-${guide.wordsPerPassage[1]} English words in total. Single-sentence passages are NOT acceptable.
+- Each passage is a mini-scene of ${guide.sentencesPerPassage[0] === guide.sentencesPerPassage[1] ? `exactly ${guide.sentencesPerPassage[0]}` : `${guide.sentencesPerPassage[0]}-${guide.sentencesPerPassage[1]}`} connected sentences, approximately ${guide.wordsPerPassage[0]}-${guide.wordsPerPassage[1]} English words in total. Single-sentence passages are NOT acceptable.
 - Use the extra sentences to DEEPEN the scene — a character's feeling or reaction, one concrete sensory detail, or a short line of dialogue — never to repeat information already stated or to pad with decoration.
 - Vary sentence length within each passage to avoid a monotonous rhythm.
 </length_rules>
@@ -286,7 +287,7 @@ ${narrativeQualityBlock}
 
 <vocabulary_rules>
 - Include ${guide.vocabCount[0]} to ${guide.vocabCount[1]} "vocabulary" entries for words a Korean child at this level might need help with (key nouns, strong verbs, descriptive adjectives, idioms).
-- Density: target about 2–3 vocabulary entries per passage so the reader sees multiple underlined words on every screen. Fewer than 1 per passage is not acceptable; if a passage has fewer candidate words, still pick its most meaningful noun/verb.
+- Density: target about 3 vocabulary entries per passage (2 is acceptable for the shortest passages) so the reader sees several underlined words on every screen. Fewer than 2 per passage is not acceptable; if a passage has few candidate words, still pick its most meaningful nouns and verbs.
 - Narrative quality wins over density: NEVER invent or pad a passage just to surface a vocabulary word. If a naturally short passage has only one strong candidate, pick that one — do NOT add filler content for the word's sake. The story/explanation comes first; vocabulary entries are drawn FROM it, not the other way around.
 - Distribution: distribute entries evenly from the first passage to the last. Do not cluster them in the opening or ending.
 - Verbatim: each "word" must appear EXACTLY in one of the passages' "en" text (case-insensitive; simple surface form is fine). Do not invent variants or Korean-only entries.

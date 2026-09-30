@@ -8,7 +8,7 @@
 // primary가 미설정이면 OpenAI만 단독 호출.
 
 export const OPENAI_MODEL =
-  process.env.OPENAI_MODEL ?? 'gpt-6-sol';
+  process.env.OPENAI_MODEL ?? 'gpt-6-luna';
 
 export const OPENAI_TIMEOUT_MS = Number(
   process.env.OPENAI_TIMEOUT_MS ?? 60_000,

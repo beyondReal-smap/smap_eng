@@ -1,11 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiFetch } from '@/lib/api-client';
 import { parseJsonField } from '@/lib/json-field';
@@ -27,10 +24,10 @@ import {
   BACKGROUND_TTS_RETRY_MS,
   branchKey,
   buildVocabMap,
-  LEVEL_CLASS,
   missionKey,
   normalize,
   PASSAGE_FONT_CLASS,
+  PASSAGE_FONT_CLASS_PLAIN,
   progressKey,
   wait,
   type Branch,
@@ -40,7 +37,9 @@ import {
 import { PassageText } from './reader/passage-text';
 import { PassageMission } from './reader/passage-mission';
 import { EndingChoiceDialog } from './reader/ending-choice-dialog';
-import { FontSizePicker, ReaderSettingsButton } from './reader/reader-settings';
+import { ReaderSettingsButton } from './reader/reader-settings';
+import { ReaderCoverPage } from './reader/cover-page';
+import { FinishCard, ReaderControlBar, ReaderTopBar } from './reader/chrome';
 import { useReadingLog } from './reader/use-reading-log';
 import { useFontSize } from './reader/use-font-size';
 
@@ -49,11 +48,20 @@ interface Props {
   passages: Passage[];
 }
 
+/** 낭독 파일 자동 복구 백오프(1회 즉시 → 2s → 5s) — scheduleRecovery 설명 참고. */
+const RECOVERY_BACKOFF_MS = [0, 2000, 5000] as const;
+
 export function Reader({ book, passages }: Props) {
   const profileId = useProfileStore((s) => s.currentProfileId);
   const [idx, setIdx] = useState(0);
   const [slideDir, setSlideDir] = useState<SlideDir>(null);
+  // 한글 해석 토글 — 쪽을 넘겨도 유지(리더 세션 동안, 책을 닫으면 초기화 — 네이티브 10차).
   const [showKo, setShowKo] = useState(false);
+  // 표지 쪽(0쪽) — 처음부터 열 때만. null = localStorage 진행 복원 전(표지가 잠깐 비쳤다
+  // 사라지는 깜빡임을 막으려고 판정 전엔 아무것도 그리지 않는다).
+  const [showCover, setShowCover] = useState<boolean | null>(null);
+  // 전체 낭독이 재생 중인 쪽 — 쪽을 넘기면 렌더 시점에 자연히 무효(형광펜·멈추기 버튼용).
+  const [playingIdx, setPlayingIdx] = useState<number | null>(null);
   const [autoplay, setAutoplay] = useState(false);
   const [audioCache, setAudioCache] = useState<Record<number, string>>(() => {
     const initial: Record<number, string> = {};
@@ -62,7 +70,7 @@ export function Reader({ book, passages }: Props) {
     }
     return initial;
   });
-  const [sceneCache, setSceneCache] = useState<Record<number, string>>(() => {
+  const [sceneCache] = useState<Record<number, string>>(() => {
     const initial: Record<number, string> = {};
     for (const p of passages) {
       if (p.sceneImagePath) initial[p.id] = p.sceneImagePath;
@@ -76,6 +84,17 @@ export function Reader({ book, passages }: Props) {
   const [playedPassages, setPlayedPassages] = useState<ReadonlySet<number>>(
     () => new Set(),
   );
+  // 문장 탭 재생 — 전체 낭독을 한 번 들은 뒤, 본문 문장을 눌러 그 문장만 다시 듣는다.
+  // 재생 중인 문장을 passage idx와 함께 담아, passage를 넘기면 하이라이트가 렌더
+  // 시점에 자연히 무효가 되게 한다(effect에서 되돌리면 cascading render가 된다).
+  const [playingSentence, setPlayingSentence] = useState<{
+    passageIdx: number;
+    sentence: number;
+  } | null>(null);
+  const sentenceAudioRef = useRef<HTMLAudioElement | null>(null);
+  // 문장 텍스트 → audioPath. /api/tts/word가 텍스트 해시로 파일을 캐시하므로
+  // 여기서는 서버 왕복만 줄이면 된다(세션 단위).
+  const sentenceCacheRef = useRef<Map<string, string>>(new Map());
   const [fontSize, setFontSize] = useFontSize();
   const [branch, setBranch] = useState<Branch | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
@@ -133,11 +152,6 @@ export function Reader({ book, passages }: Props) {
     : currentCommon?.textKo ?? '';
   const hasCurrent = isEndingStep ? !!currentEnding : !!currentCommon;
 
-  const progress = useMemo(
-    () => (total > 0 ? ((idx + 1) / total) * 100 : 0),
-    [idx, total],
-  );
-  const isFirst = idx === 0;
   // 마지막 공통 passage에서 endings가 있고 선택 전이면 "퀴즈로 가기" 대신 "결말 고르기".
   const needsChoice = !!endings && !branch && idx === commonCount - 1;
   const isLast = branch
@@ -168,7 +182,16 @@ export function Reader({ book, passages }: Props) {
       ? audioCache[currentCommon.id]
       : undefined;
   const currentScene = !isEndingStep && currentCommon ? sceneCache[currentCommon.id] : undefined;
-  const levelClass = LEVEL_CLASS[book.cefr];
+  // "한 번 다 읽은 다음"에만 문장 탭을 연다. 처음 보는 지문을 통으로 듣기 전에
+  // 문장을 조각내 듣는 건 학습 순서상 맞지 않고, 밑줄 단어 탭과 인터랙션이 겹쳐
+  // 혼란스럽다. 엔딩은 passage id가 없어 재생 이력을 추적하지 않으므로 제외.
+  const sentenceTapEnabled =
+    !isEndingStep && !!currentCommon && playedPassages.has(currentCommon.id);
+  // 현재 passage에서 재생 중인 문장만 하이라이트 — passage를 넘기면 자동 해제.
+  const activeSentence =
+    playingSentence && playingSentence.passageIdx === idx
+      ? playingSentence.sentence
+      : null;
   // vocabulary도 동일하게 string으로 도착할 수 있어 정규화한다.
   const vocabulary = useMemo(
     () => parseJsonField<VocabularyEntry[]>(book.vocabulary),
@@ -229,43 +252,109 @@ export function Reader({ book, passages }: Props) {
     [currentMission, missionsDone, idx, completeMission],
   );
 
+  /**
+   * 문장 하나만 재생. passage 단위 오디오(passage-<id>.mp3)와 달리 문장은 DB 행이
+   * 없으므로, 임의 텍스트를 해시 파일명으로 캐시하는 /api/tts/word를 재사용한다
+   * (단어장에서 쓰는 것과 같은 경로 — 문장 median 51자로 200자 제한 안에 들어온다).
+   *
+   * 합성 입력이 passage 전체(median 141자)의 1/3로 짧아져 낭독이 더 안정적이다.
+   */
+  const handleSentenceTap = useCallback(
+    async (index: number, sentence: string) => {
+      // 전체 낭독이 재생 중이면 멈춘다 — 두 음성이 겹치면 알아듣기 어렵다.
+      audioRef.current?.pause();
+      sentenceAudioRef.current?.pause();
+      setPlayingSentence({ passageIdx: idx, sentence: index });
+      try {
+        const cache = sentenceCacheRef.current;
+        let src = cache.get(sentence);
+        if (!src) {
+          const res = await apiFetch<{ audioPath: string }>('/api/tts/word', {
+            method: 'POST',
+            body: JSON.stringify({ text: sentence }),
+          });
+          src = res.audioPath;
+          cache.set(sentence, src);
+        }
+        // 동일 요소 재사용 — 같은 문장을 다시 눌러도 처음부터 재생.
+        const el = sentenceAudioRef.current ?? new Audio();
+        sentenceAudioRef.current = el;
+        el.src = src;
+        el.currentTime = 0;
+        // passage 낭독과 같은 실효 속도(합성 0.85 × 재생 1.06 ≈ 0.9배)를 맞춘다.
+        el.playbackRate = 1.06;
+        el.onended = () => setPlayingSentence(null);
+        await el.play();
+      } catch (err) {
+        // 하이라이트를 남기면 "재생 중"으로 오해되므로 즉시 해제.
+        setPlayingSentence(null);
+        console.error(`[reader:tts] sentence_fail idx=${index} err=`, err);
+        toast.error(`문장 낭독 실패: ${(err as Error).message}`);
+      }
+    },
+    [idx],
+  );
+
+  // passage/엔딩 전환 시 이전 문장 음성이 이어서 들리지 않게 멈춘다.
+  // (하이라이트는 playingSentence.passageIdx 비교로 렌더 시점에 무효화된다)
+  useEffect(() => {
+    sentenceAudioRef.current?.pause();
+  }, [idx]);
+
   useEffect(() => {
     audioCacheRef.current = audioCache;
   }, [audioCache]);
 
-  // 진행 상태 복원 (localStorage) — 마운트 1회
+  // 진행 상태 복원 (localStorage) — 마운트 1회.
+  // 읽기는 곧바로(아래 "idx 변경 시 저장" effect가 0을 덮어쓰기 전에) 하고, 상태 반영은 다음
+  // 프레임에 한 번에 — effect 안 동기 setState 연쇄 렌더를 피한다(react-hooks 규칙).
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    let restored: {
+      branch: Branch | null;
+      idx: number | null;
+      autoplay: boolean;
+      missions: number[] | null;
+      showCover: boolean;
+    } = { branch: null, idx: null, autoplay: false, missions: null, showCover: true };
     try {
       // 브랜치 먼저 복원 (idx 범위 계산에 필요)
       const savedBranch = window.localStorage.getItem(branchKey(book.id));
-      if (savedBranch === 'A' || savedBranch === 'B') {
-        setBranch(savedBranch);
-      }
+      const branchValue: Branch | null =
+        savedBranch === 'A' || savedBranch === 'B' ? savedBranch : null;
       const savedIdx = window.localStorage.getItem(progressKey(book.id));
+      let idxValue: number | null = null;
       if (savedIdx !== null) {
         const n = Number(savedIdx);
         // 총 길이는 분기 선택 여부에 따라 가변. 공통 passage 길이로 상한 클램프.
         const maxIdx = passages.length - 1;
-        if (Number.isFinite(n) && n >= 0 && n <= maxIdx) {
-          setIdx(n);
-        }
+        if (Number.isFinite(n) && n >= 0 && n <= maxIdx) idxValue = n;
       }
       const savedAutoplay = window.localStorage.getItem(autoplayKey(book.id));
-      if (savedAutoplay === '1') setAutoplay(true);
       // 완료한 미션 복원 — 숫자 배열(JSON)만 신뢰.
       const savedMissions = window.localStorage.getItem(missionKey(book.id));
-      if (savedMissions) {
-        const arr = JSON.parse(savedMissions) as unknown;
-        if (Array.isArray(arr)) {
-          setMissionsDone(
-            new Set(arr.filter((n): n is number => typeof n === 'number')),
-          );
-        }
-      }
-    } catch {
-      /* storage 접근 실패 무시 */
+      const arr = savedMissions ? (JSON.parse(savedMissions) as unknown) : null;
+      restored = {
+        branch: branchValue,
+        idx: idxValue,
+        autoplay: savedAutoplay === '1',
+        missions: Array.isArray(arr)
+          ? arr.filter((n): n is number => typeof n === 'number')
+          : null,
+        // 이어 읽기(1쪽 이후에서 다시 연 책·결말을 고른 책)면 표지를 건너뛴다.
+        showCover: !(branchValue || (idxValue !== null && idxValue > 0)),
+      };
+    } catch (err) {
+      // storage 접근·JSON 파싱 실패 — 진행 복원 없이 표지부터.
+      console.warn('[reader] progress restore failed:', err);
     }
+    const frame = window.requestAnimationFrame(() => {
+      if (restored.branch) setBranch(restored.branch);
+      if (restored.idx !== null) setIdx(restored.idx);
+      if (restored.autoplay) setAutoplay(true);
+      if (restored.missions) setMissionsDone(new Set(restored.missions));
+      setShowCover(restored.showCover);
+    });
     // 최근 읽기 저장 (Bookshelf에서 상단 고정용)
     try {
       const raw = window.localStorage.getItem('recent:books');
@@ -275,6 +364,7 @@ export function Reader({ book, passages }: Props) {
     } catch {
       /* ignore */
     }
+    return () => window.cancelAnimationFrame(frame);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book.id]);
 
@@ -446,6 +536,10 @@ export function Reader({ book, passages }: Props) {
    */
   const requestTts = useCallback(
     async (force: boolean) => {
+      // 문장 탭 재생 중에 전체 낭독을 시작하면 두 음성이 겹친다 — 문장 쪽을 멈춘다.
+      // (문장 탭에서 전체 낭독을 멈추는 것과 대칭)
+      sentenceAudioRef.current?.pause();
+      setPlayingSentence(null);
       if (isEndingStep) {
         // 엔딩은 서버 재합성 라우트가 없다 — 캐시된 audioPath로 그대로 재생만.
         if (!currentEndingAudio) return;
@@ -459,6 +553,43 @@ export function Reader({ book, passages }: Props) {
         return;
       }
       if (!currentCommon) return;
+      const passage = currentCommon;
+
+      /** 서버에 낭독을 요청(필요하면 재합성)하고 재생. 재생 재시도가 모두 실패하면 여기로 escalate. */
+      const synthesize = async (forceFlag: boolean) => {
+        setLoadingAudio(true);
+        try {
+          // force=true(다시듣기/자동복구)는 ?force=1로 서버에 명시 — 멱등 캐시를
+          // 우회해 wav를 재생성한다. 미부착 시 깨진 wav가 무한 캐시되어 다시듣기가
+          // silently 무동작이 된다.
+          const url = forceFlag
+            ? `/api/tts/${passage.id}?force=1`
+            : `/api/tts/${passage.id}`;
+          const res = await apiFetch<TtsResponse>(url, { method: 'POST' });
+          // force 재생성 시 파일명은 동일(passage-<id>.mp3)하므로 브라우저 HTTP
+          // 캐시에 묶여 새 오디오가 로드되지 않을 수 있다. cache-buster 쿼리로 audio
+          // src를 강제로 새 URL로 만들어 <audio>가 다시 fetch하게 한다.
+          const cachedPath = forceFlag
+            ? `${res.audioPath}?v=${Date.now()}`
+            : res.audioPath;
+          setAudioCache((prev) => ({
+            ...prev,
+            [passage.id]: cachedPath,
+          }));
+          setTimeout(() => {
+            audioRef.current?.play().catch(() => void 0);
+          }, 50);
+        } catch (err) {
+          console.error(
+            `[reader:tts] requestTts_fail passage=${passage.id} force=${forceFlag} err=`,
+            err,
+          );
+          toast.error(`낭독 준비 실패: ${(err as Error).message}`);
+        } finally {
+          setLoadingAudio(false);
+        }
+      };
+
       if (!force && currentAudio) {
         // 다시 듣기: 이미 끝까지 재생된 audio라 currentTime이 종료 위치에 있다.
         // 0으로 리셋해 "처음부터 다시" 동작이 명확하도록 한다.
@@ -473,43 +604,13 @@ export function Reader({ book, passages }: Props) {
             try { el.currentTime = 0; } catch { /* ignore */ }
             el.play().catch(() => {
               // 두 번째 play()도 실패 — 서버 재호출로 escalate.
-              void requestTts(true);
+              void synthesize(true);
             });
           });
         }
         return;
       }
-      setLoadingAudio(true);
-      try {
-        // force=true(다시듣기/자동복구)는 ?force=1로 서버에 명시 — 멱등 캐시를
-        // 우회해 wav를 재생성한다. 미부착 시 깨진 wav가 무한 캐시되어 다시듣기가
-        // silently 무동작이 된다.
-        const url = force
-          ? `/api/tts/${currentCommon.id}?force=1`
-          : `/api/tts/${currentCommon.id}`;
-        const res = await apiFetch<TtsResponse>(url, { method: 'POST' });
-        // force 재생성 시 파일명은 동일(passage-<id>.mp3)하므로 브라우저 HTTP
-        // 캐시에 묶여 새 오디오가 로드되지 않을 수 있다. cache-buster 쿼리로 audio
-        // src를 강제로 새 URL로 만들어 <audio>가 다시 fetch하게 한다.
-        const cachedPath = force
-          ? `${res.audioPath}?v=${Date.now()}`
-          : res.audioPath;
-        setAudioCache((prev) => ({
-          ...prev,
-          [currentCommon.id]: cachedPath,
-        }));
-        setTimeout(() => {
-          audioRef.current?.play().catch(() => void 0);
-        }, 50);
-      } catch (err) {
-        console.error(
-          `[reader:tts] requestTts_fail passage=${currentCommon.id} force=${force} err=`,
-          err,
-        );
-        toast.error(`낭독 준비 실패: ${(err as Error).message}`);
-      } finally {
-        setLoadingAudio(false);
-      }
+      await synthesize(force);
     },
     [currentCommon, isEndingStep, currentAudio, currentEndingAudio],
   );
@@ -530,8 +631,6 @@ export function Reader({ book, passages }: Props) {
    * MEDIA_ERR_SRC_NOT_SUPPORTED(4)일 때만 진짜 파일 문제로 간주.
    * MEDIA_ERR_ABORTED(1)는 사용자가 다른 passage로 이동해 src가 바뀐 정상 상황.
    */
-  const RECOVERY_BACKOFF_MS = [0, 2000, 5000] as const;
-
   const scheduleRecovery = useCallback(
     (id: number) => {
       const attempts = recoveryAttemptsRef.current.get(id) ?? 0;
@@ -617,7 +716,6 @@ export function Reader({ book, passages }: Props) {
         if (next !== i) setSlideDir(delta > 0 ? 'next' : 'prev');
         return next;
       });
-      setShowKo(false);
     },
     [branch, commonCount, endings, idx, total],
   );
@@ -638,7 +736,6 @@ export function Reader({ book, passages }: Props) {
       setChoiceOpen(false);
       setSlideDir('next');
       setIdx(commonCount);
-      setShowKo(false);
     },
     [commonCount, endings],
   );
@@ -648,7 +745,6 @@ export function Reader({ book, passages }: Props) {
     setBranch(null);
     setSlideDir('prev');
     setIdx(Math.max(0, commonCount - 1));
-    setShowKo(false);
   }, [commonCount]);
 
   // 자동재생: 오디오 종료 → 다음 passage + 자동 재생
@@ -668,86 +764,294 @@ export function Reader({ book, passages }: Props) {
   // 자동재생 ON + 공통 passage 변경 + 오디오 없을 때: 선제 로드 & 재생.
   // 엔딩 passage는 TTS가 없어 자동재생 대상에서 제외.
   useEffect(() => {
+    // 표지 쪽에서는 자동재생하지 않는다 — "읽기 시작"을 누른 뒤부터.
+    if (showCover !== false) return;
     if (!autoplay || !currentCommon || isEndingStep) return;
     if (currentAudio) {
       audioRef.current?.play().catch(() => void 0);
       return;
     }
-    void handlePlay();
-  }, [autoplay, idx, currentCommon, isEndingStep, currentAudio, handlePlay]);
+    // 낭독 준비(서버 요청)는 다음 프레임에 — effect 안 동기 setState 연쇄 렌더 방지.
+    const frame = window.requestAnimationFrame(() => void handlePlay());
+    return () => window.cancelAnimationFrame(frame);
+  }, [showCover, autoplay, idx, currentCommon, isEndingStep, currentAudio, handlePlay]);
 
-  // 키보드 네비게이션
-  const bindings = useMemo(
-    () => ({
-      ArrowLeft: () => go(-1),
-      ArrowRight: () => go(1),
-      ' ': () => {
-        // Space: 재생/일시정지
-        const el = audioRef.current;
-        if (!el) {
-          void handlePlay();
-          return;
-        }
-        if (el.paused) {
-          if (!currentAudio) void handlePlay();
-          else el.play().catch(() => void 0);
-        } else {
-          el.pause();
-        }
-      },
-      k: () => setShowKo((v) => !v),
-      K: () => setShowKo((v) => !v),
-    }),
-    [go, handlePlay, currentAudio],
+  /** 표지 → 1쪽. narrate면 곧바로 1쪽 낭독(클릭 처리 안에서 재생해 자동재생 차단을 피한다). */
+  const startReading = useCallback(
+    (narrate: boolean) => {
+      setShowCover(false);
+      setSlideDir(null);
+      if (narrate) void handlePlay();
+    },
+    [handlePlay],
   );
-  useKeyboardNav(bindings);
 
-  // hasCurrent=false라도 헤더(책 제목/돌아가기/폰트 컨트롤)는 살려야 한다.
-  // 이전엔 컴포넌트 전체를 EmptyState로 대체해 헤더까지 사라졌다 — 분기 결말 데이터가
-  // 비정상일 때 사용자가 책장으로 돌아갈 길을 잃는 UX 사고로 이어진다.
+  /** 1쪽에서 ‹ 는 표지로 돌아간다(네이티브와 같음). 읽던 낭독은 멈춘다. */
+  const goBack = useCallback(() => {
+    if (idx === 0) {
+      audioRef.current?.pause();
+      sentenceAudioRef.current?.pause();
+      setShowCover(true);
+      return;
+    }
+    go(-1);
+  }, [idx, go]);
+
+  const isPlaying = playingIdx === idx;
+
+  /** ▶ 읽어 주기 — 재생 중이면 멈추고, 멈춘 자리가 있으면 이어서, 아니면 처음부터(기존 handlePlay). */
+  const toggleListen = useCallback(() => {
+    const el = audioRef.current;
+    if (isPlaying && el) {
+      el.pause();
+      return;
+    }
+    if (el && currentAudio && el.currentTime > 0 && !el.ended) {
+      el.play().catch((err: unknown) => {
+        console.warn('[reader:audio] resume_fail — restart from beginning', err);
+        void handlePlay();
+      });
+      return;
+    }
+    void handlePlay();
+  }, [isPlaying, currentAudio, handlePlay]);
+
+  // 키보드 네비게이션 — 표지에서는 → 로 읽기 시작만.
+  const bindings = useMemo(
+    () =>
+      showCover
+        ? { ArrowRight: () => startReading(false) }
+        : {
+            ArrowLeft: goBack,
+            ArrowRight: () => {
+              if (!isLast) go(1);
+            },
+            // Space: 재생/일시정지
+            ' ': toggleListen,
+            k: () => setShowKo((v) => !v),
+            K: () => setShowKo((v) => !v),
+          },
+    [showCover, startReading, goBack, isLast, go, toggleListen],
+  );
+  useKeyboardNav(bindings, showCover !== null);
+
+  // 터치 스와이프로 쪽 넘김(네이티브 페이저와 같은 동작). 가로로 충분히 밀었을 때만 —
+  // 세로 스크롤·문장 탭과 겹치지 않게 가로 이동이 세로의 1.5배를 넘어야 한다.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStartRef.current = t ? { x: t.clientX, y: t.clientY } : null;
+  }, []);
+  const onTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const start = touchStartRef.current;
+      touchStartRef.current = null;
+      const t = e.changedTouches[0];
+      if (!start || !t) return;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (dx < 0) {
+        if (!isLast) go(1);
+      } else {
+        goBack();
+      }
+    },
+    [go, goBack, isLast],
+  );
 
   const slideClass =
     slideDir === 'next'
       ? 'animate-slide-in-right'
       : slideDir === 'prev'
         ? 'animate-slide-in-left'
-        : 'animate-pop-in';
+        : 'animate-fade-up';
+
+  const fontClass = currentScene
+    ? PASSAGE_FONT_CLASS[fontSize]
+    : PASSAGE_FONT_CLASS_PLAIN[fontSize];
+  const canListen = !isEndingStep || !!currentEndingAudio;
+  const regenerateVisible =
+    !isEndingStep && !!currentCommon && playedPassages.has(currentCommon.id);
+
+  // 종이 위 본문 블록 — 영어 본문 + 한글 해석 + 안내 + (결말 고르기 / 완독 카드 / 더 알기 / 미션).
+  const pageContent = (
+    <div className="relative mx-auto w-full max-w-[640px] space-y-6 px-6 pb-28 pt-4 sm:px-8">
+      <div className="space-y-2">
+        {isEndingStep && branch ? (
+          <p className="text-xs font-extrabold text-haru-coral-ink">
+            결말 {branch} · {endingIdx + 1}
+          </p>
+        ) : null}
+        <p className={`whitespace-pre-wrap font-normal text-haru-ink ${fontClass}`}>
+          <PassageText
+            text={currentTextEn}
+            vocabMap={vocabMap}
+            onWordTap={handleWordTap}
+            onSentenceTap={sentenceTapEnabled ? handleSentenceTap : undefined}
+            activeSentence={activeSentence}
+            highlightAll={isPlaying}
+          />
+        </p>
+        {showKo && currentTextKo ? (
+          <p className="animate-fade-up text-[15px] font-bold leading-relaxed text-haru-muted motion-reduce:animate-none sm:text-base">
+            <span className="sr-only">한글 해석, </span>
+            {currentTextKo}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1">
+          {vocabMap.size > 0 ? (
+            <p className="text-xs font-bold text-haru-muted">
+              <span aria-hidden>💡 </span>점선 밑줄 단어를 누르면 뜻을 볼 수 있어요
+            </p>
+          ) : null}
+          {sentenceTapEnabled ? (
+            <p className="text-xs font-bold text-haru-muted">
+              <span aria-hidden>🔊 </span>문장을 누르면 그 문장만 다시 들려줘요
+            </p>
+          ) : null}
+          {/* 소리 다시 만들기 — 합성은 비결정적이라(같은 문장도 매번 다른 파형)
+              발음이 뭉개진 오디오를 만나면 재합성으로 실제 복구가 된다. 반면
+              "읽어 주기"는 캐시된 같은 파일을 재생하므로 고쳐지지 않는다.
+              비싼 경로(서버 재합성)라 이미 들어본 passage에서만 노출한다. */}
+          {regenerateVisible ? (
+            <button
+              type="button"
+              onClick={() => requestTts(true)}
+              disabled={loadingAudio}
+              title="발음이 이상하게 들리면 소리를 다시 만들어요"
+              className="inline-flex min-h-11 items-center gap-1 rounded-full px-1 text-xs font-bold text-haru-ink focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
+            >
+              <span className="rounded-full border border-[#b9b6b0] bg-white px-2.5 py-1">
+                <span aria-hidden>↻ </span>
+                {loadingAudio ? '만드는 중' : '소리 다시 만들기'}
+              </span>
+            </button>
+          ) : null}
+          {isEndingStep && branch ? (
+            <button
+              type="button"
+              onClick={resetBranch}
+              className="inline-flex min-h-11 items-center rounded-full px-1 text-xs font-bold text-haru-coral-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              다른 결말 보기
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {/* 마지막 공통 쪽 + 분기 있음 — 결말 고르기(› 버튼과 같은 동작, 눈에 띄게 한 번 더). */}
+      {needsChoice ? (
+        <button
+          type="button"
+          onClick={() => setChoiceOpen(true)}
+          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-haru-coral text-base font-extrabold text-haru-on-coral transition-transform hover:-translate-y-0.5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+        >
+          이야기의 결말 고르기 →
+        </button>
+      ) : null}
+
+      {/* 완독 축하 카드 — 마지막 쪽에서 퀴즈로 가는 길(하단 › 는 마지막 쪽에서 비활성). */}
+      {isLast ? <FinishCard quizHref={`/quiz/${book.id}`} /> : null}
+
+      {/* 논픽션 funFacts — 마지막 passage에서만 노출. */}
+      {isLast && funFacts ? (
+        <section
+          aria-labelledby="fun-facts-heading"
+          className="rounded-[20px] border border-haru-line bg-white p-5 shadow-[0_4px_12px_rgb(0_0_0/0.05)]"
+        >
+          <h2
+            id="fun-facts-heading"
+            className="flex items-center gap-2 text-lg font-extrabold tracking-normal text-haru-ink"
+          >
+            <span aria-hidden>📚</span>
+            더 알기
+          </h2>
+          <p className="mt-1 text-xs font-bold text-haru-muted">
+            오늘 읽은 내용에서 한 걸음 더 깊이 들어가 볼까요?
+          </p>
+          <ul className="mt-3 grid gap-2.5">
+            {funFacts.map((f, i) => (
+              <li key={i} className="rounded-2xl bg-haru-paper p-3.5">
+                <p className="text-sm font-extrabold text-haru-ink">{f.title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-haru-muted">{f.body}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* 책 속 미션 — 이 passage에 미션이 있을 때만. 진행을 막지 않는 재미 요소. */}
+      {currentMission ? (
+        <PassageMission
+          mission={currentMission}
+          done={missionsDone.has(idx)}
+          onComplete={() => completeMission(idx)}
+        />
+      ) : null}
+    </div>
+  );
 
   return (
-    <div className="space-y-6 animate-fade-up">
-      {/* 헤더 */}
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          {/* 랜딩 스토리북 타이틀과 톤 통일: font-heading + font-extrabold + 타이트한 letter-spacing. */}
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight text-balance sm:text-3xl">
-            {book.title}
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-            {isNonFiction ? (
-              <span
-                className="inline-flex items-center gap-1 rounded-full bg-[color:var(--secondary)] px-2.5 py-1 font-semibold text-[color:var(--secondary-foreground)]"
-                title="실제 사실로 만들어진 지식책이에요"
-              >
-                <span aria-hidden>📚</span>
-                지식책
-              </span>
-            ) : null}
-            <span className={`${levelClass} inline-flex items-center rounded-full px-2.5 py-1 font-semibold`}>
-              {book.cefr}
-              <span className="level-dots" data-level={book.cefr} aria-hidden />
-            </span>
-            <span className="rounded-full bg-muted px-2.5 py-1 font-medium text-muted-foreground">
-              {book.age}세
-            </span>
-            {book.topic ? (
-              <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                {book.topic}
-              </span>
-            ) : null}
+    // 책 한 권 무대 — 사이트 헤더(약 4.8rem) 아래 화면을 채우고, 데스크톱은 가운데 최대 720px 종이.
+    <div className="relative mx-auto h-[calc(100dvh-4.8rem)] min-h-[520px] w-full max-w-[720px] overflow-hidden bg-haru-paper md:mt-1 md:h-[calc(100dvh-6rem)] md:rounded-[28px] md:shadow-[0_18px_48px_rgb(168_111_63/0.18)]">
+      {showCover === null ? null : showCover ? (
+        <ReaderCoverPage
+          book={book}
+          pageCount={commonCount}
+          onStart={() => startReading(false)}
+          onListen={() => startReading(true)}
+        />
+      ) : !hasCurrent ? (
+        // 결말 데이터가 비정상이어도 상단 닫기·하단 ‹ 로 돌아갈 길은 남긴다.
+        <div className="absolute inset-0 flex items-center justify-center px-6">
+          <EmptyState text="이 결말 데이터가 비어 있어요. 책장으로 돌아가 다시 시도해 주세요." />
+        </div>
+      ) : (
+        <div
+          key={idx}
+          className="absolute inset-0 overflow-y-auto overscroll-contain [container-type:size]"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className={`${slideClass} flex min-h-[100cqh] flex-col`}>
+            {currentScene ? (
+              // 삽화 있는 쪽: 삽화가 위쪽 남은 공간을 가득 채우고(최소 40%), 본문 블록이 컨트롤 바 바로 위에 붙는다.
+              <div className="relative min-h-[40cqh] flex-1 bg-[linear-gradient(180deg,#b8d9f0,rgb(247_207_174/0.6))]">
+                {/* 장면 이미지는 쿠키 인증 동적 라우트(/images/*)라 optimizer가
+                    쿠키를 전달하지 못해 404가 된다 → 원본 직접 서빙. 본문이 바로 아래 있어 장식. */}
+                <Image
+                  src={currentScene}
+                  alt=""
+                  fill
+                  unoptimized
+                  className="object-cover"
+                  preload={idx === 0}
+                  sizes="(max-width: 720px) 100vw, 720px"
+                />
+                <div
+                  aria-hidden
+                  className="absolute inset-x-0 bottom-0 h-20 bg-[linear-gradient(180deg,transparent,var(--haru-paper))]"
+                />
+              </div>
+            ) : (
+              // 삽화 없는 쪽: 종이 전체 + 본문을 위(유리 버튼 줄 아래 여백)부터 — 네이티브 10차 "삽화 없는 쪽은 기존 유지".
+              // 삽화가 없는 책(예: 모든 쪽 sceneImagePath null)에서 위쪽 절반이 빈 종이로 남던 문제 수정.
+              <div aria-hidden className="h-20 shrink-0" />
+            )}
+            <div className={currentScene ? '-mt-4' : ''}>{pageContent}</div>
+            {!currentScene ? <div aria-hidden className="flex-1" /> : null}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <FontSizePicker value={fontSize} onChange={setFontSize} />
+      )}
+
+      <ReaderTopBar
+        closeHref={APP_HOME}
+        pageCount={showCover === false ? total : null}
+        current={idx}
+        levelLabel={`${book.cefr} 레벨, ${book.age}세${isNonFiction ? ', 지식책' : ''}`}
+        ttsProgress={allTtsReady ? null : { ready: readyCount, total: totalForTts }}
+        settings={
           <ReaderSettingsButton
             fontSize={fontSize}
             onFontSizeChange={setFontSize}
@@ -755,273 +1059,59 @@ export function Reader({ book, passages }: Props) {
             onAutoplayToggle={() => setAutoplay((v) => !v)}
             isEndingStep={isEndingStep}
           />
-          <Link
-            href={APP_HOME}
-            className={buttonVariants({
-              variant: 'outline',
-              size: 'sm',
-              className: 'rounded-full press-scale',
-            })}
-          >
-            ← 책장
-          </Link>
-        </div>
-      </header>
+        }
+      />
 
-      {/* 진행도 */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-          <span aria-live="polite">
-            {idx + 1} <span className="text-foreground/40">/</span> {total} 문장
-            {isEndingStep && branch ? (
-              <span className="ml-2 rounded-full border border-border/70 bg-card px-2 py-0.5 text-[10px] font-semibold text-foreground/80">
-                결말 {branch}
-              </span>
-            ) : null}
-          </span>
-          <span className="flex items-center gap-2 tabular-nums text-primary">
-            {!allTtsReady ? (
-              <span
-                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                aria-live="polite"
-                title="동화의 모든 문장을 미리 낭독 오디오로 만드는 중이에요"
-              >
-                🎙️ 낭독 준비 {readyCount}/{totalForTts}
-              </span>
-            ) : null}
-            <span>{Math.round(progress)}%</span>
-          </span>
-        </div>
-        <Progress value={progress} className="h-2.5 rounded-full" />
-      </div>
-
-      {/* 문장 카드 — hasCurrent=false면 EmptyState로 폴백(헤더는 위에서 이미 살려둠) */}
-      {!hasCurrent ? (
-        <EmptyState text="이 결말 데이터가 비어 있어요. 책장으로 돌아가 다시 시도해 주세요." />
-      ) : (
-      <article
-        key={idx}
-        className={`${slideClass} relative overflow-hidden rounded-3xl border-2 border-border bg-card p-6 sticker-shadow-lg sm:p-10`}
-      >
-        <div className="relative">
-          {currentScene ? (
-            <div className="mb-5 overflow-hidden rounded-2xl border-2 border-border/60 sticker-shadow animate-pop-in">
-              {/* 장면 이미지는 쿠키 인증 동적 라우트(/images/*)라 optimizer가
-                  쿠키를 전달하지 못해 404가 된다 → 원본 직접 서빙. */}
-              <Image
-                src={currentScene}
-                alt={currentTextEn}
-                width={1024}
-                height={768}
-                unoptimized
-                className="aspect-[4/3] w-full object-cover"
-                priority={idx === 0}
-                sizes="(max-width: 640px) 100vw, 640px"
-              />
-            </div>
-          ) : null}
-
-          <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
-            {isEndingStep && branch
-              ? `Ending ${branch} · ${endingIdx + 1}`
-              : `Passage ${idx + 1}`}
-          </span>
-          <p
-            className={`whitespace-pre-wrap font-semibold text-foreground ${PASSAGE_FONT_CLASS[fontSize]}`}
-          >
-            <PassageText
-              text={currentTextEn}
-              vocabMap={vocabMap}
-              onWordTap={handleWordTap}
-            />
-          </p>
-          {vocabMap.size > 0 ? (
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              💡 밑줄 친 단어를 눌러 뜻을 볼 수 있어요
-            </p>
-          ) : null}
-
-          {/* 책 속 미션 — 이 passage에 미션이 있을 때만. 진행을 막지 않는 재미 요소. */}
-          {currentMission ? (
-            <PassageMission
-              mission={currentMission}
-              done={missionsDone.has(idx)}
-              onComplete={() => completeMission(idx)}
-            />
-          ) : null}
-
-          <div
-            className={`grid transition-all duration-300 ease-out ${
-              showKo
-                ? 'mt-5 grid-rows-[1fr] opacity-100'
-                : 'grid-rows-[0fr] opacity-0'
-            }`}
-          >
-            <div className="overflow-hidden">
-              <p className="rounded-2xl bg-[color:var(--secondary)]/60 p-4 text-base leading-relaxed text-[color:var(--secondary-foreground)]">
-                {currentTextKo}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowKo((v) => !v)}
-              size="sm"
-              className="rounded-full press-scale"
-              aria-pressed={showKo}
-            >
-              {showKo ? '한글 해석 숨기기' : '한글 해석 보기'}
-              <kbd className="ml-1.5 hidden rounded bg-muted/70 px-1.5 text-[10px] font-mono sm:inline">K</kbd>
-            </Button>
-            {/* TTS — 본문 passage는 DB 기반, 엔딩은 사전 합성된 path가 있을 때만. */}
-            {!isEndingStep || currentEndingAudio ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePlay}
-                disabled={loadingAudio}
-                className="rounded-full press-scale"
-              >
-                {loadingAudio
-                  ? '준비 중…'
-                  : (isEndingStep
-                      ? '낭독 듣기'
-                      : currentCommon && playedPassages.has(currentCommon.id)
-                        ? '다시 듣기'
-                        : '낭독 듣기')}
-                <kbd className="ml-1.5 hidden rounded bg-muted/70 px-1.5 text-[10px] font-mono sm:inline">Space</kbd>
-              </Button>
-            ) : null}
-            {/* 자동재생 토글은 본문에서만. 엔딩은 길이가 짧아 사용자가 직접 넘기는 편이 자연스러움. */}
-            {!isEndingStep ? (
-              <Button
-                variant={autoplay ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setAutoplay((v) => !v)}
-                aria-pressed={autoplay}
-                className="rounded-full press-scale"
-                title="한 문장 낭독이 끝나면 자동으로 다음 문장으로 넘어가요"
-              >
-                {autoplay ? '자동재생 ON' : '자동재생 OFF'}
-              </Button>
-            ) : null}
-            {isEndingStep && branch ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetBranch}
-                className="rounded-full press-scale"
-              >
-                다른 결말 보기
-              </Button>
-            ) : null}
-          </div>
-          {currentAudio ? (
-            <audio
-              ref={audioRef}
-              src={currentAudio}
-              controls
-              preload="auto"
-              className="mt-4 w-full rounded-full"
-              onError={isEndingStep ? undefined : handleAudioError}
-              onLoadedMetadata={(e) => {
-                // 어린이 학습용 기본 속도. src가 바뀔 때마다 재적용해 일부 모바일
-                // 브라우저(Safari)에서 load 후 1.0으로 reset되는 케이스를 흡수.
-                e.currentTarget.playbackRate = 0.75;
-              }}
-              onPlay={() => {
-                // 본문 passage만 playedPassages에 기록(다시듣기 라벨 토글용).
-                // 엔딩은 id가 없고 짧아서 기록 대상 아님.
-                if (isEndingStep || !currentCommon) return;
-                const id = currentCommon.id;
-                setPlayedPassages((prev) => {
-                  if (prev.has(id)) return prev;
-                  const next = new Set(prev);
-                  next.add(id);
-                  return next;
-                });
-              }}
-            />
-          ) : null}
-
-        </div>
-      </article>
-      )}
-
-      {/* 논픽션 funFacts — 마지막 passage에서만 노출. 카드 아래에 자연스럽게 이어진다. */}
-      {isLast && funFacts ? (
-        <section
-          aria-labelledby="fun-facts-heading"
-          className="rounded-3xl border-2 border-border bg-card p-6 sticker-shadow-lg sm:p-8"
-        >
-          <h2
-            id="fun-facts-heading"
-            className="flex items-center gap-2 font-heading text-xl font-extrabold tracking-tight"
-          >
-            <span aria-hidden>📚</span>
-            더 알기
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            오늘 읽은 내용에서 한 걸음 더 깊이 들어가 볼까요?
-          </p>
-          <ul className="mt-4 grid gap-3">
-            {funFacts.map((f, i) => (
-              <li
-                key={i}
-                className="rounded-2xl border border-border/60 bg-muted/30 p-4"
-              >
-                <p className="text-sm font-bold tracking-tight">
-                  {f.title}
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  {f.body}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {showCover === false ? (
+        <ReaderControlBar
+          canGoBack
+          backLabel={idx === 0 ? '표지로' : '이전 쪽'}
+          onBack={goBack}
+          canGoForward={!isLast}
+          forwardLabel={needsChoice ? '결말 고르기' : '다음 쪽'}
+          onForward={() => go(1)}
+          listen={
+            canListen
+              ? { playing: isPlaying, preparing: loadingAudio, onClick: toggleListen }
+              : null
+          }
+          showKo={showKo}
+          onToggleKo={() => setShowKo((v) => !v)}
+          isLastPage={isLast}
+        />
       ) : null}
 
-      {/* 네비게이션 */}
-      <div className="flex items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          onClick={() => go(-1)}
-          disabled={isFirst}
-          className="rounded-full press-scale"
-        >
-          ← 이전
-        </Button>
-
-        {isLast ? (
-          <Link
-            href={`/quiz/${book.id}`}
-            className={buttonVariants({
-              variant: 'complete',
-              size: 'lg',
-              className: 'rounded-full press-scale',
-            })}
-          >
-            다 읽었어요! 퀴즈 풀러 가기 →
-          </Link>
-        ) : needsChoice ? (
-          <Button
-            onClick={() => setChoiceOpen(true)}
-            className="rounded-full press-scale"
-          >
-            결말 고르기 →
-          </Button>
-        ) : (
-          <Button
-            onClick={() => go(1)}
-            className="rounded-full press-scale"
-          >
-            다음 →
-          </Button>
-        )}
-      </div>
+      {/* 낭독 오디오 — 화면에는 컨트롤 바의 ▶ 로만 조작한다(기본 컨트롤 숨김). */}
+      {currentAudio ? (
+        <audio
+          ref={audioRef}
+          src={currentAudio}
+          preload="auto"
+          className="hidden"
+          onError={isEndingStep ? undefined : handleAudioError}
+          onLoadedMetadata={(e) => {
+            // 어린이 학습용 기본 속도(합성 0.85 × 재생 1.06 ≈ 실효 0.9배). src가
+            // 바뀔 때마다 재적용해 일부 모바일 브라우저(Safari)에서 load 후 1.0으로
+            // reset되는 케이스를 흡수.
+            e.currentTarget.playbackRate = 1.06;
+          }}
+          onPlay={() => {
+            setPlayingIdx(idx);
+            // 본문 passage만 playedPassages에 기록(문장 탭·소리 다시 만들기 노출용).
+            // 엔딩은 id가 없고 짧아서 기록 대상 아님.
+            if (isEndingStep || !currentCommon) return;
+            const id = currentCommon.id;
+            setPlayedPassages((prev) => {
+              if (prev.has(id)) return prev;
+              const next = new Set(prev);
+              next.add(id);
+              return next;
+            });
+          }}
+          onPause={() => setPlayingIdx(null)}
+          onEnded={() => setPlayingIdx(null)}
+        />
+      ) : null}
 
       {/* 엔딩 분기 선택 Dialog */}
       {endings ? (

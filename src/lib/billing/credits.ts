@@ -1,6 +1,12 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { creditBalances, creditTransactions } from '@/lib/db/schema';
+import {
+  creditBalances,
+  creditTransactions,
+  iapTransactions,
+  type IapEnvironment,
+  type IapPlatform,
+} from '@/lib/db/schema';
 import { parseEnvNonNegativeInt } from '@/lib/env';
 
 /**
@@ -102,6 +108,135 @@ export async function grantCredits(
       .$returningId();
 
     return { balance: next, txId: id };
+  });
+}
+
+export interface IapGrantInput {
+  userId: string;
+  platform: IapPlatform;
+  transactionId: string;
+  productId: string;
+  stars: number;
+  environment: IapEnvironment;
+  signedAt: Date | null;
+}
+
+export interface IapGrantResult {
+  /** granted=이번 요청이 지급, noop=이미 기록된 영수증. */
+  status: 'granted' | 'noop';
+  balance: number;
+}
+
+/**
+ * 검증된 IAP 영수증 기록과 별 지급을 하나의 트랜잭션으로 처리한다.
+ *
+ * 실패하면 iap_transactions INSERT까지 롤백되므로 다음 영수증 재전송이 다시 지급을
+ * 시도한다. 성공하면 credit_transactions.iap_transaction_id UNIQUE가 같은 영수증의
+ * 중복 원장 생성을 막는다. 0018 이전의 status='verified' 행은 지급 여부가 불명확하므로
+ * 자동 재지급하지 않고 noop으로 보존한다.
+ */
+export async function grantIapCredits(
+  input: IapGrantInput,
+): Promise<IapGrantResult> {
+  if (!Number.isInteger(input.stars) || input.stars <= 0) {
+    throw new InvalidCreditDeltaError(input.stars);
+  }
+
+  return db.transaction(async (tx) => {
+    // 기존 크레딧 함수와 같은 순서로 잔액 행을 보장하고 잠근다.
+    await tx.execute(
+      sql`INSERT INTO ${creditBalances} (user_id, balance, total_purchased)
+          VALUES (${input.userId}, 0, 0)
+          ON DUPLICATE KEY UPDATE user_id = user_id`,
+    );
+    const locked = (await tx.execute(
+      sql`SELECT balance FROM ${creditBalances}
+          WHERE user_id = ${input.userId} FOR UPDATE`,
+    )) as unknown as [Array<{ balance: number | string }>, unknown];
+    const current = Number(locked[0]?.[0]?.balance ?? 0);
+
+    const existing = (await tx.execute(
+      sql`SELECT id, user_id, platform, product_id, stars, environment, status
+          FROM ${iapTransactions}
+          WHERE transaction_id = ${input.transactionId}
+          FOR UPDATE`,
+    )) as unknown as [
+      Array<{
+        id: number;
+        user_id: string;
+        platform: string;
+        product_id: string;
+        stars: number | string;
+        environment: string;
+        status: string;
+      }>,
+      unknown,
+    ];
+
+    let iapTransactionId: number;
+    const existingRow = existing[0]?.[0];
+    if (existingRow) {
+      const matchesVerifiedReceipt =
+        existingRow.status === 'pending_grant' &&
+        existingRow.user_id === input.userId &&
+        existingRow.platform === input.platform &&
+        existingRow.product_id === input.productId &&
+        Number(existingRow.stars) === input.stars &&
+        existingRow.environment === input.environment;
+      if (!matchesVerifiedReceipt) {
+        return { status: 'noop', balance: current };
+      }
+      iapTransactionId = existingRow.id;
+    } else {
+      try {
+        const [{ id }] = await tx
+          .insert(iapTransactions)
+          .values({
+            userId: input.userId,
+            platform: input.platform,
+            transactionId: input.transactionId,
+            productId: input.productId,
+            stars: input.stars,
+            environment: input.environment,
+            signedAt: input.signedAt,
+            status: 'verified',
+          })
+          .$returningId();
+        iapTransactionId = id;
+      } catch (err) {
+        // 서로 다른 사용자 잔액 행을 잠근 동시 재전송은 UNIQUE에서 최종 직렬화된다.
+        if (
+          err instanceof Error &&
+          /Duplicate entry|ER_DUP_ENTRY/i.test(err.message)
+        ) {
+          return { status: 'noop', balance: current };
+        }
+        throw err;
+      }
+    }
+
+    const next = current + input.stars;
+    await tx
+      .update(creditBalances)
+      .set({
+        balance: next,
+        totalPurchased: sql`${creditBalances.totalPurchased} + ${input.stars}`,
+      })
+      .where(eq(creditBalances.userId, input.userId));
+
+    await tx.insert(creditTransactions).values({
+      userId: input.userId,
+      kind: 'purchase',
+      delta: input.stars,
+      iapTransactionId,
+    });
+
+    await tx
+      .update(iapTransactions)
+      .set({ status: 'granted' })
+      .where(eq(iapTransactions.id, iapTransactionId));
+
+    return { status: 'granted', balance: next };
   });
 }
 

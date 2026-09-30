@@ -7,6 +7,7 @@ import { assertAdminApi } from '@/lib/auth/session';
 import { handleApiError } from '@/app/api/_lib/errors';
 import { resolveAudience } from '@/lib/push/audience';
 import { sendPushToUsers } from '@/lib/push/send';
+import type { PushCustomData } from '@/lib/push/payload';
 
 export const runtime = 'nodejs';
 // 대량 발송은 시간이 오래 걸리지만 Promise.allSettled로 진행되므로 응답 자체는 빠름.
@@ -21,6 +22,14 @@ const SendRequest = z.object({
   body: z.string().trim().min(1).max(1000),
   deepLink: z.string().trim().max(500).optional(),
 });
+
+function adminPushData(deepLink?: string): PushCustomData {
+  const bookMatch = /^smapeng:\/\/book\/(\d+)\/?$/.exec(deepLink ?? '');
+  if (bookMatch) {
+    return { kind: 'admin_message', bookId: Number(bookMatch[1]) };
+  }
+  return { kind: 'admin_message' };
+}
 
 /**
  * 관리자가 입력한 메시지를 대상 사용자 디바이스에 발송.
@@ -89,11 +98,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const custom = deepLink ? { deepLink } : undefined;
     const totals = await sendPushToUsers(resolution.userIds, {
       title,
       body,
-      custom,
+      custom: adminPushData(deepLink),
     });
 
     await db

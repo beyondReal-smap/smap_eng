@@ -4,6 +4,8 @@ import { BUSINESS_INFO } from '@/lib/legal/business';
 export const metadata: Metadata = {
   title: '개인정보처리방침',
   description: `${BUSINESS_INFO.serviceName} 개인정보처리방침. 수집 항목, 이용 목적, 보유 기간, 정보주체 권리 안내.`,
+  // 루트 layout의 `canonical: '/'` 상속을 끊는다 — 미지정 시 색인에서 제외된다.
+  alternates: { canonical: '/legal/privacy' },
 };
 
 /**
