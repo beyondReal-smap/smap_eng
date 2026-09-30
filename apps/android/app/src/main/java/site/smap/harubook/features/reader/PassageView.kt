@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import site.smap.harubook.core.models.FunFact
 import site.smap.harubook.core.models.Mission
 import site.smap.harubook.core.models.Passage
 import site.smap.harubook.core.models.VocabularyEntry
@@ -50,6 +51,7 @@ import site.smap.harubook.core.srs.SrsGrade
 import site.smap.harubook.designsystem.PrimaryButton
 import site.smap.harubook.designsystem.PrimaryButtonVariant
 import site.smap.harubook.designsystem.SmapBodyStyle
+import site.smap.harubook.designsystem.SmapCaptionStyle
 import site.smap.harubook.designsystem.AuthenticatedAsyncImage
 import site.smap.harubook.designsystem.SmapBackground
 import site.smap.harubook.designsystem.SmapBodyEmphasisStyle
@@ -82,6 +84,8 @@ fun PassageView(
     onMissionComplete: () -> Unit = {},
     /** 밑줄 단어 popover 열림 시 원본 단어 전달 — 워드 헌트 완료 판정용. */
     onWordTap: (String) -> Unit = {},
+    /** 논픽션 마지막 페이지에만 전달. 빈 리스트면 섹션 숨김. */
+    funFacts: List<FunFact> = emptyList(),
 ) {
     Column(
         modifier = modifier
@@ -118,6 +122,10 @@ fun PassageView(
 
         if (showsKorean && !passage.textKo.isNullOrEmpty()) {
             KoreanCard(textKo = passage.textKo, baseSp = textScale.sp)
+        }
+
+        if (funFacts.isNotEmpty()) {
+            FunFactsSection(facts = funFacts)
         }
     }
 }
@@ -334,5 +342,46 @@ private fun KoreanCard(textKo: String, baseSp: Int) {
             style = SmapReaderStyle.copy(fontSize = koSize.sp, lineHeight = (koSize + 6).sp),
             color = SmapText,
         )
+    }
+}
+
+/** 논픽션 재미사실 — 웹 reader.tsx "더 알기" 섹션. 디자인 토큰만 사용. */
+@Composable
+private fun FunFactsSection(facts: List<FunFact>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SmapSurface, RoundedCornerShape(20.dp))
+            .border(1.dp, SmapBorder, RoundedCornerShape(20.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text("📚", style = SmapBodyEmphasisStyle)
+                Text("더 알기", style = SmapBodyEmphasisStyle.copy(fontSize = 20.sp), color = SmapText)
+            }
+            Text(
+                text = "오늘 읽은 내용에서 한 걸음 더 깊이 들어가 볼까요?",
+                style = SmapCaptionStyle,
+                color = SmapMuted,
+            )
+        }
+        facts.forEach { fact ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SmapMutedBg, RoundedCornerShape(16.dp))
+                    .border(1.dp, SmapBorder, RoundedCornerShape(16.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(text = fact.title, style = SmapBodyEmphasisStyle, color = SmapText)
+                Text(text = fact.body, style = SmapCaptionStyle, color = SmapMuted)
+            }
+        }
     }
 }

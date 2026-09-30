@@ -45,7 +45,8 @@ struct BookshelfView: View {
                     .refreshable {
                         async let books: Void = viewModel.load()
                         async let credits: Void = viewModel.fetchCredits()
-                        _ = await (books, credits)
+                        async let summary: Void = viewModel.fetchSummary()
+                        _ = await (books, credits, summary)
                     }
                 }
             }
@@ -56,7 +57,8 @@ struct BookshelfView: View {
         .task {
             async let books: Void = viewModel.load()
             async let credits: Void = viewModel.fetchCredits()
-            _ = await (books, credits)
+            async let summary: Void = viewModel.fetchSummary()
+            _ = await (books, credits, summary)
         }
     }
 
@@ -179,12 +181,20 @@ struct BookshelfView: View {
             }
             .frame(maxWidth: .infinity)
         } else {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
-                ForEach(viewModel.books) { book in
-                    NavigationLink(value: book) {
-                        BookCardView(book: book)
+            VStack(alignment: .leading, spacing: 14) {
+                if let continueBook = viewModel.continueBook {
+                    NavigationLink(value: continueBook) {
+                        ContinueReadingCard(book: continueBook)
                     }
                     .buttonStyle(.plain)
+                }
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)], spacing: 14) {
+                    ForEach(viewModel.books) { book in
+                        NavigationLink(value: book) {
+                            BookCardView(book: book)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
         }

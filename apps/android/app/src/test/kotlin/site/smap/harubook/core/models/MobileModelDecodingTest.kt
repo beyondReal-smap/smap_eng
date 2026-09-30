@@ -106,6 +106,65 @@ class MobileModelDecodingTest {
         assertNull(decoded.vocabulary)
         assertEquals(CefrLevel.A1, decoded.cefr)
         assertTrue(!decoded.isFlagged)
+        // 레거시 책 — 확장 필드는 전부 optional fail-soft.
+        assertNull(decoded.genre)
+        assertNull(decoded.alternateEnding)
+        assertNull(decoded.endingAudioPathsA)
+        assertNull(decoded.funFacts)
+        assertTrue(!decoded.isNonFiction)
+        assertTrue(decoded.displayFunFacts().isEmpty())
+    }
+
+    @Test
+    fun decodesBookExtendedFields() {
+        val payload = """
+            {
+              "id":2,"profileId":2,"title":"Stars","age":8,"cefr":"A2",
+              "genre":"non_fiction",
+              "funFacts":[{"title":"The Sun","body":"가장 가까운 별이에요."}],
+              "alternateEnding":{
+                "labelA":"Stay","labelB":"Go",
+                "passagesA":[{"en":"A","ko":"가"}],
+                "passagesB":[{"en":"B","ko":"나"}]
+              },
+              "endingAudioPathsA":["/audio/a.mp3"],
+              "endingAudioPathsB":["/audio/b.mp3"]
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString<Book>(payload)
+        assertEquals("non_fiction", decoded.genre)
+        assertTrue(decoded.isNonFiction)
+        assertEquals(1, decoded.displayFunFacts().size)
+        assertEquals("The Sun", decoded.displayFunFacts().first().title)
+        assertEquals("Stay", decoded.alternateEnding?.labelA)
+        assertEquals(listOf("/audio/a.mp3"), decoded.endingAudioPathsA)
+    }
+
+    @Test
+    fun decodesBookWhenAlternateEndingIsJsonString() {
+        val payload = """
+            {
+              "id":3,"profileId":2,"title":"Moon","age":7,"cefr":"A1",
+              "genre":"fiction",
+              "alternateEnding":"{\"labelA\":\"A\",\"labelB\":\"B\",\"passagesA\":[],\"passagesB\":[]}"
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString<Book>(payload)
+        assertEquals("A", decoded.alternateEnding?.labelA)
+        assertTrue(decoded.displayFunFacts().isEmpty())
+    }
+
+    @Test
+    fun dropsMalformedExtendedFields() {
+        val payload = """
+            {"id":4,"profileId":2,"title":"Broken","age":7,"cefr":"A1",
+             "alternateEnding":123,"funFacts":"not-json","endingAudioPathsA":{}}
+        """.trimIndent()
+        val decoded = json.decodeFromString<Book>(payload)
+        assertEquals("Broken", decoded.title)
+        assertNull(decoded.alternateEnding)
+        assertNull(decoded.funFacts)
+        assertNull(decoded.endingAudioPathsA)
     }
 
     @Test

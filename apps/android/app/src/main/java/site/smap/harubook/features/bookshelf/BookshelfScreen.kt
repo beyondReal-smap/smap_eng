@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.item
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -80,6 +82,7 @@ fun BookshelfScreen(
     LaunchedEffect(profileId) {
         viewModel.load()
         viewModel.fetchCredits()
+        viewModel.fetchSummary()
     }
 
     Column(modifier = Modifier.fillMaxSize().background(SmapBackground)) {
@@ -119,15 +122,29 @@ fun BookshelfScreen(
                 onRetry = viewModel::load,
             )
             state.books.isEmpty() -> EmptyState(onCreate = onCreateBook)
-            else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(state.books, key = { it.id }) { book ->
-                    BookCard(book = book, onClick = { onOpenBook(book.id) })
+            else -> {
+                val continueBook = state.continueBook
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    if (continueBook != null) {
+                        item(
+                            key = "continue-${continueBook.id}",
+                            span = { GridItemSpan(maxLineSpan) },
+                        ) {
+                            ContinueReadingCard(
+                                book = continueBook,
+                                onClick = { onOpenBook(continueBook.id) },
+                            )
+                        }
+                    }
+                    items(state.books, key = { it.id }) { book ->
+                        BookCard(book = book, onClick = { onOpenBook(book.id) })
+                    }
                 }
             }
         }

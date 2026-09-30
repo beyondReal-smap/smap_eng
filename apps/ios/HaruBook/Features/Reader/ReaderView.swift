@@ -98,6 +98,10 @@ struct ReaderView: View {
                     missionDone: viewModel.missionsDone.contains(index),
                     onWordTap: { word in viewModel.handleWordTap(word, passageIndex: index) },
                     onMissionComplete: { viewModel.completeMission(at: index) },
+                    // 논픽션 funFacts — 웹처럼 마지막 passage 아래에만 노출.
+                    funFacts: index == viewModel.passages.count - 1
+                        ? viewModel.book.displayFunFacts
+                        : nil,
                 )
                 .tag(index)
             }

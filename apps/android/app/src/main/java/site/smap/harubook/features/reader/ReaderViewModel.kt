@@ -92,6 +92,18 @@ class ReaderViewModel(
     private val appContext: Context,
 ) : ViewModel() {
 
+    companion object {
+        /** 웹 `progressKey`와 동일한 키. SharedPreferences Int. */
+        fun progressStorageKey(bookId: Int): String = "reader:progress:$bookId"
+
+        /** 저장된 인덱스를 passage 개수 범위로 클램프. 책 재생성·페이지 수 변동 대비. */
+        fun clampProgressIndex(saved: Int?, passageCount: Int): Int {
+            if (passageCount <= 0) return 0
+            if (saved == null) return 0
+            return saved.coerceIn(0, passageCount - 1)
+        }
+    }
+
     private val _state = MutableStateFlow(
         ReaderUiState(
             textScale = ReaderTextScale.load(appContext),
@@ -112,6 +124,8 @@ class ReaderViewModel(
     }
 
     fun reportPageChanged(newIndex: Int) {
+        // 로컬 위치는 페이지 전환 즉시 저장. 서버 PATCH와 독립 — 실패해도 재진입 복원은 유지.
+        persistProgress(newIndex)
         viewModelScope.launch {
             val current = _state.value
             // 페이지 전환 시 한글 해석 자동 닫기 — 다음 문장은 영문부터.
@@ -261,6 +275,18 @@ class ReaderViewModel(
     /** 웹 localStorage 키(`reader:mission:{bookId}`)와 동일한 네이밍 — 정수 배열 JSON. */
     private fun missionStorageKey(): String = "reader:mission:$bookId"
 
+    private fun loadSavedIndex(): Int? {
+        val key = progressStorageKey(bookId)
+        if (!readerPrefs().contains(key)) return null
+        return readerPrefs().getInt(key, 0)
+    }
+
+    private fun persistProgress(index: Int) {
+        if (_state.value.passages.isEmpty()) return
+        val clamped = clampProgressIndex(index, _state.value.passages.size)
+        readerPrefs().edit().putInt(progressStorageKey(bookId), clamped).apply()
+    }
+
     /** 완료 미션 복원 — 정수 배열(JSON)만 신뢰, 손상 시 빈 집합(fail-soft). */
     private fun loadCompletedMissions(): Set<Int> {
         val raw = readerPrefs().getString(missionStorageKey(), null) ?: return emptySet()
@@ -311,11 +337,13 @@ class ReaderViewModel(
         try {
             val detail: BookDetail = ApiClient.get(path = "/api/books/$bookId")
             val sorted = detail.passages.sortedBy { p -> p.orderIndex }
+            val restored = clampProgressIndex(loadSavedIndex(), sorted.size)
             _state.update {
                 it.copy(
                     book = detail.book,
                     passages = sorted,
                     vocabulary = detail.book.vocabulary.orEmpty(),
+                    currentIndex = restored,
                     missionByIndex = buildMissionMap(
                         missions = detail.book.missions,
                         vocabulary = detail.book.vocabulary.orEmpty(),

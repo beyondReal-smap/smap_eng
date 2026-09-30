@@ -111,15 +111,6 @@ fun ReaderScreen(
 
     LaunchedEffect(bookId) { viewModel.bootstrap() }
 
-    val pagerState = rememberPagerState(pageCount = { state.passages.size })
-
-    // 페이지 스와이프 시 ViewModel 동기화.
-    LaunchedEffect(state.passages.size) {
-        snapshotFlow { pagerState.currentPage }.distinctUntilChanged().collect { page ->
-            viewModel.reportPageChanged(page)
-        }
-    }
-
     androidx.compose.runtime.DisposableEffect(Unit) {
         onDispose { viewModel.leave() }
     }
@@ -139,7 +130,26 @@ fun ReaderScreen(
                 message = state.error.orEmpty(),
                 onRetry = viewModel::bootstrap,
             )
+            state.passages.isEmpty() -> Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("아직 문장이 준비되지 않았습니다.", style = SmapBodyStyle, color = SmapMuted)
+            }
             else -> {
+                // 로딩이 끝난 뒤에야 조성되므로 initialPage에 복원 인덱스를 넣을 수 있다.
+                // 상단에 두면 passages 비어 있는 첫 composition에서 page=0으로 고정된다.
+                val lastPage = (state.passages.size - 1).coerceAtLeast(0)
+                val pagerState = rememberPagerState(
+                    initialPage = state.currentIndex.coerceIn(0, lastPage),
+                    pageCount = { state.passages.size },
+                )
+                LaunchedEffect(state.passages.size) {
+                    snapshotFlow { pagerState.currentPage }.distinctUntilChanged().collect { page ->
+                        viewModel.reportPageChanged(page)
+                    }
+                }
+                val lastFacts = state.book?.displayFunFacts().orEmpty()
                 HorizontalPager(
                     state = pagerState,
                     modifier = Modifier.weight(1f),
@@ -162,6 +172,8 @@ fun ReaderScreen(
                         onMissionComplete = { viewModel.completeMission(index) },
                         // pager 사전 구성(pre-composition) 페이지도 있어 index 를 명시적으로 전달.
                         onWordTap = { word -> viewModel.reportWordTapped(index, word) },
+                        // 논픽션 funFacts — 웹처럼 마지막 passage 아래에만 노출.
+                        funFacts = if (index == state.passages.lastIndex) lastFacts else emptyList(),
                     )
                 }
 
