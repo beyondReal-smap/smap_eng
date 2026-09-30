@@ -16,7 +16,7 @@ last-updated: 2026-04-25
 |------|------|
 | **프로젝트** | smap_eng |
 | **목적** | AI 생성 영어 동화책 + TTS 낭독 + 4지선다 퀴즈 + 한글 해석을 통한 아동 영어 학습 |
-| **기술 스택** | Next.js 16.2.4 + React 19.2 + TypeScript / Tailwind 4 + base-ui + shadcn/ui / **OpenAI (`gpt-5.2-chat-latest`)** / Kokoro-82M TTS / FLUX.1-schnell / **MySQL + mysql2/promise + Drizzle ORM** / Auth.js v5 / 토스페이먼츠 |
+| **기술 스택** | Next.js 16.2.4 + React 19.2 + TypeScript / Tailwind 4 + base-ui + shadcn/ui / **OpenAI (`gpt-6-sol`)** / Kokoro-82M TTS / FLUX.1-schnell / **MySQL + mysql2/promise + Drizzle ORM** / Auth.js v5 / 토스페이먼츠 |
 | **MVP 기능** | 레벨별 동화 생성 · 문장 TTS · 4지선다 5문제 · 한글 해석 · 책장 · 독서 로그/재독 · **이미지 생성** · 가족 프로필 전환 |
 | **작업 관리** | **GitHub Issues** — [bluemusk/smap_eng](https://github.com/bluemusk/smap_eng) |
 
@@ -115,7 +115,7 @@ smap_eng/
 | **상태관리** | Zustand |
 | **인증** | Auth.js v5 (`next-auth@5.0.0-beta.31`) + Drizzle Adapter, Google/Kakao OAuth, 모바일 exchange-code(PKCE 옵션) |
 | **결제** | 토스페이먼츠 (체크아웃 → confirm 서버 검증 → grantCredits) |
-| **LLM** | **OpenAI Chat Completions** (`gpt-5.2-chat-latest`, 공식 `openai` Node SDK, singleton) |
+| **LLM** | **OpenAI Chat Completions** (`gpt-6-sol`, 공식 `openai` Node SDK, singleton) |
 | **TTS** | Kokoro-82M Python 서버 (`services/tts`) |
 | **이미지 생성** | FLUX.1-schnell (`services/image`, HF access 복구 대기) + Seeded SVG 폴백(`cover-art.tsx`) |
 | **데이터베이스** | **MySQL 8** (mysql2/promise, 풀링) |
@@ -269,7 +269,7 @@ pnpm build                         # 프로덕션 빌드 (Next.js + webpack)
 
 ## 모델 정책 (2026-04-20 개정)
 
-- **LLM**: OpenAI `gpt-5.2-chat-latest` 사용 (승인됨). Anthropic·Google 등 추가 상용 LLM은 별도 승인 필요
+- **LLM**: OpenAI `gpt-6-sol` 사용 (승인됨). Anthropic·Google 등 추가 상용 LLM은 별도 승인 필요
 - **TTS / 이미지**: 오픈 모델만 허용 (Kokoro, FLUX.1-schnell)
 - **대체 가능성 보장**: LLM/TTS/Image 레이어는 `src/lib/{llm,tts,image}/`로 추상화 — 벤더 교체 용이
 - **키 관리**: `OPENAI_API_KEY`는 `.env.local`에만 저장, 커밋·로깅·에러 메시지 노출 금지

@@ -16,7 +16,7 @@ last-updated: 2026-04-20
 - **최소 변경**: 꼭 필요한 범위만 수정
 - **근본 원인 해결** 우선, 우회 패치 지양
 - **오픈모델 원칙 (LLM 예외, 2026-04-20 변경)**:
-  - **LLM**: OpenAI API 허용 (`gpt-5.2-chat-latest`). Anthropic·Google 등 다른 상용 LLM 도입은 별도 승인
+  - **LLM**: OpenAI API 허용 (`gpt-6-sol`). Anthropic·Google 등 다른 상용 LLM 도입은 별도 승인
   - **TTS / 이미지**: Kokoro · FLUX.1-schnell 등 **오픈 모델 유지**
   - 배경: Gemma 4 E4B 로컬 구동이 Ollama 호환성 문제로 실패 → LLM만 상용으로 전환, 나머지는 원칙 유지
   - API 키는 반드시 `.env.local`에만 저장, 절대 커밋 금지
@@ -35,7 +35,7 @@ last-updated: 2026-04-20
 | **Passage** | 낭독 단위. 문장 또는 짧은 문단 (TTS 재생 단위) |
 | **Reading Log** | 독서 로그. 읽은 책/시각/완료 여부/퀴즈 결과 기록 |
 | **Quiz** | 책 완독 후 생성되는 4지선다 5문제 |
-| **LLM 모델** | **OpenAI `gpt-5.2-chat-latest`** (2026-04-20부터). 이전에는 Gemma 4 E4B를 Ollama로 돌리려 했으나 호환성 문제로 전환 |
+| **LLM 모델** | **OpenAI `gpt-6-sol`** (2026-04-20부터). 이전에는 Gemma 4 E4B를 Ollama로 돌리려 했으나 호환성 문제로 전환 |
 | **Kokoro** | TTS 엔진 (Kokoro-82M, 영어 특화 경량 모델) |
 | **FLUX.1-schnell** | 이미지 생성 모델. 책 표지 + 장면 삽화 생성 (MVP 포함) |
 | **MCP** | Model Context Protocol. AI가 외부 도구와 통신하는 방식 |
@@ -56,7 +56,7 @@ last-updated: 2026-04-20
 
 | 용도 | 모델 | 실행 환경 | 오픈/상용 |
 |------|------|-----------|----------|
-| **텍스트 생성 (LLM)** | `gpt-5.2-chat-latest` | **OpenAI API** | 상용 (승인됨) |
+| **텍스트 생성 (LLM)** | `gpt-6-sol` | **OpenAI API** | 상용 (승인됨) |
 | **TTS** | Kokoro-82M | 로컬 Python 서버 또는 임베디드 | 오픈 |
 | **이미지 생성** | FLUX.1-schnell | ComfyUI / Diffusers | 오픈 |
 

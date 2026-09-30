@@ -1,7 +1,7 @@
 ---
 name: session
 description: smap_eng 프로젝트 현재 상태. 세션 시작 시 현재 상태 파악용.
-last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네이티브 앱·FCM·IAP 작업 로그 동기화)
+last-updated: 2026-09-30 (OpenAI 모델 gpt-5.2-chat-latest → gpt-6-sol 변경·배포)
 ---
 
 # 세션 상태
@@ -56,6 +56,30 @@ last-updated: 2026-05-30 (TTS·이미지 안정성/캐시 개선 + 4/30~5/18 네
 ---
 
 ## 최근 세션
+
+### 2026-09-30 (OpenAI 모델 gpt-5.2-chat-latest → gpt-6-sol 변경)
+
+#### 세션 목표
+- 프로젝트가 사용하는 OpenAI 텍스트 모델을 `gpt-6-sol`로 교체하고 배포·검증.
+
+#### 변경 (미커밋 — 워킹트리 상태)
+| 파일 | 내용 |
+|------|------|
+| `src/lib/llm/config.ts:11` | `OPENAI_MODEL` 기본값 `'gpt-6-sol'` (env 미설정 시) |
+| `.env.local`, `.env.example` | `OPENAI_MODEL=gpt-6-sol` (env가 코드 기본값보다 우선하므로 `.env.local` 변경이 실제 적용 지점) |
+| `agent-guide/GUIDE.md`, `PROJECT.md` | 현재 사용 모델 표기 6곳 갱신 |
+- 미변경: `SESSION.md`의 4/20 결정 기록(이력), `.env.local.bak.*`, 이미지 모델(`gpt-image-1`/`dall-e-3`), `client.ts` 주석(82·90행 — 아래 검증으로 `temperature` 고정 서술은 여전히 유효).
+
+#### 배포·검증
+- `bash scripts/deploy.sh` 전체 실행 exit 0, BUILD_ID 2026-09-30 10:15:33, eng-next/web/tts online, `/`·`/legal/terms`·`/subscribe` 200. 빌드 산출물에 `gpt-6-sol` 포함 확인.
+- API 직접 호출(`.env.local` 키): 기본 호출 200(`model: gpt-6-sol`), `response_format: json_object` 200, **`temperature: 0.7` → 400**(`Only the default (1) value is supported`). `temperature`를 넘기는 호출부는 없음.
+
+#### 주의 / 미확인
+- ⚠️ **1차 LLM(자체 vLLM `LLM_PRIMARY_BASE_URL`, 43.203.142.247) 무응답** (`/models` 8초 타임아웃). `chatJson()`은 1차 실패 시 OpenAI 폴백이므로 현재 실트래픽은 `gpt-6-sol`로 흐르는 것으로 추정. 1차 복구 시 이번 변경은 폴백에만 적용됨.
+- 앱 내 `chatJson()` 경로 실호출은 미확인(배포 후 LLM 트래픽 없음). 동화 생성 1회 실행 후 `pm2 logs eng-next`의 `[llm]` 로그 확인 필요.
+- 이번 배포에 워킹트리 미커밋 변경 89개가 함께 포함됨. 모델 변경 포함 전부 미커밋·미푸시.
+
+---
 
 ### 2026-05-30 (웹 미디어 안정성/캐시 + untracked 정리 + 세션 로그 동기화 + 대형 파일 9종 리팩토링)
 
