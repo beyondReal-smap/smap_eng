@@ -95,11 +95,11 @@ export function escapeHtml(value: string): string {
 }
 
 export function renderMobileProviderPicker(
-  reqUrl: URL,
+  publicOrigin: string,
   redirect: URL,
 ): NextResponse {
   const links = MOBILE_AUTH_PROVIDERS.map((provider) => {
-    const href = new URL('/api/auth/mobile/start', reqUrl.origin);
+    const href = new URL('/api/auth/mobile/start', publicOrigin);
     href.searchParams.set('provider', provider);
     href.searchParams.set('redirect', redirect.toString());
     const label = provider === 'google' ? 'Google' : 'Kakao';
@@ -137,22 +137,6 @@ export function renderMobileProviderPicker(
       },
     },
   );
-}
-
-/**
- * 운영 환경에서는 nginx → 랜딩 프록시(:5027) → Next.js 메인 앱(:5029)을 경유한다.
- * Next.js는 `req.url`을 내부 origin(`http://localhost:5029`)으로 보기 때문에,
- * 외부 사용자에게 노출할 URL은 `x-forwarded-host` + `x-forwarded-proto`로 복원해야 한다.
- * 누락 시 reqUrl의 host/proto로 폴백.
- */
-export function getPublicOrigin(req: Request, reqUrl: URL): string {
-  const forwardedHost = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
-  const forwardedProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim();
-  const host = forwardedHost && forwardedHost.length > 0 ? forwardedHost : reqUrl.host;
-  const proto = forwardedProto && forwardedProto.length > 0
-    ? forwardedProto
-    : reqUrl.protocol.replace(':', '');
-  return `${proto}://${host}`;
 }
 
 export function isMobileAuthPath(req: Request, pathname: string): boolean {

@@ -9,12 +9,13 @@ import {
   AppleJwksError,
   verifyAppleIdentityToken,
 } from '@/lib/auth/apple-jwks';
+import { useSecureAuthCookies } from '@/auth.config';
 import { baseAuth, baseSignIn } from './next-auth-instance';
 import { hashPassword, verifyPassword } from './password';
+import { resolveSignInOrigin } from './public-origin';
 import {
   appendNoStore,
   createRawToken,
-  getPublicOrigin,
   jsonError,
   MOBILE_ACCESS_TOKEN_TTL_MS,
   MOBILE_EXCHANGE_CODE_TTL_MS,
@@ -68,13 +69,16 @@ export async function handleMobileStart(req: Request): Promise<Response> {
     return jsonError('invalid_code_challenge', 400);
   }
 
+  // 외부 도메인(eng.smap.site / eng.aiagnt.kr)으로 복원. 내부 origin(localhost:5111)이면
+  // OAuth callback 후 사용자가 도달 못 한다. baseAuth()·baseSignIn()은 원본 헤더로 URL을
+  // 만들기 때문에(redirect_uri 포함) 호출 전에 호스트·프로토콜을 함께 검증한다.
+  const publicOrigin = resolveSignInOrigin(req.headers);
+  if (!publicOrigin) return jsonError('untrusted_host', 400);
+
   const session = await baseAuth();
   if (!session?.user?.id) {
-    if (!provider) return renderMobileProviderPicker(reqUrl, redirect);
+    if (!provider) return renderMobileProviderPicker(publicOrigin, redirect);
 
-    // 외부 도메인(예: https://eng.smap.site)으로 복원. 내부 origin(localhost:5029)이면
-    // OAuth callback 후 사용자가 도달 못 한다.
-    const publicOrigin = getPublicOrigin(req, reqUrl);
     const callbackUrl = new URL('/api/auth/mobile/start', publicOrigin);
     callbackUrl.searchParams.set('redirect', redirect.toString());
     if (codeChallenge) {
@@ -89,14 +93,13 @@ export async function handleMobileStart(req: Request): Promise<Response> {
 
     // Auth.js v5의 `redirectTo`가 OAuth callback 후 `callback-url` 쿠키와 동기화되지
     // 않아 root로 fallback 되는 사례가 있어 명시적으로 mobile/start URL을 set.
-    // HTTPS는 forwarded proto 기준 — 운영은 nginx가 https로 받아 내부에 http로 프록시.
+    // 쿠키 이름은 Auth.js가 읽는 이름과 같아야 하므로 auth.config의 기준을 따른다.
     const response = NextResponse.redirect(authRedirect);
-    const isHttps = publicOrigin.startsWith('https://');
     response.cookies.set({
-      name: isHttps ? '__Secure-authjs.callback-url' : 'authjs.callback-url',
+      name: useSecureAuthCookies ? '__Secure-authjs.callback-url' : 'authjs.callback-url',
       value: callbackUrl.toString(),
       httpOnly: true,
-      secure: isHttps,
+      secure: useSecureAuthCookies,
       sameSite: 'lax',
       path: '/',
     });

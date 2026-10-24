@@ -1,9 +1,10 @@
 "use server";
 
 import { randomBytes, randomUUID, scrypt as nodeScrypt, timingSafeEqual } from "node:crypto";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 
+import { useSecureAuthCookies } from "@/auth.config";
 import { db } from "@/lib/db";
 import { profiles, sessions, users } from "@/lib/db/schema";
 import { grantSignupBonus } from "@/lib/billing/credits";
@@ -81,21 +82,9 @@ async function verifyPassword(password: string, storedHash: string): Promise<boo
   return timingSafeEqual(actual, expected);
 }
 
-function inferSecureCookie(headerList: Headers): boolean {
-  const forwardedProto = headerList.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  if (forwardedProto === "https") return true;
-  if (forwardedProto === "http") return false;
-
-  const authUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL;
-  if (authUrl?.startsWith("https://")) return true;
-  if (authUrl?.startsWith("http://")) return false;
-
-  return process.env.NODE_ENV === "production";
-}
-
 async function createDatabaseSession(userId: string): Promise<void> {
-  const headerList = await headers();
-  const secure = inferSecureCookie(headerList);
+  // Auth.js가 읽는 세션 쿠키 이름과 반드시 같아야 하므로 auth.config의 기준을 그대로 쓴다.
+  const secure = useSecureAuthCookies;
   const sessionToken = randomBytes(32).toString("base64url");
   const expires = new Date(Date.now() + AUTH_SESSION_MAX_AGE_SECONDS * 1000);
 

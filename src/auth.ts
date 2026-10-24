@@ -5,7 +5,8 @@ import {
   baseSignIn,
   signOut,
 } from '@/lib/auth/next-auth-instance';
-import { isMobileAuthPath } from '@/lib/auth/mobile-shared';
+import { isMobileAuthPath, jsonError } from '@/lib/auth/mobile-shared';
+import { resolvePublicOrigin } from '@/lib/auth/public-origin';
 import {
   handleMobileApple,
   handleMobileDevIssue,
@@ -25,7 +26,9 @@ import {
 export const handlers = {
   async GET(req: NextRequest) {
     if (isMobileAuthPath(req, 'start')) return handleMobileStart(req);
-    return baseHandlers.GET(req);
+    const publicReq = withPublicOrigin(req);
+    if (!publicReq) return jsonError('untrusted_host', 400);
+    return baseHandlers.GET(publicReq);
   },
   async POST(req: NextRequest) {
     if (isMobileAuthPath(req, 'password')) return handleMobilePassword(req);
@@ -33,9 +36,24 @@ export const handlers = {
     if (isMobileAuthPath(req, 'apple')) return handleMobileApple(req);
     if (isMobileAuthPath(req, 'exchange')) return handleMobileExchange(req);
     if (isMobileAuthPath(req, 'dev-issue')) return handleMobileDevIssue(req);
-    return baseHandlers.POST(req);
+    const publicReq = withPublicOrigin(req);
+    if (!publicReq) return jsonError('untrusted_host', 400);
+    return baseHandlers.POST(publicReq);
   },
 };
+
+/**
+ * Auth.js는 `req.url`의 origin으로 OAuth redirect_uri·redirect baseUrl을 정한다(쿠키 secure
+ * 여부는 auth.config.ts `useSecureAuthCookies`로 고정). AUTH_URL로 고정하면 두 도메인 병행 서빙이 깨지고(PKCE 쿠키는 접속한 도메인에만
+ * 생긴다), 비우면 Next.js 내부 origin(localhost:5111)이 쓰인다. 그래서 허용 목록으로 검증한
+ * 공개 origin으로 바꿔 넘긴다 — next-auth `reqWithEnvURL`과 같은 방식.
+ */
+function withPublicOrigin(req: NextRequest): NextRequest | null {
+  const origin = resolvePublicOrigin(req.headers);
+  if (!origin) return null;
+  const { pathname, search } = req.nextUrl;
+  return new NextRequest(new URL(`${pathname}${search}`, origin), req);
+}
 
 export const auth = baseAuth;
 export const signIn = baseSignIn;

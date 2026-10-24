@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginAction } from "@/lib/auth/actions";
+import { toInternalPath } from "@/lib/auth/internal-path";
 import type { LoginFormState } from "@/lib/auth/schemas";
 import { APP_HOME } from "@/lib/paths";
 import { cn } from "@/lib/utils";
@@ -33,14 +34,9 @@ export function EmailLoginForm() {
     toast.success("로그인되었습니다");
     // 2026-04-26 nginx 통합 이후 `/`는 page.tsx가 인증 여부 기반으로 LandingPage /
     // 책장을 분기 SSR하므로 APP_HOME='/'로 충분. callbackUrl 쿼리가 있으면 우선.
-    // open redirect 방지: `/`로 시작하고 `//`·`/\\`가 아닌 내부 경로만 허용.
+    // open redirect 방지: URL 파서 기준 내부 경로만 허용(internal-path.ts).
     const raw = new URLSearchParams(window.location.search).get("callbackUrl");
-    const isInternal =
-      typeof raw === "string" &&
-      raw.startsWith("/") &&
-      !raw.startsWith("//") &&
-      !raw.startsWith("/\\");
-    const target = isInternal ? raw : APP_HOME;
+    const target = toInternalPath(raw) ?? APP_HOME;
     // 서버 액션이 빠르게 끝나도 splash가 한 프레임만 깜박이고 사라지지 않도록
     // 최소 1주기 노출 후 라우팅. unmount 시 timer 정리.
     const timer = setTimeout(() => router.push(target), SPLASH_MIN_DURATION_MS);

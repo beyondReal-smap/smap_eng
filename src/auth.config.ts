@@ -13,10 +13,19 @@ import Kakao from 'next-auth/providers/kakao';
 const APP_HOME_PATH = '/';
 
 /**
+ * 인증 쿠키(`__Secure-`/`__Host-` 접두사 + Secure) 사용 여부 — 앱 전체의 단일 기준.
+ * 지정하지 않으면 Auth.js가 요청 URL 프로토콜로 정하는데, AUTH_URL 없이 `auth()`는
+ * `x-forwarded-proto`로 URL을 만들므로 요청마다 쿠키 이름이 달라질 수 있다.
+ * 비밀번호 로그인(actions.ts)·모바일 callback-url 쿠키도 이 값을 쓴다.
+ */
+export const useSecureAuthCookies = process.env.NODE_ENV === 'production';
+
+/**
  * Edge 런타임 호환 설정 — proxy.ts(middleware)에서 import.
  * Adapter / DB 세션은 Node.js 런타임 전용이므로 auth.ts에서 추가.
  */
 export default {
+  useSecureCookies: useSecureAuthCookies,
   providers: [Google, Kakao],
   pages: {
     // 기본 /api/auth/signin 대신 자체 로그인 화면 사용.

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 
 import { AppSplash, SPLASH_MIN_DURATION_MS } from "@/components/app-splash";
+import { toInternalPath } from "@/lib/auth/internal-path";
 
 /**
  * 로그인 상태에서 /login, /signup 진입 시 목적지로 돌려보내는 클라이언트 가드.
@@ -35,15 +36,10 @@ export function AuthRedirectGuard() {
     if (!signedIn) return;
 
     const raw = new URLSearchParams(window.location.search).get("callbackUrl");
-    // open redirect 방지: `/`로 시작하고 `//`·`/\\`가 아닌 내부 경로만 허용
-    const isInternal =
-      typeof raw === "string" &&
-      raw.startsWith("/") &&
-      !raw.startsWith("//") &&
-      !raw.startsWith("/\\");
+    // open redirect 방지: URL 파서 기준 내부 경로만 허용(internal-path.ts).
     // 2026-04-26: '/app' catch-all 라우트는 nginx 통합으로 사라졌고, page.tsx가
     // 인증 여부에 따라 LandingPage(비로그인) / 책장(로그인)을 SSR하므로 '/'로 충분.
-    const target = isInternal ? raw : "/";
+    const target = toInternalPath(raw) ?? "/";
     // splash가 한 사이클 인지될 때까지 짧게 지연 후 replace. unmount 시 timer 정리.
     const timer = setTimeout(
       () => router.replace(target),

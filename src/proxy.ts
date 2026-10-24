@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { toInternalPath } from '@/lib/auth/internal-path';
+import { resolvePublicOrigin } from '@/lib/auth/public-origin';
 
 /**
  * Next.js 16의 proxy 파일 (구 middleware.ts의 공식 후속).
@@ -66,24 +68,25 @@ export default auth((req) => {
   // 보냈지만, 5027 제거 후 `/app` 라우트가 사라져 fallback이 404가 됐다. 이제는
   // `/`로 보내면 로그인 사용자에겐 곧바로 책장이 SSR되므로 안전.
   if (isLoggedIn && AUTH_ONLY_PATHS.has(pathname)) {
-    const raw = req.nextUrl.searchParams.get('callbackUrl');
-    // open redirect 방지: `/`로 시작하고 `//`·`/\\`가 아닌 내부 경로만 허용.
-    const isInternal =
-      typeof raw === 'string' &&
-      raw.startsWith('/') &&
-      !raw.startsWith('//') &&
-      !raw.startsWith('/\\');
-    const target = isInternal ? raw : '/';
-    return NextResponse.redirect(new URL(target, req.nextUrl));
+    // open redirect 방지: URL 파서 기준 내부 경로만 허용(internal-path.ts).
+    const target = toInternalPath(req.nextUrl.searchParams.get('callbackUrl')) ?? '/';
+    return redirectOnPublicOrigin(req.headers, target);
   }
 
   // 비공개 경로는 로그인 필수. 비로그인 시 /login?callbackUrl=... 로.
   if (!isLoggedIn && !isPublic) {
-    const loginUrl = new URL('/login', req.nextUrl);
-    loginUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(loginUrl);
+    const query = new URLSearchParams({ callbackUrl: pathname });
+    return redirectOnPublicOrigin(req.headers, `/login?${query}`);
   }
 });
+
+// req.nextUrl은 Next.js 내부 origin(localhost:5111)이라 리다이렉트 목적지로 쓸 수 없다.
+// 접속한 공개 도메인(eng.smap.site / eng.aiagnt.kr)을 허용 목록으로 판정해 붙인다.
+function redirectOnPublicOrigin(headers: Headers, path: string): NextResponse {
+  const origin = resolvePublicOrigin(headers);
+  if (!origin) return new NextResponse('untrusted host', { status: 400 });
+  return NextResponse.redirect(new URL(path, origin));
+}
 
 // 정적 파일, Next 내부, API 라우트, PWA 에셋은 보호 대상 제외.
 // ⚠️ /api/*는 전체 제외 — Route Handler가 requireUserIdForApi()로 401 JSON을 직접
