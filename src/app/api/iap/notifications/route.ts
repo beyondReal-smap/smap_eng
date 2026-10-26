@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
  * App Store Server Notifications V2 — Apple이 환불/만료 등 이벤트를 webhook으로 전송.
  *
  * 등록: App Store Connect → App Information → App Store Server Notifications →
- *   Production Server URL: https://eng.smap.site/api/iap/notifications
+ *   Production Server URL: https://eng.aiagnt.kr/api/iap/notifications
  *   Sandbox Server URL: 동일 (환경은 payload.data.environment로 분기)
  *   Version: 2.0
  *

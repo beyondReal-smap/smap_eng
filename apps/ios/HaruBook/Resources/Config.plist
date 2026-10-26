@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>API_BASE_URL</key>
-	<string>https://eng.smap.site</string>
+	<string>https://eng.aiagnt.kr</string>
 	<key>AUTH_CALLBACK_SCHEME</key>
 	<string>smapeng</string>
 	<key>AUTH_CALLBACK_HOST</key>

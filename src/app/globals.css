@@ -677,7 +677,7 @@
   /* apps/landing(별도 Next.js 앱)은 Tailwind 미사용이라 html line-height가
      브라우저 기본 `normal`(≈1.2)인데, smap_eng는 Tailwind preflight로 1.5가
      상속되어 .brand 텍스트 박스가 24px → 30px로 더 커지는 차이가 있었다
-     (eng.smap.site/ → /login 이동 시 "더 커진다" 피드백, 2026-04-26).
+     (eng.aiagnt.kr/ → /login 이동 시 "더 커진다" 피드백, 2026-04-26).
      랜딩과 픽셀 단위로 맞추기 위해 명시적으로 normal을 강제. */
   line-height: normal;
 }

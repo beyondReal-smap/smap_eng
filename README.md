@@ -8,7 +8,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38bdf8?logo=tailwindcss)
 ![MySQL](https://img.shields.io/badge/MySQL-8-4479a1?logo=mysql)
 
-서비스 도메인: **[eng.smap.site](https://eng.smap.site)** · 제공: **비욘드리얼(Beyond Real)**
+서비스 도메인: **[eng.aiagnt.kr](https://eng.aiagnt.kr)** · 제공: **비욘드리얼(Beyond Real)**
 
 ---
 
@@ -214,6 +214,6 @@ pnpm deploy                 # PM2 reload (smap-eng-next, smap-eng-web)
 
 - **서비스명**: 하루책 (HaruBook)
 - **제공**: 비욘드리얼 (Beyond Real) · 대표 정진
-- **문의**: admin@smap.site
+- **문의**: admin@aiagnt.kr
 
 본 저장소는 **비공개(Proprietary)** 입니다. 권리는 비욘드리얼에 있으며, 무단 복제·배포·사용을 금합니다.

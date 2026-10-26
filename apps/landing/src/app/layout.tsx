@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://eng.smap.site'),
+  metadataBase: new URL('https://eng.aiagnt.kr'),
   title: {
     default: '하루책 | 우리 아이 맞춤, 매일 새 영어 동화',
     template: '%s | 하루책',
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     siteName: '하루책',
     title: '우리 아이 맞춤, 매일 새 영어 동화',
     description: '영어 동화 생성, 문장별 낭독, 퀴즈와 단어 복습까지 한 번에 이어지는 리딩 루틴.',
-    url: 'https://eng.smap.site/',
+    url: 'https://eng.aiagnt.kr/',
     images: [{ url: '/book_icon.png', width: 128, height: 128, alt: '하루책' }],
   },
   twitter: {

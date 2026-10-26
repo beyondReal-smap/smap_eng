@@ -10,7 +10,7 @@ import './globals.css';
 export const metadata: Metadata = {
   // 절대 URL 생성 기준점. OG/twitter 이미지 경로(/book_icon.png)와 alternates.canonical을
   // 자동 절대화한다.
-  metadataBase: new URL('https://eng.smap.site'),
+  metadataBase: new URL('https://eng.aiagnt.kr'),
   // template은 자식 페이지에서 title을 지정하면 "[제목] | 하루책" 형태로 자동 합성.
   title: {
     default: '하루책 | 매일 새로 만나는 아이 맞춤 영어 동화',
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     siteName: '하루책',
     title: '매일 새로 만나는 아이 맞춤 영어 동화',
     description: '영어 동화, 문장별 낭독, 퀴즈와 단어 복습까지 한 번에 이어지는 리딩 루틴.',
-    url: 'https://eng.smap.site/',
+    url: 'https://eng.aiagnt.kr/',
     images: [{ url: '/book_icon.png', width: 128, height: 128, alt: '하루책' }],
   },
   twitter: {

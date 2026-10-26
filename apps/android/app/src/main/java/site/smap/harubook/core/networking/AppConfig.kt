@@ -6,7 +6,7 @@ package site.smap.harubook.core.networking
  * 추후 build variant(productFlavors)로 staging/production 분리 가능.
  */
 object AppConfig {
-    const val API_BASE_URL: String = "https://eng.smap.site"
+    const val API_BASE_URL: String = "https://eng.aiagnt.kr"
 
     const val AUTH_CALLBACK_SCHEME: String = "smapeng"
     const val AUTH_CALLBACK_HOST: String = "auth"

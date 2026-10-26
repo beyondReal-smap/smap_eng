@@ -9,10 +9,10 @@ enum BusinessInfo {
     static let registrationNumber = "208-07-09695"
     static let address = "경기도 김포시 김포한강9로75번길 66, 505-A237호 (구래동, 국제프라자)"
     static let phone = "010-5709-5435"
-    static let email = "admin@smap.site"
+    static let email = "admin@aiagnt.kr"
     static let mailOrderRegistration = "제2024-경기김포-3006호"
     static let mailOrderAuthority = "경기도 김포시"
     static let serviceName = "하루책"
-    static let serviceDomain = "eng.smap.site"
+    static let serviceDomain = "eng.aiagnt.kr"
     static let effectiveDate = "2026-04-27"
 }

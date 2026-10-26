@@ -2,7 +2,7 @@ export const dynamic = 'force-static';
 export const revalidate = 3600;
 
 export function GET(): Response {
-  const body = ['User-agent: *', 'Allow: /', 'Sitemap: https://eng.smap.site/sitemap.xml', ''].join(
+  const body = ['User-agent: *', 'Allow: /', 'Sitemap: https://eng.aiagnt.kr/sitemap.xml', ''].join(
     '\n',
   );
   return new Response(body, {

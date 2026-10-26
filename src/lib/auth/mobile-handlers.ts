@@ -72,7 +72,7 @@ export async function handleMobileStart(req: Request): Promise<Response> {
   if (!session?.user?.id) {
     if (!provider) return renderMobileProviderPicker(reqUrl, redirect);
 
-    // 외부 도메인(예: https://eng.smap.site)으로 복원. 내부 origin(localhost:5029)이면
+    // 외부 도메인(예: https://eng.aiagnt.kr)으로 복원. 내부 origin(localhost:5029)이면
     // OAuth callback 후 사용자가 도달 못 한다.
     const publicOrigin = getPublicOrigin(req, reqUrl);
     const callbackUrl = new URL('/api/auth/mobile/start', publicOrigin);

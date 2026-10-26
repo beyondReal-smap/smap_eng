@@ -39,7 +39,7 @@ export default {
       const isRoot =
         url === baseUrl || url === `${baseUrl}/` || url === '/';
       // APP_HOME_PATH가 '/'이므로 baseUrl과 그대로 결합 — `${baseUrl}/`는 trailing
-      // slash 중복을 일으켜 `https://eng.smap.site//` 같은 깨진 URL이 되므로 분기.
+      // slash 중복을 일으켜 `https://eng.aiagnt.kr//` 같은 깨진 URL이 되므로 분기.
       if (isRoot) return APP_HOME_PATH === '/' ? baseUrl : `${baseUrl}${APP_HOME_PATH}`;
 
       // 내부 relative 경로는 baseUrl과 결합.

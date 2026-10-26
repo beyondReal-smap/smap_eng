@@ -20,7 +20,7 @@ export const BUSINESS_INFO = {
   /** 대표 연락처 */
   phone: '010-5709-5435',
   /** 고객 문의 이메일 */
-  email: 'admin@smap.site',
+  email: 'admin@aiagnt.kr',
   /**
    * 통신판매업 신고번호 (경기도 김포시).
    * 2024-04-19 신고 — 공정위 사업자정보공개에서 조회 가능.
@@ -40,7 +40,7 @@ export const BUSINESS_INFO = {
   /** 서비스명 */
   serviceName: '하루책',
   /** 서비스 도메인 */
-  serviceDomain: 'eng.smap.site',
+  serviceDomain: 'eng.aiagnt.kr',
   /** 결제 대행사 */
   paymentProcessor: '포트원(PortOne) 주식회사 코리아포트원',
   /**

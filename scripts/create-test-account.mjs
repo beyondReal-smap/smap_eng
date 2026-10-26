@@ -90,7 +90,7 @@ try {
   console.log('────────────────────────────────────────────────');
   console.log(`✅ 테스트 계정 ${action}`);
   console.log('────────────────────────────────────────────────');
-  console.log(`  로그인 URL : https://eng.smap.site/login`);
+  console.log(`  로그인 URL : https://eng.aiagnt.kr/login`);
   console.log(`  이메일     : ${TEST_EMAIL}`);
   console.log(`  비밀번호   : ${TEST_PASSWORD}`);
   console.log(`  user.id    : ${userId}`);
