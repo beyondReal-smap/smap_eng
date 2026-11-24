@@ -11,5 +11,12 @@
     <!-- 푸시 알림 — Phase 5-C에서 사용. 빈 entitlement 미리 추가해 두면 capability 활성화 후 즉시 사용 가능. -->
     <key>aps-environment</key>
     <string>development</string>
+
+    <!-- Universal Links — eng.smap.site/link* 링크가 앱으로 열린다.
+         대응 AASA: 웹 public/.well-known/apple-app-site-association (appID = 팀ID.번들ID). -->
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+        <string>applinks:eng.smap.site</string>
+    </array>
 </dict>
 </plist>

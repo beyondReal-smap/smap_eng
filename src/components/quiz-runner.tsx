@@ -1,50 +1,61 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronRight, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { EmptyState } from '@/components/ui/empty-state';
 import { apiFetch } from '@/lib/api-client';
 import { parseJsonField } from '@/lib/json-field';
 import { APP_HOME } from '@/lib/paths';
-import type { Book, CefrLevel, Quiz } from '@/lib/db/schema';
+import type { Book, Quiz } from '@/lib/db/schema';
 import { useKeyboardNav } from '@/lib/hooks/use-keyboard-nav';
+import { findEvidence, type EvidencePassage } from '@/lib/quiz/evidence';
+import {
+  highlightedChoice,
+  isSameItem,
+  readAloudSequence,
+  readAloudText,
+  type ReadAloudItem,
+} from '@/lib/quiz/read-aloud';
 import { sessionPoints } from '@/lib/rewards';
 import { useProfileStore } from '@/stores/profile';
 import {
+  BearQuestion,
+  ChoiceRow,
   ConfettiBurst,
+  EvidenceCard,
   GeneratingState,
-  ImmediateToggle,
-  ScoreHeader,
+  PRIMARY_PILL,
+  QuizResult,
+  QuizTopBar,
+  ordinalLabel,
+  type ChoiceState,
+  type ScoreSaveState,
 } from './quiz-runner/components';
+import { useQuizReadAloud } from './quiz-runner/use-read-aloud';
 
 interface Props {
   book: Book;
   initialQuizzes: Quiz[];
+  /** "책 속 근거" 카드용 본문 — 서버가 퀴즈와 함께 1회 불러온다(실패하면 빈 배열, 카드만 생략). */
+  passages: EvidencePassage[];
 }
 
 type AnswerMap = Record<number, number>;
 
-const LEVEL_CLASS: Record<CefrLevel, string> = {
-  A1: 'level-a1',
-  A2: 'level-a2',
-  B1: 'level-b1',
-  B2: 'level-b2',
-};
-
 /**
- * 퀴즈 제출 시 독서 로그 저장 (best-effort).
+ * 퀴즈 제출 시 독서 로그 저장.
  * Reader가 이미 만든 로그 id가 localStorage(`reader:log:${profileId}:${bookId}`)에 있으면
  * 그 로그를 PATCH하여 "한 세션"으로 이어간다. 없으면 새 POST 후 PATCH.
  * 완료된 세션은 localStorage 키 제거 → 재독 시 새 log 생성.
+ * 결과 화면이 "+P 획득!"을 기록된 경우에만 보여 주도록 성공 여부를 돌려준다.
  */
 async function saveReadingLog(
   profileId: number,
   bookId: number,
   quizScore: number,
-) {
+): Promise<boolean> {
   const key = `reader:log:${profileId}:${bookId}`;
   let logId: number | null = null;
   try {
@@ -54,7 +65,7 @@ async function saveReadingLog(
       if (Number.isFinite(n)) logId = n;
     }
   } catch {
-    /* ignore */
+    /* localStorage 불가 환경 — 새 로그를 만든다 */
   }
   try {
     if (logId === null) {
@@ -76,14 +87,14 @@ async function saveReadingLog(
     try {
       window.localStorage.removeItem(key);
     } catch {
-      /* ignore */
+      /* localStorage 불가 환경 — 다음 읽기가 같은 로그를 이어 쓸 뿐 */
     }
+    return true;
   } catch (err) {
     console.warn('[reading-log] save failed:', err);
+    return false;
   }
 }
-
-const IMMEDIATE_KEY = 'quiz:immediate-feedback';
 
 /**
  * Quiz.choices가 string으로 도착해도 (mysql2 typeCast 우회 케이스, 2026-04-26 사고)
@@ -97,54 +108,65 @@ function normalizeQuiz(q: Quiz): Quiz {
   return { ...q, choices: ['', '', '', ''] };
 }
 
-export function QuizRunner({ book, initialQuizzes }: Props) {
+/** 푸는 중 답을 즉시 저장 — 나갔다 들어와도 이미 푼 문항을 되돌릴 수 없다(오답 후 재진입해 고치는 것 방지). */
+const progressKey = (bookId: number) => `quiz:progress:${bookId}`;
+
+function readProgress(bookId: number, quizzes: Quiz[]): AnswerMap {
+  try {
+    const raw = window.localStorage.getItem(progressKey(bookId));
+    if (!raw) return {};
+    const saved = JSON.parse(raw) as unknown;
+    if (!saved || typeof saved !== 'object') return {};
+    // 서버가 퀴즈를 재생성해 id가 달라졌을 수 있으므로 현재 문항에 있는 id만 복원.
+    const valid = new Set(quizzes.map((q) => q.id));
+    const out: AnswerMap = {};
+    for (const [k, v] of Object.entries(saved as Record<string, unknown>)) {
+      const id = Number(k);
+      if (valid.has(id) && typeof v === 'number') out[id] = v;
+    }
+    return out;
+  } catch (err) {
+    console.warn('[quiz] progress restore failed:', err);
+    return {};
+  }
+}
+
+function writeProgress(bookId: number, answers: AnswerMap | null) {
+  try {
+    if (answers) window.localStorage.setItem(progressKey(bookId), JSON.stringify(answers));
+    else window.localStorage.removeItem(progressKey(bookId));
+  } catch (err) {
+    console.warn('[quiz] progress save failed:', err);
+  }
+}
+
+/**
+ * 퀴즈 "곰과 이야기 되짚기"(네이티브 11차·15차와 같은 흐름).
+ * 답을 고르면 바로 정답을 보여 주고(책 속 근거 카드), "다음 질문 →"으로 넘어간다.
+ * 마지막 문항 뒤 "결과 보기 →"에서 점수를 기록한다. "다시 풀기"는 연습(점수 재기록 없음).
+ */
+export function QuizRunner({ book, initialQuizzes, passages }: Props) {
   const profileId = useProfileStore((s) => s.currentProfileId);
   const [quizzes, setQuizzes] = useState<Quiz[]>(() =>
     initialQuizzes.map(normalizeQuiz),
   );
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [bouncingChoice, setBouncingChoice] = useState<number | null>(null);
-  // 즉시 피드백 — 기본 OFF (일괄 채점).
-  // 2026 Educational Psychology Review 메타분석: 타이밍보다 일관성이 중요.
-  // 아동 인지 부하 관점에서 기본값은 일괄로 두되 부모/사용자가 토글 가능.
-  const [immediate, setImmediate] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      setImmediate(window.localStorage.getItem(IMMEDIATE_KEY) === '1');
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(IMMEDIATE_KEY, immediate ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
-  }, [immediate]);
-
-  const levelClass = LEVEL_CLASS[book.cefr];
-
-  const handleSubmit = useCallback(() => {
-    const correct = quizzes.filter(
-      (q) => answers[q.id] === q.answerIndex,
-    ).length;
-    setSubmitted(true);
-    if (profileId) {
-      void saveReadingLog(profileId, book.id, correct);
-    }
-  }, [quizzes, answers, profileId, book.id]);
+  const [finished, setFinished] = useState(false);
+  // 서버에 퀴즈가 없으면 들어오자마자 생성 요청 — 첫 렌더부터 생성 중 화면.
+  const [generating, setGenerating] = useState(initialQuizzes.length === 0);
+  const [saveState, setSaveState] = useState<ScoreSaveState>('unavailable');
+  const [announcement, setAnnouncement] = useState('');
+  /** 이 화면에서 점수를 이미 기록했는지 — 다시 풀기는 연습으로 처리. */
+  const recordedRef = useRef(false);
+  const submittedScoreRef = useRef(0);
+  const restoredRef = useRef(false);
+  const resultHeadingRef = useRef<HTMLDivElement>(null);
+  const readAloud = useQuizReadAloud();
+  const { stop: stopReading } = readAloud;
 
   useEffect(() => {
     if (initialQuizzes.length > 0) return;
-    setGenerating(true);
     apiFetch<{ quizzes: Quiz[] }>(`/api/books/${book.id}/quiz`, {
       method: 'POST',
     })
@@ -153,295 +175,263 @@ export function QuizRunner({ book, initialQuizzes }: Props) {
       .finally(() => setGenerating(false));
   }, [book.id, initialQuizzes.length]);
 
+  // 중도 이탈했던 진행분 복원 — 이미 푼 문항은 답이 고정된 채 첫 미응답 문항부터 재개.
+  // localStorage는 클라이언트에서만 읽을 수 있어 마운트 뒤 한 번.
+  useEffect(() => {
+    if (restoredRef.current || quizzes.length === 0) return;
+    restoredRef.current = true;
+    const saved = readProgress(book.id, quizzes);
+    if (Object.keys(saved).length === 0) return;
+    const firstOpen = quizzes.findIndex((q) => saved[q.id] === undefined);
+    const frame = window.requestAnimationFrame(() => {
+      setAnswers(saved);
+      setIdx(firstOpen === -1 ? quizzes.length - 1 : firstOpen);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [book.id, quizzes]);
+
   const current = quizzes[idx];
   const selected = current ? answers[current.id] : undefined;
+  const answered = selected !== undefined;
   const isLast = idx === quizzes.length - 1;
+  const score = quizzes.filter((q) => answers[q.id] === q.answerIndex).length;
+  const isPerfect = quizzes.length > 0 && score === quizzes.length;
 
-  // 답변 선택 (숫자키 + 클릭 공용)
+  const evidence = useMemo(() => {
+    if (!current || !answered) return null;
+    const answer = current.choices[current.answerIndex];
+    return answer ? findEvidence(answer, current.question, passages) : null;
+  }, [current, answered, passages]);
+
   const selectChoice = useCallback(
     (ci: number) => {
-      if (!current) return;
-      setAnswers((prev) => ({ ...prev, [current.id]: ci }));
-      setBouncingChoice(ci);
-      window.setTimeout(() => setBouncingChoice(null), 400);
+      if (!current || answers[current.id] !== undefined) return;
+      if (ci < 0 || ci >= current.choices.length) return;
+      // 답하면 읽어 주기를 즉시 멈춘다(15차).
+      stopReading();
+      const next = { ...answers, [current.id]: ci };
+      setAnswers(next);
+      writeProgress(book.id, next);
+      const correctText = current.choices[current.answerIndex] ?? '';
+      setAnnouncement(ci === current.answerIndex ? '정답이에요' : `아쉬워요. 정답은 ${correctText}`);
     },
-    [current],
+    [answers, book.id, current, stopReading],
   );
 
-  // 키보드 네비게이션 (결과 화면 아님, 생성 중 아님)
-  const navEnabled = !generating && !submitted && Boolean(current);
+  const submit = useCallback(async () => {
+    stopReading();
+    setFinished(true);
+    writeProgress(book.id, null);
+    submittedScoreRef.current = score;
+    if (recordedRef.current) {
+      setSaveState('practice');
+      return;
+    }
+    if (!profileId) {
+      setSaveState('unavailable');
+      return;
+    }
+    setSaveState('saving');
+    const saved = await saveReadingLog(profileId, book.id, score);
+    if (saved) recordedRef.current = true;
+    else toast.error('점수를 저장하지 못했어요');
+    setSaveState(saved ? 'saved' : 'failed');
+  }, [book.id, profileId, score, stopReading]);
+
+  const retrySave = useCallback(async () => {
+    if (!profileId || recordedRef.current) return;
+    setSaveState('saving');
+    const saved = await saveReadingLog(profileId, book.id, submittedScoreRef.current);
+    if (saved) {
+      recordedRef.current = true;
+      toast.success('점수를 저장했어요');
+    }
+    setSaveState(saved ? 'saved' : 'failed');
+  }, [book.id, profileId]);
+
+  const goNext = useCallback(() => {
+    if (!answered) return;
+    stopReading();
+    if (isLast) void submit();
+    else {
+      setIdx((i) => i + 1);
+      setAnnouncement('');
+    }
+  }, [answered, isLast, stopReading, submit]);
+
+  const restart = useCallback(() => {
+    stopReading();
+    writeProgress(book.id, null);
+    setAnswers({});
+    setIdx(0);
+    setFinished(false);
+    setAnnouncement('');
+  }, [book.id, stopReading]);
+
+  // 결과 화면으로 바뀌면 제목으로 초점을 옮겨 스크린 리더가 결과를 바로 읽는다.
+  useEffect(() => {
+    if (finished) resultHeadingRef.current?.querySelector('h1')?.focus();
+  }, [finished]);
+
+  // 키보드: 1~4 = 답 고르기, → = 다음(답한 뒤). Enter는 초점 버튼과 겹쳐 두 번 넘어가는 문제로 쓰지 않는다.
+  const navEnabled = !generating && !finished && Boolean(current);
   const bindings = useMemo(
     () => ({
       '1': () => selectChoice(0),
       '2': () => selectChoice(1),
       '3': () => selectChoice(2),
       '4': () => selectChoice(3),
-      ArrowLeft: () => setIdx((i) => Math.max(0, i - 1)),
-      ArrowRight: () => {
-        if (selected === undefined) return;
-        if (isLast) {
-          handleSubmit();
-        } else {
-          setIdx((i) => i + 1);
-        }
-      },
-      Enter: () => {
-        if (selected === undefined) return;
-        if (isLast) handleSubmit();
-        else setIdx((i) => i + 1);
-      },
+      ArrowRight: goNext,
     }),
-    [selectChoice, isLast, selected, handleSubmit],
+    [selectChoice, goNext],
   );
   useKeyboardNav(bindings, navEnabled);
 
+  const bookHref = `/book/${book.id}`;
+
   if (generating) {
-    return <GeneratingState />;
+    return (
+      <div className="space-y-2">
+        <QuizTopBar book={book} closeHref={bookHref} closeLabel="퀴즈 닫기" steps={null} currentStep={0} />
+        <GeneratingState />
+      </div>
+    );
   }
   if (quizzes.length === 0) {
     return <EmptyState text="아직 퀴즈가 없습니다." />;
   }
   if (!current) return null;
 
-  if (submitted) {
-    const correct = quizzes.filter(
-      (q) => answers[q.id] === q.answerIndex,
-    ).length;
-    const isPerfect = correct === quizzes.length;
+  if (finished) {
+    const missed = quizzes.filter(
+      (q) => answers[q.id] !== undefined && answers[q.id] !== q.answerIndex,
+    );
     return (
-      <section className="space-y-6 animate-fade-up">
-        <ScoreHeader
-          book={book}
-          score={correct}
-          total={quizzes.length}
-          earnedPoints={sessionPoints(isPerfect)}
-        />
+      <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
+        <QuizTopBar book={book} closeHref={APP_HOME} closeLabel="책장으로 닫기" steps={null} currentStep={0} />
         {isPerfect ? <ConfettiBurst /> : null}
-        <div className="space-y-4">
-          {quizzes.map((q, i) => {
-            const userIdx = answers[q.id];
-            const isCorrect = userIdx === q.answerIndex;
-            return (
-              <article
-                key={q.id}
-                className={`stagger-item overflow-hidden rounded-3xl border-2 bg-card p-5 sticker-shadow ${
-                  isCorrect ? 'border-border' : 'border-[color:var(--destructive)]/60'
-                }`}
-              >
-                <header className="mb-3 flex items-start justify-between gap-3">
-                  <h3 className="text-base font-bold">
-                    Q{i + 1}. {q.question}
-                  </h3>
-                  <span
-                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      isCorrect
-                        ? 'level-a1 animate-bounce-in'
-                        : 'bg-[color:var(--destructive)]/15 text-[color:var(--destructive)] animate-shake-no'
-                    }`}
-                  >
-                    {isCorrect ? '✓ 정답' : '✗ 오답'}
-                  </span>
-                </header>
-                <ul className="space-y-1.5 text-sm">
-                  {q.choices.map((c, ci) => {
-                    const right = ci === q.answerIndex;
-                    const wrongPicked = ci === userIdx && !right;
-                    return (
-                      <li
-                        key={ci}
-                        className={`flex items-start gap-2 rounded-xl px-3 py-2 ${
-                          right
-                            ? 'bg-[color:var(--level-a1)]/60 text-[color:var(--level-a1-fg)]'
-                            : wrongPicked
-                              ? 'bg-[color:var(--destructive)]/10 text-[color:var(--destructive)]'
-                              : 'text-muted-foreground'
-                        }`}
-                      >
-                        <span className="mt-0.5 w-4 shrink-0 text-center">
-                          {right ? '✅' : wrongPicked ? '❌' : '·'}
-                        </span>
-                        <span className="flex-1">{c}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {q.explanation ? (
-                  <p className="mt-3 rounded-2xl bg-muted/60 p-3 text-xs leading-relaxed">
-                    💡 {q.explanation}
-                  </p>
-                ) : null}
-              </article>
-            );
-          })}
+        <div ref={resultHeadingRef} className="flex-1 pb-4">
+          <QuizResult
+            score={score}
+            total={quizzes.length}
+            missed={missed}
+            earnedPoints={sessionPoints(isPerfect)}
+            saveState={saveState}
+            onRetrySave={() => void retrySave()}
+          />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/book/${book.id}`}
-            className={buttonVariants({
-              variant: 'outline',
-              className: 'rounded-full press-scale',
-            })}
+        <div className="sticky bottom-0 -mx-4 flex gap-2.5 bg-[linear-gradient(to_bottom,transparent,var(--haru-wall)_30%)] px-4 pb-4 pt-5">
+          <button
+            type="button"
+            onClick={restart}
+            className="inline-flex min-h-[60px] w-[120px] shrink-0 items-center justify-center gap-1 rounded-full border-[2.5px] border-[#ebc9b6] bg-white/70 text-base font-extrabold text-haru-ink transition-transform active:scale-[0.98] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
           >
-            다시 읽기
-          </Link>
-          <Link
-            href={APP_HOME}
-            className={buttonVariants({
-              className: 'rounded-full press-scale',
-            })}
-          >
+            <RotateCcw aria-hidden className="size-4" strokeWidth={3} />
+            다시 풀기
+          </button>
+          <Link href={APP_HOME} className={`${PRIMARY_PILL} min-h-[60px] flex-1 text-base`}>
             책장으로
           </Link>
         </div>
-      </section>
+      </div>
     );
   }
 
-  const progress = ((idx + 1) / quizzes.length) * 100;
+  const isCorrect = answered ? selected === current.answerIndex : null;
+  const choiceState = (ci: number): ChoiceState => {
+    if (!answered) return 'open';
+    if (ci === current.answerIndex) return 'correct';
+    if (ci === selected) return 'picked';
+    return 'dimmed';
+  };
+  const textSource = {
+    question: current.question,
+    choices: current.choices,
+    evidenceSentence: evidence?.sentence ?? null,
+  };
+  // 말풍선 🔊 차례 — 답 전 질문 → 선택지 1…N, 답한 뒤 질문만. 읽을 수 없는 항목은 건너뛴다.
+  const sequence = readAloudSequence(current.choices.length, answered)
+    .map((item): [ReadAloudItem, string] | null => {
+      const text = readAloudText(item, textSource);
+      return text ? [item, text] : null;
+    })
+    .filter((entry): entry is [ReadAloudItem, string] => entry !== null);
+  const readingChoice = highlightedChoice(readAloud.current);
+  const evidenceText = readAloudText({ kind: 'evidence' }, textSource);
 
   return (
-    <section className="space-y-6 animate-fade-up">
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-            {book.title}
-          </h1>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-            <span className={`${levelClass} inline-flex items-center rounded-full px-2.5 py-1 font-semibold`}>
-              {book.cefr}
-              <span className="level-dots" data-level={book.cefr} aria-hidden />
-            </span>
-            <span className="text-muted-foreground">
-              4지선다 {quizzes.length}문제
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <ImmediateToggle value={immediate} onChange={setImmediate} />
-          <Link
-            href={`/book/${book.id}`}
-            className={buttonVariants({
-              variant: 'outline',
-              size: 'sm',
-              className: 'rounded-full press-scale',
-            })}
-          >
-            ← 돌아가기
-          </Link>
-        </div>
-      </header>
+    <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
+      <QuizTopBar
+        book={book}
+        closeHref={bookHref}
+        closeLabel="퀴즈 닫기"
+        steps={quizzes.map((q) => (answers[q.id] === undefined ? 'open' : 'answered'))}
+        currentStep={idx}
+      />
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-          <span aria-live="polite">
-            {idx + 1} <span className="text-foreground/40">/</span>{' '}
-            {quizzes.length}
-          </span>
-          <span className="tabular-nums text-primary">
-            {Math.round(progress)}%
-          </span>
-        </div>
-        <Progress value={progress} className="h-2.5 rounded-full" />
-      </div>
+      <p role="status" className="sr-only">{announcement}</p>
 
-      <article
-        key={current.id}
-        className="animate-pop-in rounded-3xl border-2 border-border bg-card p-6 sticker-shadow sm:p-8"
-      >
-        <h2 className="text-lg font-bold leading-relaxed sm:text-xl">
-          Q{idx + 1}. {current.question}
-        </h2>
-        <div className="mt-5 grid gap-2.5">
+      <div key={current.id} className="flex-1 space-y-3.5 pb-4">
+        <BearQuestion
+          question={current.question}
+          label={
+            isCorrect === null
+              ? ordinalLabel(idx + 1)
+              : isCorrect
+                ? '맞았어! 잘 기억했네'
+                : '괜찮아, 같이 찾아보자!'
+          }
+          pose={isCorrect === null ? 'normal' : isCorrect ? 'cheer' : 'worried'}
+          isReading={readAloud.isSequence}
+          onSpeak={sequence.length > 0 ? () => readAloud.toggleSequence(sequence) : null}
+        />
+
+        <div className="space-y-2.5">
           {current.choices.map((c, ci) => {
-            const active = selected === ci;
-            const isBouncing = bouncingChoice === ci;
-            // 즉시 피드백 ON + 이미 답변한 경우: 선택지별 정/오 시각화
-            const revealing = immediate && selected !== undefined;
-            const isCorrect = ci === current.answerIndex;
-            const wrongPicked = revealing && active && !isCorrect;
-            const correctMarked = revealing && isCorrect;
-            let state = '';
-            if (wrongPicked) {
-              state =
-                'border-[color:var(--destructive)]/50 bg-[color:var(--destructive)]/10 text-[color:var(--destructive)] animate-shake-no';
-            } else if (correctMarked) {
-              state =
-                'border-[color:var(--level-a1)] bg-[color:var(--level-a1)]/50 text-[color:var(--level-a1-fg)]';
-            } else if (active) {
-              state =
-                'border-primary bg-primary/10 text-foreground ring-2 ring-primary/30';
-            } else {
-              state = 'border-border/60 bg-background hover:bg-muted/60';
-            }
+            const speakText = answered ? null : readAloudText({ kind: 'choice', index: ci }, textSource);
             return (
-              <button
+              <ChoiceRow
                 key={ci}
-                type="button"
-                onClick={() => selectChoice(ci)}
-                aria-pressed={active}
-                disabled={revealing}
-                className={`group flex items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-medium transition ${active || revealing ? '' : 'press-scale'} ${state} ${isBouncing && !revealing ? 'animate-bounce-in' : ''}`}
-              >
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition ${
-                    correctMarked
-                      ? 'bg-[color:var(--level-a1-fg)] text-[color:var(--level-a1)]'
-                      : wrongPicked
-                        ? 'bg-[color:var(--destructive)] text-white'
-                        : active
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground group-hover:bg-background'
-                  }`}
-                  aria-hidden
-                >
-                  {correctMarked ? '✓' : wrongPicked ? '✗' : String.fromCharCode(65 + ci)}
-                </span>
-                <span className="flex-1 leading-relaxed">{c}</span>
-                <kbd className="hidden rounded bg-muted/70 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground sm:inline">
-                  {ci + 1}
-                </kbd>
-              </button>
+                index={ci}
+                total={current.choices.length}
+                text={c}
+                state={choiceState(ci)}
+                isReadingAloud={readingChoice === ci}
+                onSelect={() => selectChoice(ci)}
+                onSpeak={speakText ? () => readAloud.speak({ kind: 'choice', index: ci }, speakText) : null}
+              />
             );
           })}
         </div>
 
-        {/* 즉시 피드백 ON + 답변한 경우: 해설 (있으면) */}
-        {immediate && selected !== undefined && current.explanation ? (
-          <p className="mt-3 rounded-xl bg-muted/60 p-3 text-xs leading-relaxed animate-fade-up">
-            💡 {current.explanation}
-          </p>
+        {answered ? (
+          <EvidenceCard
+            book={book}
+            explanation={current.explanation}
+            evidence={evidence}
+            isReadingAloud={isSameItem(readAloud.current, { kind: 'evidence' })}
+            onSpeak={
+              evidence && evidenceText
+                ? () => readAloud.speak({ kind: 'evidence' }, evidenceText)
+                : null
+            }
+          />
         ) : null}
-      </article>
+      </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <Button
-          variant="outline"
-          onClick={() => setIdx((i) => Math.max(0, i - 1))}
-          disabled={idx === 0}
-          className="rounded-full press-scale"
-        >
-          ← 이전
-        </Button>
-        {isLast ? (
-          <Button
-            onClick={handleSubmit}
-            disabled={Object.keys(answers).length < quizzes.length}
-            variant="complete"
-            size="lg"
-            className="rounded-full press-scale"
-          >
-            제출하기
-          </Button>
+      {/* 하단 고정 — 답하기 전엔 안내 한 줄, 답한 뒤엔 "다음 질문 →" / "결과 보기 →". */}
+      <div className="sticky bottom-0 -mx-4 bg-[linear-gradient(to_bottom,transparent,var(--haru-wall)_30%)] px-4 pb-4 pt-5">
+        {answered ? (
+          <button type="button" onClick={goNext} className={`${PRIMARY_PILL} w-full`}>
+            {isLast ? '결과 보기' : '다음 질문'}
+            <ChevronRight aria-hidden className="size-5" strokeWidth={3.5} />
+          </button>
         ) : (
-          <Button
-            onClick={() => setIdx((i) => i + 1)}
-            disabled={selected === undefined}
-            className="rounded-full press-scale"
-          >
-            다음 →
-          </Button>
+          <p className="flex min-h-[62px] items-center justify-center text-[13px] font-bold text-haru-muted">
+            답을 톡 누르면 곰이 알려 줘요
+          </p>
         )}
       </div>
-    </section>
+    </div>
   );
 }

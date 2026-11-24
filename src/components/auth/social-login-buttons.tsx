@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
 
 import { AppSplash, SPLASH_MIN_DURATION_MS } from '@/components/app-splash';
+import { toInternalPath } from '@/lib/auth/internal-path';
 import { cn } from '@/lib/utils';
 
 /**
@@ -38,12 +39,7 @@ export function SocialLoginButtons({
     const fallback = mode === 'signup' ? '/onboarding' : '/';
     if (typeof window === 'undefined') return fallback;
     const raw = new URLSearchParams(window.location.search).get('callbackUrl');
-    const isInternal =
-      typeof raw === 'string' &&
-      raw.startsWith('/') &&
-      !raw.startsWith('//') &&
-      !raw.startsWith('/\\');
-    return isInternal ? raw : fallback;
+    return toInternalPath(raw) ?? fallback;
   }
 
   async function handle(provider: 'google' | 'kakao', label: string) {

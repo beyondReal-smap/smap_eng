@@ -4,7 +4,6 @@ import { ArrowLeft } from 'lucide-react';
 import { AccountMenu } from '@/components/account-menu';
 import { AuthHeaderRight } from '@/components/auth/auth-header-right';
 import { MobileMenu } from '@/components/mobile-menu';
-import { ProfileSwitcher } from '@/components/profile-switcher';
 import { APP_HOME } from '@/lib/paths';
 
 /**
@@ -19,7 +18,9 @@ import { APP_HOME } from '@/lib/paths';
  * 좌측(brand·back link)·wrapper(`.landing-scope.app-header-shell`)·`<header
  * className="page nav">` 마크업은 100% 공유. 우측 클러스터만 `variant`로 분기:
  *
- *   - `app`             : ProfileSwitcher + AccountMenu + 모바일 햄버거(MobileMenu)
+ *   - `app`             : 보호자 계정 메뉴(AccountMenu) / 모바일 햄버거(MobileMenu).
+ *                         아이 전환은 헤더에 두지 않는다 — 책장 제목 줄 아바타 한 곳(네이티브와 같은 위치).
+ *                         헤더와 책장에 전환 버튼이 둘 있어 중복된다는 피드백(2026-09-30).
  *   - `auth`            : 페이지 링크 3개 + 로그인/회원가입 primary CTA
  *   - `landing`         : 랜딩 메뉴 4개 + "앱 시작하기" primary CTA
  *   - `app-fallback`    : 우측 비움. 책장 사용자 fallback에서 빈 placeholder가
@@ -70,12 +71,11 @@ function RightCluster({ variant }: { variant: Variant }) {
   if (variant === 'app') {
     return (
       <nav aria-label="앱 메뉴" className="nav-links">
-        {/* 모바일(<640px): 햄버거 1개. 데스크탑: ProfileSwitcher + AccountMenu. */}
+        {/* 모바일(<640px): 햄버거 1개. 데스크탑: 보호자 계정 메뉴 1개. */}
         <div className="sm:hidden">
           <MobileMenu />
         </div>
         <div className="hidden items-center gap-[0.4rem] sm:flex">
-          <ProfileSwitcher />
           <AccountMenu />
         </div>
       </nav>

@@ -1,11 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Mascot } from '@/components/haru';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useParentalPin } from '@/lib/hooks/use-parental-pin';
+
+// 그림책 세계 톤(웹 3단계) — PIN 규칙·저장 방식은 그대로, 모양만.
+const PIN_CARD =
+  'mx-auto max-w-md space-y-4 rounded-[24px] bg-white p-6 shadow-[0_8px_20px_rgb(168_111_63/0.12)]';
+const PIN_BUTTON =
+  'inline-flex min-h-[56px] w-full items-center justify-center rounded-full bg-haru-coral text-base font-extrabold text-haru-on-coral shadow-[0_8px_16px_rgb(245_131_92/0.3)] transition-transform active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60 disabled:shadow-none motion-reduce:transition-none';
 
 /**
  * 보호자 PIN 게이트.
@@ -20,19 +27,20 @@ export function ParentalPinGate({ children }: { children: React.ReactNode }) {
   const pin = useParentalPin();
 
   if (!pin.ready) {
-    return <div className="h-64 animate-pulse rounded-2xl bg-muted/50" />;
+    return <div className="mx-auto h-72 max-w-md animate-pulse rounded-[24px] bg-white/60 motion-reduce:animate-none" />;
   }
   if (pin.unlocked) {
     return (
       <>
-        <div className="mb-4 flex items-center justify-between rounded-md border border-border/60 bg-card px-3 py-2 text-xs">
-          <span className="text-muted-foreground">
-            보호자 모드 · 30분 후 자동 잠금
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-full bg-white/80 py-1 pl-4 pr-1 shadow-[0_3px_8px_rgb(168_111_63/0.08)]">
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-haru-muted">
+            <Lock aria-hidden className="size-3.5" />
+            보호자 모드 · 30분 뒤 자동으로 잠겨요
           </span>
           <button
             type="button"
             onClick={pin.lock}
-            className="rounded px-2 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="min-h-11 rounded-full px-3.5 text-[13px] font-extrabold text-haru-coral-ink hover:bg-haru-coral-soft focus-visible:outline-2 focus-visible:outline-ring"
           >
             지금 잠그기
           </button>
@@ -91,7 +99,7 @@ function PinInput({
       maxLength={4}
       autoFocus={autoFocus}
       autoComplete="off"
-      className="h-12 rounded-md text-center text-2xl font-extrabold tracking-[0.5em] tabular-nums"
+      className="h-14 rounded-2xl border-2 border-haru-line bg-haru-paper text-center text-2xl font-extrabold tracking-[0.5em] tabular-nums"
       placeholder="••••"
     />
   );
@@ -135,10 +143,11 @@ function SetupForm({ onSetup }: { onSetup: (pin: string) => Promise<void> }) {
   }
 
   return (
-    <section className="mx-auto max-w-md space-y-4 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-      <div>
-        <h2 className="text-xl font-bold">보호자 모드 설정</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <section className={PIN_CARD}>
+      <div className="flex flex-col items-center text-center">
+        <Mascot pose="normal" size={96} />
+        <h2 className="mt-1 text-xl font-extrabold text-haru-ink">보호자 모드 설정</h2>
+        <p className="mt-1 text-sm font-bold leading-relaxed text-haru-muted">
           아이가 실수로 들어오지 않도록, 숫자 4자리 보호자 PIN을 만들어 주세요.
           PIN은 이 기기에만 저장되며 서버로 전송되지 않아요.
         </p>
@@ -151,14 +160,14 @@ function SetupForm({ onSetup }: { onSetup: (pin: string) => Promise<void> }) {
         <Label htmlFor="pin2">한 번 더 입력</Label>
         <PinInput id="pin2" value={p2} onChange={setP2} />
       </div>
-      <Button
+      <button
+        type="button"
         onClick={submit}
         disabled={busy || p1.length !== 4 || p2.length !== 4}
-        className="w-full rounded-md"
-        size="lg"
+        className={PIN_BUTTON}
       >
         {busy ? '저장 중…' : 'PIN 설정'}
-      </Button>
+      </button>
     </section>
   );
 }
@@ -194,10 +203,11 @@ function VerifyForm({
   }
 
   return (
-    <section className="mx-auto max-w-md space-y-4 rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-      <div>
-        <h2 className="text-xl font-bold">보호자 PIN</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <section className={PIN_CARD}>
+      <div className="flex flex-col items-center text-center">
+        <Mascot pose="normal" size={96} />
+        <h2 className="mt-1 text-xl font-extrabold text-haru-ink">보호자 PIN</h2>
+        <p className="mt-1 text-sm font-bold leading-relaxed text-haru-muted">
           학습 리포트를 보려면 설정한 PIN 4자리를 입력해 주세요.
         </p>
       </div>
@@ -207,21 +217,22 @@ function VerifyForm({
           void submit();
         }}
       >
-        <PinInput value={pin} onChange={setPin} autoFocus />
-        <Button
+        {/* 입력칸에 이름이 없던 접근성 공백 보완 — 화면에는 위 안내문이 같은 뜻을 전한다. */}
+        <Label htmlFor="pin-verify" className="sr-only">보호자 PIN 4자리</Label>
+        <PinInput id="pin-verify" value={pin} onChange={setPin} autoFocus />
+        <button
           type="submit"
           disabled={busy || pin.length !== 4}
-          className="mt-4 w-full rounded-md"
-          size="lg"
+          className={`${PIN_BUTTON} mt-4`}
         >
           {busy ? '확인 중…' : '잠금 해제'}
-        </Button>
+        </button>
       </form>
       <div className="pt-2 text-center">
         <button
           type="button"
           onClick={onReset}
-          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+          className="min-h-11 px-2 text-xs font-bold text-haru-muted underline underline-offset-2 hover:text-haru-ink focus-visible:outline-2 focus-visible:outline-ring"
         >
           PIN을 잊어버렸어요 (초기화)
         </button>

@@ -4,6 +4,10 @@ import { BUSINESS_INFO } from '@/lib/legal/business';
 export const metadata: Metadata = {
   title: '이용약관',
   description: `${BUSINESS_INFO.serviceName} 서비스 이용약관.`,
+  // canonical 필수 — 루트 layout이 `canonical: '/'`를 선언하고 있어, 자식이 덮어쓰지
+  // 않으면 이 페이지가 "정식 URL은 홈"이라고 선언하게 된다. 그러면 검색엔진이
+  // 색인 대상에서 제외한다("대체 페이지, 적절한 canonical 태그 있음"). 2026-08-07 수정.
+  alternates: { canonical: '/legal/terms' },
 };
 
 /**
@@ -149,11 +153,12 @@ export default function TermsPage() {
       <h2>제9조 (요금 및 결제)</h2>
       <ol>
         <li>
-          서비스의 일부 기능(AI 동화·이미지 생성 등)은 회사가 정한 크레딧 또는
-          정기 구독 형태로 제공되며, 가격·수량·소비 정책은 결제 화면에 명시됩니다.
+          서비스의 일부 기능(AI 동화·이미지 생성 등)은 회사가 정한 별(크레딧)을
+          충전해 사용하는 형태로 제공되며(정기 구독 없음), 가격·수량·소비 정책은
+          결제 화면에 명시됩니다.
         </li>
         <li>
-          결제는 결제대행사 {b.paymentProcessor}을 통해 이루어지며, 회사는 결제
+          결제는 결제대행사 {b.paymentProcessor}를 통해 이루어지며, 회사는 결제
           처리에 필요한 최소한의 정보만 결제대행사와 안전하게 송수신합니다.
         </li>
         <li>

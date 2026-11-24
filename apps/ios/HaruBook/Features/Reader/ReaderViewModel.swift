@@ -54,7 +54,8 @@ enum ReaderTextScale: String, CaseIterable, Identifiable {
 @Observable
 @MainActor
 final class ReaderViewModel {
-    let book: Book
+    /// 목록에서 받은 스냅샷으로 시작. 상세 GET 후 최신 메타(genre/funFacts 등)로 교체.
+    private(set) var book: Book
     let profileId: Int
 
     var passages: [Passage] = []
@@ -111,6 +112,10 @@ final class ReaderViewModel {
             showsKorean = false
         }
         currentIndex = newIndex
+        // 로컬 위치는 페이지 전환 즉시 저장. 서버 PATCH와 독립 — 실패해도 재진입 복원은 유지.
+        if !passages.isEmpty {
+            Self.saveProgressIndex(bookId: book.id, index: newIndex)
+        }
         // 떠나는 페이지의 오디오 정지 — 문장이 3~6문장으로 길어져(오디오 30초+) 이전
         // 낭독이 다음 페이지까지 이어지면 "정지가 안 된다"는 혼란을 만든다.
         if let playingId = AudioPlayer.shared.nowPlayingPassageId,
@@ -165,6 +170,32 @@ final class ReaderViewModel {
 
     private static func missionDefaultsKey(bookId: Int) -> String {
         "reader:mission:\(bookId)"
+    }
+
+    // MARK: - 읽기 위치 복원 (웹 `reader:progress:{bookId}` 패리티)
+
+    /// 웹 `progressKey`와 동일한 키. 값만 UserDefaults Int.
+    /// `@MainActor` 클래스의 순수 헬퍼라 테스트/클램프에서 메인 격리 없이 호출한다.
+    nonisolated static func progressDefaultsKey(bookId: Int) -> String {
+        "reader:progress:\(bookId)"
+    }
+
+    /// 저장된 인덱스를 passage 개수 범위로 클램프. 책 재생성·페이지 수 변동 대비.
+    /// 저장값 없음/빈 책은 0.
+    nonisolated static func clampProgressIndex(_ saved: Int?, passageCount: Int) -> Int {
+        guard passageCount > 0 else { return 0 }
+        guard let saved else { return 0 }
+        return min(max(saved, 0), passageCount - 1)
+    }
+
+    private static func loadSavedIndex(bookId: Int) -> Int? {
+        let key = progressDefaultsKey(bookId: bookId)
+        guard UserDefaults.standard.object(forKey: key) != nil else { return nil }
+        return UserDefaults.standard.integer(forKey: key)
+    }
+
+    private static func saveProgressIndex(bookId: Int, index: Int) {
+        UserDefaults.standard.set(index, forKey: progressDefaultsKey(bookId: bookId))
     }
 
     private static func buildMissionIndex(book: Book) -> [Int: Mission] {
@@ -270,7 +301,13 @@ final class ReaderViewModel {
             let detail: BookDetail = try await APIClient.shared.send(
                 Endpoint(path: "/api/books/\(book.id)")
             )
+            // 상세 응답의 book을 사용해 genre/funFacts 등 확장 필드를 목록 스냅샷보다 우선.
+            self.book = detail.book
             self.passages = detail.passages.sorted(by: { $0.orderIndex < $1.orderIndex })
+            self.currentIndex = Self.clampProgressIndex(
+                Self.loadSavedIndex(bookId: detail.book.id),
+                passageCount: self.passages.count,
+            )
             self.isLoadingDetail = false
         } catch {
             self.error = error.localizedDescription

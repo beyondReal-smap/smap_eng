@@ -3,18 +3,12 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import {
-  AlertCircle,
-  BookOpen,
-  CheckCircle2,
-  Loader2,
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
 
-import { buttonVariants } from "@/components/ui/button";
+import { Mascot } from "@/components/haru";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { STAR_PACKAGES, formatKrw } from "@/lib/billing/packages";
 import { APP_HOME } from "@/lib/paths";
-import { cn } from "@/lib/utils";
 
 interface ConfirmResponse {
   ok: true;
@@ -127,21 +121,18 @@ export function PaymentConfirmFlow() {
       });
   }, [orderId, paymentKey, amountParam, router]);
 
+  // ---- 화면(그림책 세계 톤, 2026-09-30) — 위의 confirm 흐름은 그대로, 표현만 바꿨다. ----
+
   if (phase.kind === "verifying") {
     return (
-      <div className="flex flex-col items-center gap-6 py-10 text-center animate-fade-up">
-        <Loader2
-          aria-hidden
-          className="size-10 animate-spin text-primary"
-          strokeWidth={2.4}
-        />
+      <div role="status" className="flex flex-col items-center gap-4 py-10 text-center animate-fade-up">
+        <Mascot pose="reading" size={150} />
         <div className="space-y-2">
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight sm:text-3xl">
-            결제를 확인하고 있어요
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            잠시만 기다려 주세요. 별이 잔액에 추가되고 있어요.
-          </p>
+          <h1 className="text-2xl font-extrabold text-haru-ink sm:text-3xl">결제를 확인하고 있어요</h1>
+          <p className="text-sm font-bold text-haru-muted">잠시만 기다려 주세요. 별이 잔액에 추가되고 있어요.</p>
+        </div>
+        <div aria-hidden className="w-48">
+          <div className="shimmer h-2 w-full rounded-full" />
         </div>
       </div>
     );
@@ -149,41 +140,22 @@ export function PaymentConfirmFlow() {
 
   if (phase.kind === "error") {
     return (
-      <div className="flex flex-col items-center gap-6 text-center animate-fade-up">
-        <span
-          aria-hidden
-          className="inline-flex size-16 items-center justify-center rounded-full bg-destructive/15 text-destructive ring-4 ring-destructive/10"
-        >
-          <AlertCircle className="size-8" strokeWidth={2.2} />
-        </span>
+      <div className="flex flex-col items-center gap-5 text-center animate-fade-up">
+        <Mascot pose="worried" size={150} />
         <div className="space-y-2">
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight sm:text-3xl">
-            결제 확인에 실패했어요
-          </h1>
-          <p className="text-sm text-muted-foreground">{phase.message}</p>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-2xl font-extrabold text-haru-ink sm:text-3xl">결제 확인에 실패했어요</h1>
+          <p className="text-sm font-bold text-haru-ink">{phase.message}</p>
+          <p className="text-xs font-bold text-haru-muted">
             결제가 이미 처리되었다면 별 잔액을 확인하거나 고객센터로 문의해
             주세요.
           </p>
         </div>
-        <div className="flex flex-col gap-2.5 sm:flex-row">
-          <Link
-            href="/subscribe"
-            className={cn(
-              buttonVariants({ variant: "complete", size: "lg" }),
-              "h-11 px-5 text-sm",
-            )}
-          >
+        <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row">
+          <Link href="/subscribe" className={PRIMARY}>
             결제 페이지로 돌아가기
           </Link>
-          <Link
-            href={APP_HOME}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "lg" }),
-              "h-11 px-5 text-sm",
-            )}
-          >
-            홈으로
+          <Link href={APP_HOME} className={SECONDARY}>
+            책장으로
           </Link>
         </div>
       </div>
@@ -193,65 +165,43 @@ export function PaymentConfirmFlow() {
   const pack = STAR_PACKAGES.find((p) => p.id === packId);
 
   return (
-    <div className="flex flex-col items-center gap-8 text-center">
-      <span
-        aria-hidden
-        className="inline-flex size-16 items-center justify-center rounded-full bg-primary/15 text-primary ring-4 ring-primary/10 animate-pop-in"
-      >
-        <CheckCircle2 className="size-8" strokeWidth={2.2} />
-      </span>
+    <div className="flex flex-col items-center gap-5 text-center">
+      <Mascot pose="cheer" size={190} className="animate-pop-in max-sm:size-[160px]" />
 
-      <div className="space-y-3 animate-fade-up">
-        <h1 className="font-heading text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">
-          별이 충전됐어요!
+      <div className="space-y-2 animate-fade-up">
+        <h1 className="text-[28px] font-extrabold leading-tight text-haru-ink">
+          별 {phase.stars.toLocaleString("ko-KR")}개가 도착했어요!
         </h1>
-        <p className="text-base text-muted-foreground">
-          {pack
-            ? `${pack.name} (${formatKrw(pack.priceKrw)}) · 별 ${phase.stars.toLocaleString("ko-KR")}개가 잔액에 추가되었어요.`
-            : `별 ${phase.stars.toLocaleString("ko-KR")}개가 잔액에 추가되었어요.`}
-          <br />이제 아이에게 딱 맞는 첫 동화를 만들어 드릴게요.
+        <p className="text-sm font-bold text-haru-muted">
+          {pack ? `${pack.name} (${formatKrw(pack.priceKrw)}) · ` : ""}새 동화가 기다리고 있어요
         </p>
       </div>
 
-      <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:justify-center">
-        <Link
-          href={APP_HOME}
-          className={cn(
-            buttonVariants({ variant: "complete", size: "lg" }),
-            "h-12 px-6 text-base",
-          )}
-        >
-          <BookOpen className="size-4" />
-          동화 만들러 가기
+      <div className="flex w-full flex-col gap-2.5">
+        <Link href={APP_HOME} className={PRIMARY}>
+          <Sparkles aria-hidden className="size-5" />
+          새 동화 만들러 가기
         </Link>
         {phase.receiptUrl ? (
-          <a
-            href={phase.receiptUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "lg" }),
-              "h-12 px-6 text-base",
-            )}
-          >
+          <a href={phase.receiptUrl} target="_blank" rel="noreferrer noopener" className={SECONDARY}>
             영수증 보기
           </a>
         ) : (
-          <Link
-            href="/parents"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "lg" }),
-              "h-12 px-6 text-base",
-            )}
-          >
+          <Link href="/parents" className={SECONDARY}>
             이용 내역 보기
           </Link>
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        충전 내역과 영수증은 보호자 모드에서 다시 확인할 수 있어요.
+      <p className="text-xs font-bold text-haru-muted">
+        책장 첫 칸의 &lsquo;새 동화 만들기&rsquo;를 누르면 돼요. 충전 내역과 영수증은 보호자 모드에서 다시 확인할 수 있어요.
       </p>
     </div>
   );
 }
+
+/** 코랄 채움 큰 버튼 / 테두리 버튼 — 결제 결과 화면 공용. */
+const PRIMARY =
+  "inline-flex min-h-[62px] items-center justify-center gap-2 rounded-full bg-haru-coral px-6 text-lg font-extrabold text-haru-on-coral shadow-[0_10px_20px_rgb(245_131_92/0.35)] transition-transform hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none";
+const SECONDARY =
+  "inline-flex min-h-[56px] items-center justify-center gap-2 rounded-full border-[2.5px] border-[#ebc9b6] bg-white/80 px-6 text-base font-extrabold text-haru-ink transition-transform active:scale-[0.98] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none";

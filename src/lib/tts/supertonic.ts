@@ -8,8 +8,8 @@ const SUPERTONIC_BASE_URL =
 const SUPERTONIC_VOICE_DEFAULT = process.env.SUPERTONIC_VOICE ?? 'F1';
 
 // 어린이 학습용 기본 발화 속도. 합성 단계에서 약간 느리게 만든다(클라이언트
-// playbackRate 0.75와 누적되어 최종 재생 속도가 결정됨). Supertonic 허용 범위
-// 0.7~2.0 안에서만 적용하고, 잘못된 env는 기본값으로 안전 폴백.
+// playbackRate 1.06과 누적되어 최종 재생 속도 ≈ 0.85 × 1.06 ≈ 0.9배로 결정됨).
+// Supertonic 허용 범위 0.7~2.0 안에서만 적용하고, 잘못된 env는 기본값으로 안전 폴백.
 const SUPERTONIC_SPEED_DEFAULT = (() => {
   const raw = process.env.SUPERTONIC_SPEED;
   if (!raw) return 0.85;

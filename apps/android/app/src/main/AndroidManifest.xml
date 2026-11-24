@@ -38,6 +38,19 @@
                     android:scheme="smapeng"
                     android:host="auth" />
             </intent-filter>
+
+            <!-- App Links — https://eng.smap.site/link* 가 앱으로 열린다.
+                 검증: 웹 /.well-known/assetlinks.json (Play 앱 서명 키 SHA-256).
+                 /link 로 한정해 웹 OAuth·결제 리다이렉트를 가로채지 않는다. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="eng.smap.site" />
+                <data android:path="/link" />
+                <data android:pathPrefix="/link/" />
+            </intent-filter>
         </activity>
 
         <!-- 일일 단어 복습 알림. AlarmManager → BroadcastReceiver → Notification. -->

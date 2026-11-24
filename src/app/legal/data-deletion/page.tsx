@@ -4,6 +4,9 @@ import { BUSINESS_INFO } from '@/lib/legal/business';
 export const metadata: Metadata = {
   title: '데이터 삭제 요청',
   description: `${BUSINESS_INFO.serviceName} 사용자 데이터 삭제 절차. 계정 전체 삭제 외에 일부 데이터(자녀 프로필·동화·학습 기록·단어장)만 선택 삭제 요청도 가능합니다.`,
+  // 루트 layout의 `canonical: '/'` 상속을 끊는다. sitemap에는 넣지 않았지만
+  // Google Play Data Safety 심사에서 직접 URL로 접근하므로 자기 자신을 가리켜야 한다.
+  alternates: { canonical: '/legal/data-deletion' },
 };
 
 /**

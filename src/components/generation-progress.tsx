@@ -57,13 +57,14 @@ export function GenerationProgress({ expectedMs = 35_000 }: Props) {
   const current = stageIndex(pct);
 
   return (
-    <div className="space-y-5 py-3" role="status" aria-live="polite">
+    // 그림책 세계 톤(2026-09-30) — 곰 말풍선 아래 흰 카드. 진행 규칙·단계는 그대로.
+    <div className="space-y-5 rounded-[20px] bg-white px-4 py-4 shadow-[0_6px_16px_rgb(168_111_63/0.12)]" role="status" aria-live="polite">
       {/* H3 급 현재 단계 — 본문의 대표 정보. */}
       <div className="space-y-1">
-        <p className="text-base font-bold tracking-tight">
+        <p className="text-base font-extrabold tracking-tight text-haru-ink">
           {STAGES[current].label}
         </p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm font-bold text-haru-muted">
           {STAGES[current].hint}
         </p>
       </div>
@@ -80,12 +81,12 @@ export function GenerationProgress({ expectedMs = 35_000 }: Props) {
           return (
             <li
               key={s.label}
-              className={`flex items-center justify-center rounded-md border px-1.5 py-1 text-center font-medium transition ${
+              className={`flex items-center justify-center rounded-lg border-2 px-1.5 py-1 text-center font-bold transition ${
                 done
-                  ? 'border-transparent bg-[color:var(--level-a1)] text-[color:var(--level-a1-fg)]'
+                  ? 'border-transparent bg-haru-success-soft text-haru-success-ink'
                   : active
-                    ? 'border-primary/60 bg-primary/10 text-primary'
-                    : 'border-border bg-card text-muted-foreground'
+                    ? 'border-haru-coral bg-[#fff1ea] text-haru-coral-ink'
+                    : 'border-[#f0dcc8] bg-haru-paper text-haru-muted'
               }`}
               aria-current={active ? 'step' : undefined}
             >
@@ -97,7 +98,7 @@ export function GenerationProgress({ expectedMs = 35_000 }: Props) {
       </ol>
 
       {/* Meta 안내 */}
-      <p className="text-[11px] text-muted-foreground">
+      <p className="text-xs font-bold text-haru-muted">
         평균 10~30초가 걸려요. 잠시만 기다려 주세요.
       </p>
     </div>

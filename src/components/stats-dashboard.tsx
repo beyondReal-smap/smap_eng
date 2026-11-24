@@ -1,382 +1,261 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
-import { Progress } from '@/components/ui/progress';
-import { EmptyState } from '@/components/ui/empty-state';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
+import { Mascot, TabHeader } from '@/components/haru';
 import { apiFetch } from '@/lib/api-client';
 import type {
   BookProgressStat,
   LearningSummary as Summary,
   VocabEntry,
 } from '@/lib/db/queries';
-import type { Book, CefrLevel } from '@/lib/db/schema';
-import { isUnknown, loadStore, type SrsStore } from '@/lib/srs';
+import type { Book, Profile } from '@/lib/db/schema';
+import { APP_HOME } from '@/lib/paths';
+import { computePoints } from '@/lib/rewards';
+import { currentLevel, levelRows } from '@/lib/stats/records';
+import { weeklyStreak } from '@/lib/weekly-streak';
 import { useProfileStore } from '@/stores/profile';
+import { AdventurePath } from './stats/adventure-path';
+import { MiniStats, ReadingTree } from './stats/reading-tree';
+import { StampBoard, StreakChip } from './stats/stamp-board';
+import { StickerBook } from './stats/sticker-book';
 
-const CEFR_ORDER: CefrLevel[] = ['A1', 'A2', 'B1', 'B2'];
-
-const CEFR_CLASS: Record<CefrLevel, string> = {
-  A1: 'bg-[color:var(--level-a1)] text-[color:var(--level-a1-fg)]',
-  A2: 'bg-[color:var(--level-a2)] text-[color:var(--level-a2-fg)]',
-  B1: 'bg-[color:var(--level-b1)] text-[color:var(--level-b1-fg)]',
-  B2: 'bg-[color:var(--level-b2)] text-[color:var(--level-b2-fg)]',
-};
-
-const CEFR_BAR_BG: Record<CefrLevel, string> = {
-  A1: 'bg-[color:var(--level-a1)]',
-  A2: 'bg-[color:var(--level-a2)]',
-  B1: 'bg-[color:var(--level-b1)]',
-  B2: 'bg-[color:var(--level-b2)]',
-};
+interface Loaded {
+  profileId: number;
+  summary: Summary;
+  books: Book[];
+  stats: Record<number, BookProgressStat>;
+  vocab: VocabEntry[];
+}
 
 /**
- * 학습 통계 대시보드.
+ * 통계 탭 — "{이름}의 독서 기록"(그림책 세계, 네이티브 7차와 같은 구성).
+ * 숫자 타일 대신 아이가 한눈에 즐길 수 있는 그림: 독서 나무(완독 = 열매) + 미니 수치 → 칭찬 도장판 →
+ * 스티커 북(배지) → 레벨 모험 길. 아래에 웹에서 쓰던 "최근 퀴즈" 목록을 보호자용으로 남긴다.
  *
- * 기존 API 3개를 조합해 단일 페이지에서 성취를 한눈에 보게 한다:
- *  - /api/learning-summary (누적 지표 + 월 흔적)
- *  - /api/books            (책 목록 + 진도 stats)
- *  - /api/vocab            (어휘 목록, SRS는 localStorage)
- *
- * 부모·아이 공용 요약 뷰. 보호자 전용 리포트(/parents)와는 성격이 다르다.
+ * 데이터는 기존 API 3개 그대로: /api/learning-summary · /api/books(진도 stats) · /api/vocab(첫 실행 판정).
  */
-export function StatsDashboard() {
+export function StatsDashboard({ initialProfiles = [] }: { initialProfiles?: Profile[] }) {
   const hasHydrated = useProfileStore((s) => s.hasHydrated);
-  const profileId = useProfileStore((s) => s.currentProfileId);
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [stats, setStats] = useState<Record<number, BookProgressStat>>({});
-  const [vocab, setVocab] = useState<VocabEntry[]>([]);
-  const [srs, setSrs] = useState<SrsStore>({});
-  // 초기값 true: persist hydration 전 EmptyState 깜빡임 방지.
-  const [loading, setLoading] = useState(true);
+  const storeProfileId = useProfileStore((s) => s.currentProfileId);
+  // 저장된 프로필이 없으면 첫 프로필(ProfileSwitcher가 곧 고르는 값)을 쓴다 — 책장과 같은 규칙.
+  const profileId = hasHydrated ? (storeProfileId ?? initialProfiles[0]?.id ?? null) : null;
+  const profileName = initialProfiles.find((p) => p.id === profileId)?.name ?? null;
+
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const [error, setError] = useState<{ profileId: number; message: string } | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    if (!hasHydrated) return;
-    if (!profileId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+    if (profileId === null) return;
+    const controller = new AbortController();
+    const { signal } = controller;
     Promise.all([
-      apiFetch<{ summary: Summary }>(
-        `/api/learning-summary?profileId=${profileId}`,
+      apiFetch<{ summary: Summary }>(`/api/learning-summary?profileId=${profileId}`, { signal }),
+      apiFetch<{ books: Book[]; stats: Record<number, BookProgressStat> }>(
+        `/api/books?profileId=${profileId}`,
+        { signal },
       ),
-      apiFetch<{
-        books: Book[];
-        stats: Record<number, BookProgressStat>;
-      }>(`/api/books?profileId=${profileId}`),
-      apiFetch<{ entries: VocabEntry[] }>(`/api/vocab?profileId=${profileId}`),
+      apiFetch<{ entries: VocabEntry[] }>(`/api/vocab?profileId=${profileId}`, { signal }),
     ])
       .then(([a, b, c]) => {
-        setSummary(a.summary);
-        setBooks(b.books);
-        setStats(b.stats ?? {});
-        setVocab(c.entries);
+        setLoaded({ profileId, summary: a.summary, books: b.books, stats: b.stats ?? {}, vocab: c.entries });
+        setError(null);
       })
-      .catch((err) => toast.error(`통계 로드 실패: ${err.message}`))
-      .finally(() => setLoading(false));
-    setSrs(loadStore(profileId));
-  }, [hasHydrated, profileId]);
-
-  // 레벨별 책 수 + 평균 정답률
-  const levelStats = useMemo(() => {
-    const out: Record<
-      CefrLevel,
-      { count: number; finished: number; avg: number | null }
-    > = {
-      A1: { count: 0, finished: 0, avg: null },
-      A2: { count: 0, finished: 0, avg: null },
-      B1: { count: 0, finished: 0, avg: null },
-      B2: { count: 0, finished: 0, avg: null },
-    };
-    const scoreAcc: Record<CefrLevel, number[]> = {
-      A1: [],
-      A2: [],
-      B1: [],
-      B2: [],
-    };
-    for (const b of books) {
-      const lvl = b.cefr;
-      out[lvl].count += 1;
-      const s = stats[b.id];
-      if (s) {
-        if (s.finishedAtUnix !== null) out[lvl].finished += 1;
-        if (s.quizScore !== null) scoreAcc[lvl].push(s.quizScore / 5);
-      }
-    }
-    for (const lvl of CEFR_ORDER) {
-      const list = scoreAcc[lvl];
-      if (list.length > 0) {
-        out[lvl].avg = list.reduce((a, v) => a + v, 0) / list.length;
-      }
-    }
-    return out;
-  }, [books, stats]);
-
-  const maxLevelCount = Math.max(1, ...CEFR_ORDER.map((l) => levelStats[l].count));
-
-  // 최근 퀴즈 결과 TOP 8 — startedAtUnix 내림차순
-  const recentQuizzes = useMemo(() => {
-    type Row = {
-      bookId: number;
-      title: string;
-      cefr: CefrLevel;
-      score: number;
-      at: number;
-    };
-    const titleMap = new Map(books.map((b) => [b.id, b]));
-    const rows: Row[] = [];
-    for (const [idStr, s] of Object.entries(stats)) {
-      const id = Number(idStr);
-      const b = titleMap.get(id);
-      if (!b || s.quizScore === null) continue;
-      rows.push({
-        bookId: id,
-        title: b.title,
-        cefr: b.cefr,
-        score: s.quizScore,
-        at: s.startedAtUnix,
+      .catch((err: unknown) => {
+        if (signal.aborted) return;
+        console.error('[stats] load failed:', err);
+        setError({ profileId, message: (err as Error).message });
       });
-    }
-    rows.sort((a, b) => b.at - a.at);
-    return rows.slice(0, 8);
-  }, [books, stats]);
+    return () => controller.abort();
+  }, [profileId, reloadKey]);
 
-  // 단어장 SRS 현황
-  const vocabBreakdown = useMemo(() => {
-    const seen = new Set<string>();
-    const unique: VocabEntry[] = [];
-    for (const e of vocab) {
-      const k = e.word.toLowerCase();
-      if (seen.has(k)) continue;
-      seen.add(k);
-      unique.push(e);
-    }
-    let unknown = 0;
-    let mastering = 0;
-    let fresh = 0;
-    for (const e of unique) {
-      const item = srs[e.word.trim().toLowerCase().replace(/[.,!?;:"']/g, '')];
-      if (!item) {
-        fresh += 1;
-        continue;
-      }
-      if (item.level === 0 && item.lastGradedAt > 0) {
-        unknown += 1;
-      } else {
-        mastering += 1;
-      }
-    }
-    // 별도 호출: isUnknown을 쓸 수도 있지만 fresh 구분이 필요해서 직접 계산.
-    void isUnknown; // 사용처 유지(향후 확장 대비)
-    return {
-      total: unique.length,
-      unknown,
-      mastering,
-      fresh,
-    };
-  }, [vocab, srs]);
+  const data = loaded && loaded.profileId === profileId ? loaded : null;
+  const failed = error && error.profileId === profileId && !data;
+  const retry = useCallback(() => {
+    setError(null);
+    setReloadKey((k) => k + 1);
+  }, []);
 
-  // hydration 전·summary 도착 전에는 무조건 Skeleton 우선.
-  if (!hasHydrated || (loading && !summary)) {
-    return <Skeleton />;
-  }
-  if (!profileId) {
+  const streak = useMemo(
+    () =>
+      data
+        ? weeklyStreak(new Set([...data.summary.activeDaysThisWeek, ...data.summary.activeDaysThisMonth])).streak
+        : 0,
+    [data],
+  );
+
+  const title = profileName ? `${profileName}의 독서 기록` : '독서 기록';
+  const header = (
+    <TabHeader title={title} trailing={streak >= 2 ? <StreakChip streak={streak} variant="header" /> : null} />
+  );
+
+  if (hasHydrated && profileId === null) {
     return (
-      <EmptyState title="누가 볼 거예요?" text="먼저 프로필을 선택해 주세요." />
+      <>
+        {header}
+        <StateMessage pose="normal" title="누가 볼 거예요?" text="먼저 오른쪽 위에서 프로필을 골라 주세요." />
+      </>
+    );
+  }
+  if (failed) {
+    return (
+      <>
+        {header}
+        <StateMessage
+          pose="worried"
+          title="독서 기록을 열지 못했어요"
+          text="연결 상태를 확인한 뒤 다시 시도해 주세요."
+          action={
+            <button
+              type="button"
+              onClick={retry}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border-2 border-[#ebc9b6] bg-white/80 px-5 text-sm font-extrabold text-haru-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <RotateCcw aria-hidden className="size-4" />
+              다시 시도
+            </button>
+          }
+        />
+      </>
+    );
+  }
+  if (!data) {
+    return (
+      <>
+        {header}
+        <StatsSkeleton />
+      </>
     );
   }
 
+  const { summary, books, stats, vocab } = data;
+  // 첫 실행(기록 0) — 나무(열매 0)·빈 도장판만. 스티커·모험 길은 기록이 생긴 뒤에.
+  const isFirstRun = summary.totalBooksRead === 0 && summary.totalFinishedSessions === 0 && vocab.length === 0;
+
   return (
-    <div className="space-y-8">
-      {/* 누적 지표 */}
-      <section>
-        <h2 className="mb-3 text-lg font-bold tracking-tight">누적 성취</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <BigStat
-            label="읽은 책"
-            value={summary?.totalBooksRead ?? 0}
-            unit="권"
-          />
-          <BigStat
-            label="완독 세션"
-            value={summary?.totalFinishedSessions ?? 0}
-            unit="회"
-          />
-          <BigStat
-            label="만점"
-            value={summary?.totalPerfectScores ?? 0}
-            unit="회"
-          />
-          <BigStat
-            label="평균 정답률"
-            value={
-              summary?.averageAccuracy !== null && summary?.averageAccuracy !== undefined
-                ? Math.round(summary.averageAccuracy * 100)
-                : 0
-            }
-            unit="%"
-          />
+    <>
+      {header}
+      <div className="mt-3 grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-8">
+        <div className="space-y-2.5">
+          <ReadingTree booksRead={summary.totalBooksRead} />
+          {isFirstRun ? (
+            <Link
+              href={APP_HOME}
+              className="flex min-h-[52px] items-center justify-center gap-2 rounded-full bg-haru-coral-soft text-base font-extrabold text-haru-coral-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <span aria-hidden>📚</span>
+              책장으로 가기
+            </Link>
+          ) : (
+            <MiniStats
+              finishedSessions={summary.totalFinishedSessions}
+              perfectScores={summary.totalPerfectScores}
+              averageAccuracy={summary.averageAccuracy}
+              points={computePoints(summary)}
+            />
+          )}
         </div>
-      </section>
 
-      {/* 레벨별 분포 */}
-      <section>
-        <h2 className="mb-3 text-lg font-bold tracking-tight">
-          레벨별 독서량
-        </h2>
-        <div className="space-y-2 rounded-2xl border border-border bg-card p-4 shadow-sm">
-          {CEFR_ORDER.map((lvl) => {
-            const row = levelStats[lvl];
-            const widthPct = (row.count / maxLevelCount) * 100;
-            return (
-              <div key={lvl} className="flex items-center gap-3">
-                <span
-                  className={`${CEFR_CLASS[lvl]} inline-flex h-6 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold`}
-                >
-                  {lvl}
-                </span>
-                <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-muted">
-                  <div
-                    className={`${CEFR_BAR_BG[lvl]} h-full rounded-md transition-all`}
-                    style={{ width: `${widthPct}%` }}
-                    aria-hidden
-                  />
-                </div>
-                <span className="w-36 shrink-0 whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums sm:w-40">
-                  {row.count}권 · 완독 {row.finished}
-                  {row.avg !== null ? ` · ${Math.round(row.avg * 100)}%` : ''}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+        <StampBoard thisMonth={summary.thisMonth} activeDays={summary.activeDaysThisMonth} streak={streak} />
 
-      {/* 단어장 현황 */}
-      <section>
-        <h2 className="mb-3 text-lg font-bold tracking-tight">단어장</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <BigStat
-            label="누적"
-            value={vocabBreakdown.total}
-            unit="개"
-          />
-          <BigStat
-            label="아직 안 본 단어"
-            value={vocabBreakdown.fresh}
-            unit="개"
-          />
-          <BigStat
-            label="모르는 단어"
-            value={vocabBreakdown.unknown}
-            unit="개"
-            highlight="destructive"
-          />
-          <BigStat
-            label="학습 중"
-            value={vocabBreakdown.mastering}
-            unit="개"
-            highlight="good"
-          />
-        </div>
-      </section>
-
-      {/* 최근 퀴즈 */}
-      <section>
-        <h2 className="mb-3 text-lg font-bold tracking-tight">
-          최근 퀴즈 결과
-        </h2>
-        {recentQuizzes.length === 0 ? (
-          <EmptyState
-            title="아직 풀어본 퀴즈가 없어요"
-            text="책을 다 읽으면 4지선다 5문제가 기다려요."
-          />
-        ) : (
-          <ul className="space-y-2">
-            {recentQuizzes.map((q) => {
-              const pct = (q.score / 5) * 100;
-              const isPerfect = q.score === 5;
-              return (
-                <li
-                  key={`${q.bookId}-${q.at}`}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 shadow-sm"
-                >
-                  <span
-                    className={`${CEFR_CLASS[q.cefr]} inline-flex h-6 w-9 shrink-0 items-center justify-center rounded-md text-xs font-bold`}
-                  >
-                    {q.cefr}
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm font-medium">
-                    {q.title}
-                  </span>
-                  <div className="hidden w-24 sm:block">
-                    <Progress value={pct} className="h-1.5 rounded-full" />
-                  </div>
-                  <span
-                    className={`w-12 shrink-0 text-right text-sm font-bold tabular-nums ${
-                      isPerfect
-                        ? 'text-[color:var(--level-a1-fg)]'
-                        : pct >= 60
-                          ? 'text-foreground'
-                          : 'text-[color:var(--destructive)]'
-                    }`}
-                  >
-                    {q.score}/5
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-    </div>
+        {!isFirstRun ? (
+          <>
+            <StickerBook stats={summary} />
+            <AdventurePath rows={levelRows(books, stats)} current={currentLevel(books, stats)} />
+            <RecentQuizzes books={books} stats={stats} />
+          </>
+        ) : null}
+      </div>
+    </>
   );
 }
 
-function BigStat({
-  label,
-  value,
-  unit,
-  highlight,
+/**
+ * 최근 퀴즈 결과(웹에만 있던 목록 — 보호자가 책별 점수를 찾아볼 수 있게 맨 아래에 남긴다).
+ * 획득한 것만 보여 주는 톤: 점수는 별 개수로, 빨간색 없이.
+ */
+function RecentQuizzes({
+  books,
+  stats,
 }: {
-  label: string;
-  value: number;
-  unit: string;
-  highlight?: 'destructive' | 'good';
+  books: Book[];
+  stats: Record<number, BookProgressStat>;
 }) {
-  const toneClass =
-    highlight === 'destructive'
-      ? 'text-[color:var(--destructive)]'
-      : highlight === 'good'
-        ? 'text-[color:var(--level-a1-fg)]'
-        : 'text-foreground';
+  const rows = useMemo(() => {
+    const byId = new Map(books.map((b) => [b.id, b]));
+    return Object.entries(stats)
+      .flatMap(([id, s]) => {
+        const book = byId.get(Number(id));
+        return book && s.quizScore !== null ? [{ book, score: s.quizScore, at: s.startedAtUnix }] : [];
+      })
+      .sort((a, b) => b.at - a.at)
+      .slice(0, 8);
+  }, [books, stats]);
+  if (rows.length === 0) return null;
+
   return (
-    <div className="rounded-xl border border-border bg-card px-3 py-3 shadow-sm">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-        {label}
-      </div>
-      <div className={`mt-1 text-2xl font-bold tabular-nums ${toneClass}`}>
-        {value}
-        <span className="ml-0.5 text-sm font-medium text-muted-foreground">
-          {unit}
-        </span>
-      </div>
+    <section aria-labelledby="recent-quiz-title" className="space-y-3 lg:col-span-2">
+      <h2 id="recent-quiz-title" className="px-1 text-lg font-extrabold tracking-normal text-haru-ink">최근 퀴즈</h2>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {rows.map(({ book, score, at }) => (
+          <li key={`${book.id}-${at}`}>
+            <Link
+              href={`/book/${book.id}`}
+              className="flex min-h-12 items-center gap-3 rounded-2xl bg-white/90 px-3.5 py-2.5 shadow-[0_3px_8px_rgb(168_111_63/0.08)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+            >
+              <span className="shrink-0 rounded-md bg-haru-paper px-1.5 py-0.5 text-xs font-extrabold text-haru-muted">
+                {book.cefr}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-reading text-sm font-bold text-haru-ink">{book.title}</span>
+              <span className="shrink-0 text-sm font-extrabold tabular-nums text-haru-ink">
+                <span aria-hidden className="text-haru-star">★ </span>
+                {score} / 5
+                <span className="sr-only">개 정답</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function StateMessage({
+  pose,
+  title,
+  text,
+  action,
+}: {
+  pose: 'normal' | 'worried';
+  title: string;
+  text: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div role="status" className="flex flex-col items-center py-14 text-center">
+      <Mascot pose={pose} size={120} />
+      <p className="mt-3 text-lg font-extrabold text-haru-ink">{title}</p>
+      <p className="mt-1 text-sm font-bold text-haru-muted">{text}</p>
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }
 
-function Skeleton() {
+/** 불러오는 동안 — 나무·도장판 자리(`stats/loading.tsx`와 같은 모양). */
+export function StatsSkeleton() {
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="shimmer h-20 rounded-xl" />
-        ))}
+    <div aria-hidden className="mt-3 grid gap-6 lg:grid-cols-2 lg:gap-8">
+      <div className="space-y-2.5">
+        <div className="h-[330px] animate-pulse rounded-[24px] bg-white/60 motion-reduce:animate-none" />
+        <div className="grid grid-cols-4 gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-[62px] animate-pulse rounded-[14px] bg-white/60 motion-reduce:animate-none" />
+          ))}
+        </div>
       </div>
-      <div className="shimmer h-40 rounded-2xl" />
-      <div className="shimmer h-24 rounded-2xl" />
+      <div className="h-[420px] animate-pulse rounded-[22px] bg-white/50 motion-reduce:animate-none" />
     </div>
   );
 }

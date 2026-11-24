@@ -152,10 +152,13 @@ export async function getBookProgressMap(
 
 export async function listLogsByProfile(
   profileId: number,
+  bookId?: number,
 ): Promise<ReadingLog[]> {
+  const conditions = [eq(readingLogs.profileId, profileId)];
+  if (bookId !== undefined) conditions.push(eq(readingLogs.bookId, bookId));
   return db
     .select()
     .from(readingLogs)
-    .where(eq(readingLogs.profileId, profileId))
+    .where(and(...conditions))
     .orderBy(desc(readingLogs.startedAt));
 }

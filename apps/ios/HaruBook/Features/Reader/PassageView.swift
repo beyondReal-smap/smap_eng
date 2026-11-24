@@ -15,6 +15,8 @@ struct PassageView: View {
     let onWordTap: (String) -> Void
     /// 확인 질문(check) 정답 시 호출.
     let onMissionComplete: () -> Void
+    /// 논픽션 마지막 페이지에만 전달. nil/빈 배열이면 섹션 숨김.
+    var funFacts: [FunFact]? = nil
 
     var body: some View {
         ScrollView {
@@ -43,6 +45,10 @@ struct PassageView: View {
                             insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
                             removal: .opacity,
                         ))
+                }
+
+                if let funFacts, !funFacts.isEmpty {
+                    FunFactsSection(facts: funFacts)
                 }
             }
             .padding(.horizontal, 24)
@@ -144,6 +150,63 @@ struct PassageView: View {
             map[key] = entry
         }
         return map
+    }
+}
+
+/// 논픽션 재미사실 — 웹 reader.tsx "더 알기" 섹션. 디자인 토큰만 사용.
+private struct FunFactsSection: View {
+    let facts: [FunFact]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text("📚")
+                    Text("더 알기")
+                        .font(Font.atozBold(20))
+                        .foregroundStyle(Color.smapText)
+                }
+                Text("오늘 읽은 내용에서 한 걸음 더 깊이 들어가 볼까요?")
+                    .font(.smapCaption)
+                    .foregroundStyle(Color.smapMuted)
+            }
+
+            VStack(spacing: 10) {
+                ForEach(Array(facts.enumerated()), id: \.offset) { _, fact in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(fact.title)
+                            .font(.smapBodyEmphasis)
+                            .foregroundStyle(Color.smapText)
+                        Text(fact.body)
+                            .font(.smapCaption)
+                            .foregroundStyle(Color.smapMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        Color.smapMutedBg,
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous),
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.smapBorder, lineWidth: 1),
+                    )
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color.smapSurface,
+            in: RoundedRectangle(cornerRadius: 20, style: .continuous),
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.smapBorder, lineWidth: 1),
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("더 알기")
     }
 }
 

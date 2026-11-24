@@ -1,23 +1,29 @@
 'use client';
 
+import { Mascot, type MascotPose } from '@/components/haru';
+
 /**
- * 단어장 학습 컴패니언 — CSS/이모지 스텁.
+ * 단어장 학습 컴패니언 — 그림책 곰(2026-09-30, 기존 부엉이 이모지 대체).
  *
  * 렌더 레이어만 담당하는 프레젠테이션 컴포넌트: 상태 전이(정답/오답/축하 → idle
- * 복귀 타이머)는 부모(vocab-deck)가 소유한다. 추후 Rive 캐릭터로 승격할 때
- * 이 파일 내부만 교체하면 되도록 상태 계약(CompanionState)을 고정해 둔다.
- * Rive 도입 시 번들 영향이 생기므로 그때 next/dynamic 지연 로드로 전환할 것.
+ * 복귀 타이머)는 부모(vocab-deck)가 소유한다. 상태 계약(CompanionState)은 iOS/Android와 같다.
+ * 곰은 카드 **뒤**에서 윗변 위로 머리만 내밀고(카드 내용을 가리지 않게), 말풍선은 반응할 때만
+ * 카드 앞 윗변 위에 잠깐 뜬다(iOS VocabCompanionView 8차).
  *
  * 톤: 오답도 격려만 한다 — 압박/결핍 문구 금지.
  */
 
 export type CompanionState = 'idle' | 'correct' | 'wrong' | 'celebrate';
 
-const FACE: Record<CompanionState, string> = {
-  idle: '🦉',
-  correct: '🥳',
-  wrong: '🤗',
-  celebrate: '🎉',
+/** 카드 윗변 위로 보이는 곰 높이(px) — 나머지는 카드 뒤에 숨는다. */
+export const COMPANION_PEEK = 44;
+
+// 상태별 곰 포즈 — iOS VocabCompanionView와 같은 매핑(오답도 격려: 책 읽는 곰).
+const POSE: Record<CompanionState, MascotPose> = {
+  idle: 'normal',
+  correct: 'cheer',
+  wrong: 'reading',
+  celebrate: 'cheer',
 };
 
 const MESSAGES: Record<CompanionState, string[]> = {
@@ -42,33 +48,58 @@ const ANIMATION: Record<CompanionState, string> = {
   celebrate: 'animate-trophy',
 };
 
-export function VocabCompanion({
+/** 카드 오른쪽 위에 걸터앉은 곰(70). 장식이라 스크린 리더에서 숨긴다. */
+export function VocabCompanionMascot({
   state,
   pulse,
 }: {
   state: CompanionState;
-  /** 같은 state가 연속돼도 연출·문구가 갱신되도록 하는 카운터. */
+  /** 같은 state가 연속돼도 연출이 다시 재생되도록 하는 카운터. */
   pulse: number;
 }) {
-  const messages = MESSAGES[state];
-  const message = messages[pulse % messages.length];
   return (
-    <div
-      className="flex items-center gap-2.5"
-      role="status"
-      aria-live="polite"
+    <span
+      // key로 재마운트를 강제해 연속 정답에서도 애니메이션이 다시 재생되게 한다.
+      key={`${state}-${pulse}`}
+      aria-hidden
+      className={`inline-flex origin-bottom motion-reduce:animate-none ${ANIMATION[state]}`}
     >
-      <span
-        // key로 재마운트를 강제해 연속 정답에서도 애니메이션이 다시 재생되게 한다.
-        key={`${state}-${pulse}`}
-        aria-hidden
-        className={`inline-flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-border/70 bg-card text-2xl sticker-shadow motion-reduce:animate-none ${ANIMATION[state]}`}
-      >
-        {FACE[state]}
-      </span>
-      <p className="rounded-2xl rounded-bl-sm border border-border/60 bg-card px-3 py-1.5 text-sm font-medium text-foreground/90">
-        {message}
-      </p>
+      <Mascot pose={POSE[state]} size={70} />
+    </span>
+  );
+}
+
+/**
+ * 반응 말풍선 — idle이면 그리지 않는다. 꼬리는 오른쪽(곰 쪽).
+ * 문구는 스크린 리더에도 알린다(role=status).
+ */
+export function VocabCompanionBubble({
+  state,
+  pulse,
+  messageOverride,
+}: {
+  state: CompanionState;
+  pulse: number;
+  /** 순환 대사 대신 보여 줄 고정 대사(예: "오늘 목표 달성!"). */
+  messageOverride?: string | null;
+}) {
+  const messages = MESSAGES[state];
+  const message = messageOverride ?? messages[pulse % messages.length];
+  return (
+    <div role="status" aria-live="polite" className="pointer-events-none">
+      {state !== 'idle' ? (
+        <div
+          key={`${state}-${pulse}`}
+          className="relative mr-[10px] max-w-[190px] animate-pop-in [filter:drop-shadow(0_6px_8px_rgb(168_111_63/0.14))] motion-reduce:animate-none"
+        >
+          <p className="rounded-[20px] bg-white px-4 py-[11px] text-sm font-bold leading-snug text-haru-ink">
+            {message}
+          </p>
+          <svg aria-hidden viewBox="0 0 11 20" className="absolute bottom-[10px] right-[-10px] h-5 w-[11px] fill-white">
+            <path d="M0 0 L11 10 L0 20 Z" />
+          </svg>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import {
   useCallback,
   useEffect,
@@ -9,11 +8,8 @@ import {
   useState,
 } from 'react';
 import { toast } from 'sonner';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { EmptyState } from '@/components/ui/empty-state';
+import { Mascot, TabHeader } from '@/components/haru';
 import { apiFetch } from '@/lib/api-client';
-import { APP_HOME } from '@/lib/paths';
 import type { VocabEntry } from '@/lib/db/queries';
 import { useKeyboardNav } from '@/lib/hooks/use-keyboard-nav';
 import {
@@ -32,32 +28,37 @@ import {
   type SrsStore,
 } from '@/lib/srs';
 import { useProfileStore } from '@/stores/profile';
+import { CardStack, VocabCard } from './vocab-deck/card';
 import {
-  CardStateChip,
-  DailyGoalBar,
-  GradeButton,
-  PronounceButton,
+  DailyProgressChip,
+  EmptyTab,
+  PillButton,
   SessionCompleteCard,
   Skeleton,
-  TabBar,
+  TabChips,
   type Tab,
 } from './vocab-deck/components';
-import { VocabCompanion, type CompanionState } from './vocab-deck/companion';
+import {
+  VocabCompanionBubble,
+  VocabCompanionMascot,
+  type CompanionState,
+} from './vocab-deck/companion';
+import { useBookContexts } from './vocab-deck/use-book-contexts';
 
 /**
- * 단어장 플래시카드 + SRS(Spaced Repetition).
+ * 단어장 "단어 카드 뭉치"(그림책 세계 8차, iOS VocabDeckView와 같은 구성) + SRS(Spaced Repetition).
+ * [제목 "단어 카드" + 오늘 진행 칩] → [칩 3개 + 섞기] → [종이 카드 뭉치] → [하단 버튼].
  *
- * 탭:
- *  - "오늘 학습": 새 단어 + 복습 대기 단어(due 도래). 평가 버튼 2개 노출.
- *  - "모르는 단어": "몰라"로 평가된 누적 단어만 모아서 다시 보기.
- *  - "전체 단어장": 기존 누적 단어. 평가 없이 훑어보기.
+ * 칩:
+ *  - "오늘": 새 단어 + 복습 대기 단어(due 도래). 뒷면에서 채점.
+ *  - "다시 볼 단어": "다시 볼래요"로 평가된 누적 단어만 모아서 다시 보기. 뒷면에서 채점.
+ *  - "전체": 마스터 제외 전체 단어. 평가 없이 훑어보기.
  *
  * 키보드:
  *  - Space: 뒤집기
- *  - ←/→: 이전/다음
- *  - s: 셔플
- *  - p: 단어 발음 듣기
- *  - (뒤집은 상태) 1: 몰라, 2: 알아 — 평가 즉시 다음 카드로.
+ *  - ←/→: (채점 칩 뒷면) 다시 볼래요 / 알았어요 — 스와이프 방향과 같다. 그 밖에는 이전/다음 카드.
+ *  - 1 / 2: (채점 칩 뒷면) 다시 볼래요 / 알았어요
+ *  - s: 섞기, p: 단어 발음 듣기
  */
 
 export function VocabDeck() {
@@ -79,7 +80,12 @@ export function VocabDeck() {
   // 연출/문구가 갱신되도록 하는 카운터.
   const [companionState, setCompanionState] = useState<CompanionState>('idle');
   const [companionPulse, setCompanionPulse] = useState(0);
+  /** 순환 대사 대신 보여 줄 고정 대사 — 오늘 목표를 막 채운 순간. */
+  const [companionOverride, setCompanionOverride] = useState<string | null>(null);
   const companionTimerRef = useRef<number | null>(null);
+  /** 채점할 때마다 늘려 카드 key를 바꾼다 — 다음 카드가 뒤집힌 채 돌아오며 뜻이 비치지 않게 새로 마운트. */
+  const [gradeCount, setGradeCount] = useState(0);
+  const { contexts, prefetch } = useBookContexts();
 
   useEffect(() => {
     return () => {
@@ -205,7 +211,6 @@ export function VocabDeck() {
 
   const total = deck.length;
   const current = deck[idx];
-  const progress = total > 0 ? ((idx + 1) / total) * 100 : 0;
 
   /**
    * 영단어 TTS 재생. 이미 캐시된 경로는 즉시 <audio>.src로 설정해 재생.
@@ -230,8 +235,9 @@ export function VocabDeck() {
       audioRef.current = el;
       el.src = src;
       el.currentTime = 0;
-      // 어린이 학습용 기본 0.75배속. src 재할당 후 reset되는 모바일 브라우저 대비.
-      el.playbackRate = 0.75;
+      // 어린이 학습용 기본 속도(합성 0.85 × 재생 1.06 ≈ 실효 0.9배). src 재할당 후
+      // reset되는 모바일 브라우저 대비.
+      el.playbackRate = 1.06;
       await el.play().catch(() => void 0);
     } catch (err) {
       toast.error(`듣기 실패: ${(err as Error).message}`);
@@ -272,22 +278,32 @@ export function VocabDeck() {
   const grade = useCallback(
     (g: Grade) => {
       if (!profileId || !current) return;
+      const gradedBefore = gradedTodayCount(srsStore);
       gradeWord(profileId, current.word, g);
       const updated = loadStore(profileId);
       setSrsStore(updated);
       setNowMs(Date.now());
       setFlipped(false);
+      setGradeCount((n) => n + 1);
+      // 오늘 목표를 막 채운 순간은 한 번뿐인 큰 순간 — 평소 반응 대신 고정 대사로 조금 더 오래 축하(iOS와 같다).
+      const reachedGoal = gradedBefore < DAILY_GOAL && gradedTodayCount(updated) >= DAILY_GOAL;
       // 컴패니언 반응 — 정답으로 마스터에 도달하면 축하, 아니면 정/오답 반응.
       // 잠시 뒤 idle 복귀(연속 평가 시 타이머 리셋).
       const mastered = g === 'good' && isMastered(updated, current.word);
-      setCompanionState(mastered ? 'celebrate' : g === 'good' ? 'correct' : 'wrong');
+      setCompanionState(
+        reachedGoal || mastered ? 'celebrate' : g === 'good' ? 'correct' : 'wrong',
+      );
+      setCompanionOverride(reachedGoal ? '오늘 목표 달성!' : null);
       setCompanionPulse((p) => p + 1);
       if (companionTimerRef.current !== null) {
         window.clearTimeout(companionTimerRef.current);
       }
       companionTimerRef.current = window.setTimeout(
-        () => setCompanionState('idle'),
-        mastered ? 2600 : 1800,
+        () => {
+          setCompanionState('idle');
+          setCompanionOverride(null);
+        },
+        reachedGoal ? 3000 : mastered ? 2600 : 1800,
       );
       if (g === 'again') {
         // 덱 끝으로 이동 — entries 차원에서 당장 재시도 가능하게.
@@ -304,7 +320,7 @@ export function VocabDeck() {
         setIdx((i) => Math.min(i + 1, Math.max(0, total - 1)));
       }
     },
-    [profileId, current, total],
+    [profileId, current, total, srsStore],
   );
 
   // 오늘 학습 남은 수(새 단어 + 복습 대기 단어, 탭 뱃지). 마스터 단어 제외 + 20개 상한 → deck 길이와 일치.
@@ -330,11 +346,22 @@ export function VocabDeck() {
     return entries.filter((e) => isMastered(srsStore, e.word)).length;
   }, [entries, srsStore]);
 
+  const isGradingTab = tab === 'review' || tab === 'unknown';
+  const canGrade = isGradingTab && flipped;
+
+  // 지금·다음 카드의 책 맥락(삽화·문장)을 미리 받아 둔다 — 책별 1회.
+  const nextBookId = deck[idx + 1]?.bookId;
+  useEffect(() => {
+    if (!current) return;
+    prefetch(nextBookId !== undefined ? [current.bookId, nextBookId] : [current.bookId]);
+  }, [current, nextBookId, prefetch]);
+
   const bindings = useMemo(
     () => ({
       ' ': flip,
-      ArrowLeft: () => go(-1),
-      ArrowRight: () => go(1),
+      // 채점 칩 뒷면에서는 스와이프 방향과 같게 ← 다시 볼래요 / → 알았어요, 그 밖에는 이전/다음 카드.
+      ArrowLeft: () => (canGrade ? grade('again') : go(-1)),
+      ArrowRight: () => (canGrade ? grade('good') : go(1)),
       s: shuffleDeck,
       S: shuffleDeck,
       p: () => {
@@ -350,200 +377,151 @@ export function VocabDeck() {
         if ((tab === 'review' || tab === 'unknown') && flipped) grade('good');
       },
     }),
-    [current, flip, flipped, go, grade, shuffleDeck, speak, tab],
+    [canGrade, current, flip, flipped, go, grade, shuffleDeck, speak, tab],
   );
   useKeyboardNav(bindings, total > 0);
+
+  const header = (
+    <TabHeader
+      title="단어 카드"
+      trailing={
+        profileId && entries.length > 0 ? (
+          <DailyProgressChip done={todayCount} goal={DAILY_GOAL} />
+        ) : undefined
+      }
+    />
+  );
 
   // hydration 전·fetch 중에는 무조건 Skeleton 우선.
   // 이전엔 !profileId가 우선이라 hydration 직전에 EmptyState가 깜빡 노출됐다.
   if (!hasHydrated || loading) {
-    return <Skeleton />;
-  }
-  if (!profileId) {
     return (
-      <EmptyState
-        title="누가 볼 거예요?"
-        text="먼저 프로필을 선택해 주세요."
-      />
+      <>
+        {header}
+        <div className="mx-auto mt-3.5 w-full max-w-[520px]">
+          <Skeleton />
+        </div>
+      </>
     );
   }
-  if (entries.length === 0) {
+  if (!profileId || entries.length === 0) {
     return (
-      <EmptyState
-        title="아직 모은 단어가 없어요"
-        text="책을 만들고 읽어 보면 단어가 여기에 쌓여요."
-      />
+      <>
+        {header}
+        <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+          <Mascot pose="normal" size={120} />
+          <p className="mt-1 text-lg font-extrabold text-haru-ink">
+            {!profileId ? '누가 볼 거예요?' : '아직 모은 단어가 없어요'}
+          </p>
+          <p className="text-sm font-bold text-haru-muted">
+            {!profileId
+              ? '먼저 프로필을 선택해 주세요.'
+              : '책을 만들고 읽어 보면 단어가 여기에 쌓여요.'}
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-5">
-      {tab === 'review' ? (
-        <DailyGoalBar done={todayCount} goal={DAILY_GOAL} />
-      ) : null}
-
-      <TabBar
-        tab={tab}
-        onChange={setTab}
-        dueCount={dueCount}
-        unknownCount={unknownCount}
-        // "전체" 배지는 마스터 제외한 남은 학습 대상.
-        totalCount={remainingCount}
-        masteredCount={masteredCount}
-      />
-
-      {/* 학습 컴패니언 — 평가가 일어나는 탭에서만. 훑어보기(전체) 탭에는 미노출. */}
-      {tab === 'review' || tab === 'unknown' ? (
-        <VocabCompanion
-          state={sessionComplete ? 'celebrate' : companionState}
-          pulse={companionPulse}
+    <>
+      {header}
+      <div className="mx-auto mt-3.5 w-full max-w-[520px]">
+        <TabChips
+          tab={tab}
+          onChange={(t) => {
+            setTab(t);
+            setIdx(0);
+            setFlipped(false);
+          }}
+          // "전체" 배지는 마스터 제외한 남은 학습 대상.
+          counts={{ review: dueCount, unknown: unknownCount, all: remainingCount }}
+          onShuffle={shuffleDeck}
+          canShuffle={total > 1}
         />
-      ) : null}
 
-      {total === 0 ? (
-        sessionComplete ? (
-          <SessionCompleteCard
-            todayCount={todayCount}
-            masteredCount={masteredCount}
-          />
-        ) : (
-          <EmptyState
-            title="오늘 학습할 단어가 없어요"
-            text="잠시 쉬거나 '전체 단어장' 탭에서 다시 훑어보세요."
-          />
-        )
-      ) : (
-        <>
-          <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
-            <span aria-live="polite">
-              {idx + 1} <span className="text-foreground/40">/</span> {total}
-            </span>
-            <button
-              type="button"
-              onClick={shuffleDeck}
-              className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              섞기
-              <kbd className="ml-1.5 hidden rounded bg-muted/70 px-1.5 text-[10px] font-mono sm:inline">S</kbd>
-            </button>
-          </div>
-          <Progress value={progress} className="h-2 rounded-full" />
-
-          <button
-            type="button"
-            onClick={flip}
-            aria-pressed={flipped}
-            aria-label={flipped ? '뒤집어서 단어 보기' : '뒤집어서 뜻 보기'}
-            className="group relative block w-full rounded-2xl [perspective:1000px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <CardStateChip state={cardState(srsStore, current!.word)} level={srsStore[normalizeKey(current!.word)]?.level ?? 0} />
-
-            <div
-              className={`relative h-64 w-full rounded-2xl border border-border/60 bg-card shadow-sm transition-transform duration-500 [transform-style:preserve-3d] ${
-                flipped ? '[transform:rotateY(180deg)]' : ''
-              }`}
-            >
-              {/* 앞면 — 영어 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 [backface-visibility:hidden]">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  영단어
-                </span>
-                <div className="mt-3 flex items-center gap-3">
-                  <p className="text-center text-4xl font-extrabold tracking-tight sm:text-5xl">
-                    {current!.word}
-                  </p>
-                  <PronounceButton
-                    word={current!.word}
-                    onSpeak={speak}
-                    speaking={speaking}
-                  />
-                </div>
-                <p className="mt-4 text-xs text-muted-foreground">
-                  <Link
-                    href={`/book/${current!.bookId}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="underline-offset-2 hover:underline"
-                  >
-                    {current!.bookTitle}
-                  </Link>
-                </p>
-                <p className="mt-6 text-[11px] text-muted-foreground">
-                  카드를 눌러 뜻 보기
-                  <kbd className="ml-1.5 hidden rounded bg-muted/70 px-1.5 py-0.5 text-[10px] font-mono sm:inline">Space</kbd>
-                </p>
-              </div>
-              {/* 뒷면 — 한글 뜻 */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-6 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  뜻
-                </span>
-                <p className="mt-3 text-center text-2xl font-semibold leading-snug sm:text-3xl">
-                  {current!.meaning}
-                </p>
-                <div className="mt-6 flex items-center gap-2">
-                  <p className="text-sm font-medium text-primary">
-                    {current!.word}
-                  </p>
-                  <PronounceButton
-                    word={current!.word}
-                    onSpeak={speak}
-                    speaking={speaking}
-                    size="sm"
-                  />
-                </div>
-              </div>
-            </div>
-          </button>
-
-          {/* 복습/모르는 단어 탭 + 뒤집힌 상태에서만 평가 버튼 노출 */}
-          {(tab === 'review' || tab === 'unknown') && flipped ? (
-            <div className="grid grid-cols-2 gap-2">
-              <GradeButton
-                label="몰라"
-                tone="destructive"
-                onClick={() => grade('again')}
-              />
-              <GradeButton
-                label="알아"
-                tone="good"
-                onClick={() => grade('good')}
-              />
-            </div>
+        {total === 0 ? (
+          sessionComplete ? (
+            <SessionCompleteCard todayCount={todayCount} masteredCount={masteredCount} />
           ) : (
-            <div className="flex items-center justify-between gap-3">
-              <Button
-                variant="outline"
-                onClick={() => go(-1)}
-                disabled={idx === 0}
-                className="rounded-full press-scale"
+            <EmptyTab tab={tab} />
+          )
+        ) : (
+          <>
+            <p className="sr-only" aria-live="polite">
+              {`${total}장 중 ${idx + 1}번째 카드`}
+            </p>
+            <div className="mx-auto mt-1 w-full max-w-[360px] px-3">
+              <CardStack
+                key={`${tab}-${idx}-${current!.word}-${gradeCount}`}
+                remainingBehind={Math.max(0, total - idx - 1)}
+                canSwipe={canGrade}
+                onSwipe={grade}
+                // 학습 컴패니언 — 평가가 일어나는 칩에서만. 훑어보기(전체)에는 미노출.
+                mascot={
+                  isGradingTab ? (
+                    <VocabCompanionMascot state={companionState} pulse={companionPulse} />
+                  ) : undefined
+                }
+                bubble={
+                  isGradingTab ? (
+                    <VocabCompanionBubble
+                      state={companionState}
+                      pulse={companionPulse}
+                      messageOverride={companionOverride}
+                    />
+                  ) : undefined
+                }
               >
-                ← 이전
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => go(1)}
-                disabled={idx >= total - 1}
-                className="rounded-full press-scale"
-              >
-                다음 →
-              </Button>
+                <VocabCard
+                  entry={current!}
+                  cardState={cardState(srsStore, current!.word)}
+                  level={srsStore[normalizeKey(current!.word)]?.level ?? 0}
+                  flipped={flipped}
+                  speaking={speaking}
+                  context={contexts[current!.bookId]}
+                  onFlip={flip}
+                  onSpeak={() => void speak(current!.word)}
+                />
+              </CardStack>
             </div>
-          )}
-        </>
-      )}
 
-      <div className="flex justify-center pt-2">
-        <Link
-          href={APP_HOME}
-          className={buttonVariants({
-            variant: 'ghost',
-            size: 'sm',
-            className: 'rounded-full',
-          })}
-        >
-          책장으로
-        </Link>
+            {/* 하단 — 앞면: 뒤집어 보기 / 뒷면(채점 칩): 다시 볼래요·알았어요 / 뒷면(전체): 이전·다음. */}
+            <div className="sticky bottom-0 -mx-3 mt-6 bg-[linear-gradient(to_bottom,transparent,var(--haru-wall)_30%)] px-3 pb-4 pt-4 sm:mx-0 sm:px-0">
+              {canGrade ? (
+                <>
+                  <p aria-hidden className="mb-2.5 text-center text-xs font-bold text-haru-muted">
+                    ← 밀면 다시 볼래요 · 밀면 알았어요 →
+                  </p>
+                  <div className="flex gap-3">
+                    <PillButton variant="outline" label="다시 볼래요" onClick={() => grade('again')}>
+                      <span aria-hidden>🙈</span> 다시 볼래요
+                    </PillButton>
+                    <PillButton variant="filled" label="알았어요" onClick={() => grade('good')}>
+                      <span aria-hidden>😊</span> 알았어요
+                    </PillButton>
+                  </div>
+                </>
+              ) : flipped ? (
+                <div className="flex gap-3">
+                  <PillButton variant="outline" label="이전 카드" onClick={() => go(-1)} disabled={idx === 0}>
+                    ← 이전
+                  </PillButton>
+                  <PillButton variant="filled" label="다음 카드" onClick={() => go(1)} disabled={idx >= total - 1}>
+                    다음 →
+                  </PillButton>
+                </div>
+              ) : (
+                <div className="flex">
+                  <PillButton variant="outline" ink="coral" label="카드 뒤집기" onClick={flip}>
+                    <span aria-hidden>↺</span> 뒤집어 보기
+                  </PillButton>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
-    </div>
+    </>
   );
 }

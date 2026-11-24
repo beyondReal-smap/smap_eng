@@ -15,6 +15,16 @@
 export const APP_STORE_URL = process.env.NEXT_PUBLIC_APP_STORE_URL ?? '';
 export const PLAY_STORE_URL = process.env.NEXT_PUBLIC_PLAY_STORE_URL ?? '';
 
+/**
+ * Android "앱 열기" intent URL.
+ * 설치 시 앱의 https://eng.smap.site/link 인텐트 필터(AndroidManifest)로 열리고,
+ * 미설치·구버전 앱이면 browser_fallback_url(Google Play)로 폴백된다.
+ * app-store-banner(전역 하단 배너)와 landing FAB가 공유.
+ */
+export const ANDROID_APP_INTENT_URL =
+  'intent://eng.smap.site/link#Intent;scheme=https;package=com.smap.harubook;' +
+  `S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`;
+
 export type MobilePlatform = 'ios' | 'android' | 'other';
 
 /** navigator.userAgent 기반 모바일 OS 감지. SSR(navigator 없음)에서는 'other'. */

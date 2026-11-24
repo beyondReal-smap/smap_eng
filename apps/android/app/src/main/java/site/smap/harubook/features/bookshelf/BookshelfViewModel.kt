@@ -12,6 +12,8 @@ import site.smap.harubook.core.models.BooksResponse
 import site.smap.harubook.core.models.CefrLevel
 import site.smap.harubook.core.models.CreditBalance
 import site.smap.harubook.core.models.CreditsResponse
+import site.smap.harubook.core.models.LearningSummary
+import site.smap.harubook.core.models.LearningSummaryResponse
 import site.smap.harubook.core.networking.ApiClient
 
 data class BookshelfUiState(
@@ -20,7 +22,16 @@ data class BookshelfUiState(
     val credits: CreditBalance? = null,
     val isLoading: Boolean = false,
     val error: String? = null,
-)
+    /** `GET /api/learning-summary` — 이어 읽기 대상. 실패 시 null(카드 숨김). */
+    val summary: LearningSummary? = null,
+) {
+    /** continueBookId가 있고 현재 목록에 그 책이 있을 때만 카드 노출(fail-soft). */
+    val continueBook: Book?
+        get() {
+            val id = summary?.continueBookId ?: return null
+            return books.firstOrNull { it.id == id }
+        }
+}
 
 class BookshelfViewModel(private val profileId: Int) : ViewModel() {
     private val _state = MutableStateFlow(BookshelfUiState())
@@ -49,6 +60,21 @@ class BookshelfViewModel(private val profileId: Int) : ViewModel() {
                 _state.update { it.copy(credits = response.credits) }
             } catch (_: Throwable) {
                 // 별 잔액은 보조 정보 — soft fail.
+            }
+        }
+    }
+
+    /** 이어 읽기용 요약. 실패해도 책장 본체는 유지 — 카드만 숨긴다. */
+    fun fetchSummary() {
+        viewModelScope.launch {
+            try {
+                val response: LearningSummaryResponse = ApiClient.get(
+                    path = "/api/learning-summary",
+                    query = mapOf("profileId" to profileId.toString()),
+                )
+                _state.update { it.copy(summary = response.summary) }
+            } catch (_: Throwable) {
+                _state.update { it.copy(summary = null) }
             }
         }
     }

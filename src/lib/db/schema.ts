@@ -350,12 +350,18 @@ export const creditTransactions = mysqlTable(
       (): AnyMySqlColumn => creditTransactions.id,
       { onDelete: 'set null' },
     ),
+    // IAP 적립 원장이 가리키는 검증 거래. UNIQUE로 영수증당 지급 1회를 보장한다.
+    iapTransactionId: int('iap_transaction_id').references(
+      (): AnyMySqlColumn => iapTransactions.id,
+      { onDelete: 'set null' },
+    ),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
   (t) => [
     index('credit_tx_user_idx').on(t.userId, t.createdAt),
     index('credit_tx_book_idx').on(t.bookId),
     uniqueIndex('credit_tx_reversed_idx').on(t.reversedTxId),
+    uniqueIndex('credit_tx_iap_idx').on(t.iapTransactionId),
   ],
 );
 
@@ -420,7 +426,12 @@ export const orders = mysqlTable(
 export const IAP_ENVIRONMENTS = ['production', 'sandbox'] as const;
 export type IapEnvironment = (typeof IAP_ENVIRONMENTS)[number];
 
-export const IAP_STATUSES = ['verified', 'refunded'] as const;
+export const IAP_STATUSES = [
+  'verified',
+  'pending_grant',
+  'granted',
+  'refunded',
+] as const;
 export type IapStatus = (typeof IAP_STATUSES)[number];
 
 export const IAP_PLATFORMS = ['ios', 'android'] as const;

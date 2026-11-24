@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { EmptyState } from '@/components/ui/empty-state';
+import { Star } from 'lucide-react';
+import { AvatarGlyph, Mascot } from '@/components/haru';
+import { cn } from '@/lib/utils';
 import { apiFetch } from '@/lib/api-client';
 import type { ParentalProfileReport } from '@/lib/db/queries';
 
@@ -27,15 +29,20 @@ export function WeeklyReport() {
 
   if (!report) {
     return (
-      <div className="space-y-3">
+      <div aria-hidden className="space-y-3">
         {[0, 1].map((i) => (
-          <div key={i} className="shimmer h-28 w-full rounded-2xl" />
+          <div key={i} className="h-44 w-full animate-pulse rounded-[18px] bg-haru-paper motion-reduce:animate-none" />
         ))}
       </div>
     );
   }
   if (report.length === 0) {
-    return <EmptyState text="아직 프로필이 없어요. 먼저 자녀 프로필을 만들어 주세요." />;
+    return (
+      <div role="status" className="flex flex-col items-center py-6 text-center">
+        <Mascot pose="normal" size={88} />
+        <p className="mt-2 text-sm font-bold text-haru-muted">아직 프로필이 없어요. 먼저 자녀 프로필을 만들어 주세요.</p>
+      </div>
+    );
   }
 
   return (
@@ -56,18 +63,16 @@ function ProfileCard({
 }) {
   const weekDays = lastSevenYMDs();
   return (
-    <article className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-lg">
-            {data.avatar ?? '👤'}
-          </span>
-          <div>
-            <h3 className="text-lg font-bold">{data.name}</h3>
-            <p className="text-xs text-muted-foreground">
-              누적 {data.totalBooks}권 · 만점 {data.totalPerfect}회
-            </p>
-          </div>
+    <article className="rounded-[18px] bg-haru-paper p-4">
+      <header className="flex items-center gap-3">
+        <span className="flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#b8d9f0] text-2xl ring-[3px] ring-white">
+          {data.avatar ? <AvatarGlyph emoji={data.avatar} size={52} decorative /> : <span aria-hidden>👤</span>}
+        </span>
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-extrabold tracking-normal text-haru-ink">{data.name}</h3>
+          <p className="text-[13px] font-bold text-haru-muted">
+            누적 {data.totalBooks}권 · 만점 {data.totalPerfect}회
+          </p>
         </div>
       </header>
 
@@ -94,31 +99,35 @@ function ProfileCard({
       </div>
 
       <div className="mt-4">
-        <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          최근 7일 활동
-        </p>
-        <div className="flex gap-1.5">
+        <p className="mb-1.5 text-xs font-extrabold text-haru-muted">최근 7일 칭찬 도장</p>
+        {/* 학습한 날 = 코랄 ★ 도장(통계 도장판과 같은 모양), 안 한 날 = 옅은 원. */}
+        <ol className="grid grid-cols-7 gap-1.5">
           {weekDays.map((ymd) => {
             const active = data.activeDays.includes(ymd);
             const label = new Date(ymd).toLocaleDateString('ko-KR', {
               weekday: 'short',
             });
             return (
-              <div key={ymd} className="flex flex-1 flex-col items-center gap-1">
-                <div
-                  className={`h-8 w-full rounded-md ${
+              <li key={ymd} className="flex flex-col items-center gap-1" title={`${ymd}${active ? ' · 활동' : ''}`}>
+                <span
+                  aria-hidden
+                  className={cn(
+                    'flex aspect-square w-full max-w-10 items-center justify-center rounded-full',
                     active
-                      ? 'bg-primary/80'
-                      : 'bg-muted'
-                  }`}
-                  title={`${ymd}${active ? ' · 활동' : ''}`}
-                  aria-label={`${ymd}${active ? ' 활동 있음' : ' 활동 없음'}`}
-                />
-                <span className="text-[10px] text-muted-foreground">{label}</span>
-              </div>
+                      ? 'border-2 border-white/55 bg-[radial-gradient(circle_at_35%_30%,#ff9e7a,#e8633d)] shadow-[0_2px_3px_rgb(232_99_61/0.3)]'
+                      : 'bg-[#f4e7d6]',
+                  )}
+                >
+                  {active ? <Star className="size-[45%] fill-white text-white" /> : null}
+                </span>
+                <span className="text-[11px] font-bold text-haru-muted">
+                  {label}
+                  <span className="sr-only">{active ? ' 활동 있음' : ' 활동 없음'}</span>
+                </span>
+              </li>
             );
           })}
-        </div>
+        </ol>
       </div>
 
       {data.flaggedBooks.length > 0 ? (
@@ -170,19 +179,19 @@ function FlaggedList({
   }
 
   return (
-    <div className="mt-5 rounded-lg border border-[color:var(--destructive)]/30 bg-[color:var(--destructive)]/5 p-3">
-      <p className="text-xs font-bold text-[color:var(--destructive)]">
+    <div className="mt-4 rounded-[14px] bg-[#fbebd3] p-3">
+      <p className="text-xs font-extrabold text-[#8f5200]">
         검토 대기 · 신고된 책 {items.length}권
       </p>
       <ul className="mt-2 space-y-2">
         {items.map((b) => (
           <li
             key={b.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-background px-3 py-2 text-sm"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm"
           >
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">{b.title}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="font-reading font-bold text-haru-ink">{b.title}</p>
+              <p className="text-xs font-bold text-haru-muted">
                 사유: {b.reason ?? '미기재'}
               </p>
             </div>
@@ -191,7 +200,7 @@ function FlaggedList({
                 type="button"
                 onClick={() => unflag(b.id)}
                 disabled={busy === b.id}
-                className="rounded-md border border-border/60 bg-card px-2.5 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50"
+                className="min-h-11 rounded-full border-2 border-haru-line bg-white px-3 text-xs font-extrabold text-haru-ink hover:bg-haru-paper disabled:opacity-50"
               >
                 책장으로
               </button>
@@ -199,7 +208,7 @@ function FlaggedList({
                 type="button"
                 onClick={() => remove(b.id, b.title)}
                 disabled={busy === b.id}
-                className="rounded-md border border-[color:var(--destructive)]/40 bg-[color:var(--destructive)]/10 px-2.5 py-1 text-xs font-medium text-[color:var(--destructive)] hover:bg-[color:var(--destructive)]/20 disabled:opacity-50"
+                className="min-h-11 rounded-full border-2 border-[#f3c6bb] bg-[#fde2dd] px-3 text-xs font-extrabold text-[#a93318] hover:bg-[#fbd3cb] disabled:opacity-50"
               >
                 완전 삭제
               </button>
@@ -221,13 +230,13 @@ function Stat({
   unit: string;
 }) {
   return (
-    <div className="rounded-md border border-border/60 bg-background px-3 py-2">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-[14px] bg-white px-3 py-2.5 shadow-[0_3px_8px_rgb(168_111_63/0.06)]">
+      <div className="text-[11px] font-bold text-haru-muted">
         {label}
       </div>
-      <div className="mt-0.5 text-lg font-bold tabular-nums">
+      <div className="mt-0.5 text-xl font-extrabold tabular-nums text-haru-ink">
         {value ?? '—'}
-        <span className="ml-0.5 text-xs font-medium text-muted-foreground">
+        <span className="ml-0.5 text-xs font-bold text-haru-muted">
           {unit}
         </span>
       </div>

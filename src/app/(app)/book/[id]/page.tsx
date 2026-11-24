@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 
 /**
  * SiteHeader는 (app)/layout.tsx가 보유해 페이지 이동 사이 마운트가 유지된다.
- * Reader 본문 우측 상단에 outline `← 책장` 버튼이 있고, EmptyState에도 별도
- * 복귀 CTA를 유지(2026-04-27).
+ * 그림책 리더(2026-09-30)는 헤더 아래 화면을 채우는 "책 한 권" 무대라 main에 여백을 두지 않고,
+ * 닫기 ✕(책장으로)는 리더 상단 유리 버튼이 맡는다. EmptyState에는 별도 복귀 CTA를 유지.
  */
 export default async function BookPage({
   params,
@@ -35,7 +35,7 @@ export default async function BookPage({
   const passages = await listPassagesByBook(book.id);
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
+    <main className={passages.length === 0 ? 'mx-auto w-full max-w-3xl px-4 py-8 sm:px-6' : 'w-full md:px-6'}>
       {passages.length === 0 ? (
         <EmptyState
           className="animate-pop-in"

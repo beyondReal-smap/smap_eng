@@ -191,7 +191,11 @@ export async function POST(req: NextRequest) {
         title: '새 동화가 준비됐어요',
         body: `${bookTitle} — 지금 함께 읽어볼까요?`,
         sound: 'default',
-        custom: { kind: 'book_created', bookId: book.id },
+        custom: {
+          kind: 'book_created',
+          bookId: book.id,
+          profileId: book.profileId,
+        },
       }).catch((err) => {
         console.warn('[books-create] push failed', err);
       });

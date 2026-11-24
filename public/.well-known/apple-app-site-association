@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["ZVXXRV5MTP.com.smap.harubook"],
+        "components": [
+          { "/": "/link" },
+          { "/": "/link/*" }
+        ]
+      }
+    ]
+  }
+}

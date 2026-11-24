@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +48,8 @@ const SECTIONS: Section[] = [
 ];
 
 export function ShortcutHelp() {
+  const pathname = usePathname();
+  const { status } = useSession();
   const [open, setOpen] = useState(false);
 
   // 전역 "?" 키로 토글 (입력 중이면 무시)
@@ -63,6 +67,12 @@ export function ShortcutHelp() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // 비로그인 랜딩('/')엔 단축키 대상(책·퀴즈) 화면이 없어 이 버튼이 무의미하고,
+  // 랜딩 우하단 <AppInstallFab/>와 같은 좌표(fixed bottom-5 right-5)에 겹친다.
+  // AppStoreBanner와 동일하게 비로그인 '/'에서만 미노출한다.
+  // (세션은 layout에서 SSR 주입 → status 즉시 확정, hydration 깜빡임 없음)
+  if (pathname === '/' && status !== 'authenticated') return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

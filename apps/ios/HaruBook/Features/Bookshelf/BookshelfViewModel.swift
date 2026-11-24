@@ -10,6 +10,14 @@ final class BookshelfViewModel {
     var isLoading: Bool = false
     var error: String?
     var credits: CreditBalance?
+    /// `GET /api/learning-summary` — 이어 읽기 대상. 실패 시 nil(카드 숨김).
+    var summary: LearningSummary?
+
+    /// continueBookId가 있고 현재 목록에 그 책이 있을 때만 카드 노출(fail-soft).
+    var continueBook: Book? {
+        guard let id = summary?.continueBookId else { return nil }
+        return books.first(where: { $0.id == id })
+    }
 
     init(profileId: Int) {
         self.profileId = profileId
@@ -51,5 +59,21 @@ final class BookshelfViewModel {
     func setCefr(_ cefr: CefrLevel?) async {
         cefrFilter = cefr
         await load()
+    }
+
+    /// 이어 읽기용 요약. 실패해도 책장 본체는 유지 — 카드만 숨긴다.
+    func fetchSummary() async {
+        do {
+            let response: LearningSummaryResponse = try await APIClient.shared.send(
+                Endpoint(
+                    path: "/api/learning-summary",
+                    method: .get,
+                    query: [URLQueryItem(name: "profileId", value: String(profileId))],
+                )
+            )
+            self.summary = response.summary
+        } catch {
+            self.summary = nil
+        }
     }
 }

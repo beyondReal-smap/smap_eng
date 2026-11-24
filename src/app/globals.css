@@ -157,13 +157,82 @@
     format("woff2");
 }
 
+/* ------------------------------------------------------------------
+   그림책 세계(웹 1단계, 2026-09-30) — 네이티브 앱과 같은 글꼴.
+   - SUITE(SIL OFL): 한글·UI 기본 글꼴. 400/700/800 세 웨이트만 쓴다.
+   - Andika(SIL OFL): 영어 읽기 글(퀴즈 질문·선택지·리더 본문·단어). 어린이 읽기용 단층 a/g.
+     웹 용량을 위해 라틴 범위만 남긴 서브셋(unicode-range 밖 글자는 SUITE로 넘어간다).
+   라이선스: public/fonts/SUITE-OFL.txt, public/fonts/Andika-OFL.txt
+   위의 AtoZ·A2Z 선언은 남겨 두지만 앱 기본 글꼴 목록에서는 뺐다.
+   ------------------------------------------------------------------ */
+@font-face {
+  font-family: "SUITE";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/SUITE-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SUITE";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/SUITE-Bold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "SUITE";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/SUITE-ExtraBold.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Andika";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Andika-Regular.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Andika";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/Andika-Bold.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "AtoZ", "A2Z", ui-sans-serif, system-ui, -apple-system,
+  --font-sans: "SUITE", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-geist-mono);
-  --font-heading: "AtoZ", "A2Z", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "SUITE", ui-sans-serif, system-ui, "Apple SD Gothic Neo",
+    "Malgun Gothic", sans-serif;
+  /* 영어 읽기 글 전용 — `font-reading` 유틸. 한글이 섞이면 SUITE로 넘어간다. */
+  --font-reading: "Andika", "SUITE", ui-sans-serif, system-ui, sans-serif;
+  /* 그림책 세계 색 — `bg-haru-paper`, `text-haru-coral-ink` 식으로 쓴다. */
+  --color-haru-wall: var(--haru-wall);
+  --color-haru-paper: var(--haru-paper);
+  --color-haru-ink: var(--haru-ink);
+  --color-haru-muted: var(--haru-muted);
+  --color-haru-coral: var(--haru-coral);
+  --color-haru-coral-soft: var(--haru-coral-soft);
+  --color-haru-coral-ink: var(--haru-coral-ink);
+  --color-haru-on-coral: var(--haru-on-coral);
+  --color-haru-line: var(--haru-line);
+  --color-haru-wood: var(--haru-wood);
+  --color-haru-wood-front: var(--haru-wood-front);
+  --color-haru-gold: var(--haru-gold);
+  --color-haru-star: var(--haru-star);
+  --color-haru-success-soft: var(--haru-success-soft);
+  --color-haru-success-ink: var(--haru-success-ink);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -221,45 +290,64 @@
     기존 코랄/민트/라벤더 삼원색은 "AI 생성 티"가 강하다는 판단으로 교체.)
    ------------------------------------------------------------------ */
 :root {
-  /* Refero "Family" Design System — Pixar 스토리보드 느낌의 크림 캔버스
-     - background = Warm Canvas #fbfaf9, foreground = Charcoal #343433
-     - primary = Midnight #121212 (다크 필 CTA)
-     - accent  = Ember Orange #ff3e00 (희소성·강조 링크/포커스 링)
-     - secondary/muted/border = Stone Surface #f2f0ed 계열
-     기존 골드 톤은 chart-1·level 배지·랜딩 일러스트 변수에서만 유지. */
-  --background: oklch(0.985 0.005 80);          /* Warm Canvas #fbfaf9 */
-  --foreground: oklch(0.265 0.005 60);          /* Charcoal #343433 */
-  --card: oklch(1 0 0);                          /* white card (Refero feature card) */
-  --card-foreground: oklch(0.265 0.005 60);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.265 0.005 60);
-  --primary: oklch(0.82 0.10 35);               /* Soft Coral Peach — 파스텔 풀 CTA */
-  --primary-foreground: oklch(0.30 0.06 30);    /* deep coral ink — 파스텔 위 가독성 확보 */
-  --secondary: oklch(0.948 0.005 80);           /* Stone Surface #f2f0ed */
-  --secondary-foreground: oklch(0.265 0.005 60);
-  --muted: oklch(0.948 0.005 80);
-  --muted-foreground: oklch(0.355 0.005 60);    /* Graphite #474645 */
-  --accent: oklch(0.86 0.07 235);               /* Powder Sky — 파스텔 보조 강조 */
+  /* 그림책 세계(웹 1단계, 2026-09-30) — 네이티브 앱(iOS Color+Theme.swift)과 같은 값.
+     벽지 위에 흰 카드·종이가 뜨는 구조. 대비(WCAG AA 4.5:1) 확인값은 각 줄 주석.
+     ⚠️ --primary(코랄)는 채움·테두리 전용(글자 대비 2.4:1). 코랄 톤 글자는 --haru-coral-ink. */
+  --background: #fbf1e2;                         /* 벽지 */
+  --foreground: #2e2019;                         /* 본문 글자 — 벽지 대비 14.0:1 */
+  --card: #ffffff;
+  --card-foreground: #2e2019;
+  --popover: #ffffff;
+  --popover-foreground: #2e2019;
+  --primary: #f5835c;                            /* 코랄(채움) */
+  --primary-foreground: #3b2016;                 /* 코랄 위 짙은 글자 — 5.9:1 */
+  --secondary: #f6e9d8;                          /* 따뜻한 보조 면 */
+  --secondary-foreground: #2e2019;
+  --muted: #f6e9d8;
+  --muted-foreground: #6b5a4e;                   /* 보조 글자 — 벽지 5.9:1 · 흰색 6.6:1 */
+  --accent: oklch(0.86 0.07 235);               /* Powder Sky — 파스텔 보조 강조(기존 유지) */
   --accent-foreground: oklch(0.32 0.10 235);    /* deep sky ink */
   --destructive: oklch(0.60 0.22 27);
-  /* 카드/툴바/패널 분리감 — Stone Surface보다 한 단계 진한 라인 */
-  --border: oklch(0.92 0.005 80);
-  --input: oklch(0.92 0.005 80);
-  --ring: oklch(0.78 0.14 30);                  /* focus = Soft Coral (한 단계 더 진하게) */
+  --border: #f0dcc8;                             /* 장식용 테두리 */
+  --input: #e3cdb8;                              /* 입력칸 테두리는 조금 더 진하게 */
+  --ring: #d2603a;                               /* 포커스 링 — 벽지 대비 3.4:1(비텍스트 3:1 충족) */
   --chart-1: oklch(0.74 0.13 82);               /* gold (level/일러스트 잔존) */
   --chart-2: oklch(0.62 0.095 205);             /* off-blue */
   --chart-3: oklch(0.68 0.15 145);              /* success green */
   --chart-4: oklch(0.80 0.14 75);               /* warning amber */
   --chart-5: oklch(0.58 0.10 252);              /* info blue */
   --radius: 0.625rem;                            /* 10px — Refero feature card */
-  --sidebar: oklch(0.985 0.005 80);
-  --sidebar-foreground: oklch(0.265 0.005 60);
-  --sidebar-primary: oklch(0.82 0.10 35);
-  --sidebar-primary-foreground: oklch(0.30 0.06 30);
-  --sidebar-accent: oklch(0.948 0.005 80);
-  --sidebar-accent-foreground: oklch(0.265 0.005 60);
-  --sidebar-border: oklch(0.92 0.005 80);
-  --sidebar-ring: oklch(0.78 0.14 30);
+  --sidebar: #fbf1e2;
+  --sidebar-foreground: #2e2019;
+  --sidebar-primary: #f5835c;
+  --sidebar-primary-foreground: #3b2016;
+  --sidebar-accent: #f6e9d8;
+  --sidebar-accent-foreground: #2e2019;
+  --sidebar-border: #f0dcc8;
+  --sidebar-ring: #d2603a;
+
+  /* 그림책 세계 전용 토큰(네이티브 smapWall/smapPaper/smapWood… 미러) */
+  --haru-wall: #fbf1e2;
+  --haru-wall-dot: #f2c9a8;
+  --haru-wall-dot-2: #f6d9a0;
+  --haru-glow-yellow: #f5e5c2;
+  --haru-glow-sky: #c2d9f5;
+  --haru-paper: #fffaf1;
+  --haru-ink: #2e2019;
+  --haru-muted: #6b5a4e;
+  --haru-coral: #f5835c;
+  --haru-coral-soft: #ffe2d8;
+  --haru-coral-ink: #a8401c;                     /* 코랄 톤 글자 — 벽지 5.5:1 · 흰색 6.2:1 */
+  --haru-on-coral: #3b2016;
+  --haru-line: #f0dcc8;
+  --haru-wood: #c98e5a;
+  --haru-wood-front: #a86f3f;
+  --haru-shelf-top: #e7c49b;
+  --haru-shelf-bottom: #d9ae7f;
+  --haru-gold: #f6ce73;
+  --haru-star: #f5b82e;
+  --haru-success-soft: #ddf3e4;
+  --haru-success-ink: #1f7a45;                   /* 민트 위 4.6:1 */
 
   /* 레벨 배지 — hue 중복 해소(A2 82→220 blue) + 이중 인코딩 전제 */
   --level-a1: oklch(0.90 0.10 145);             /* green  · 1 dot */
@@ -303,7 +391,8 @@
     color-scheme: light;
     font-size: 17px;
     font-family: var(--font-sans);
-    font-feature-settings: "ss01", "cv01", "cv11", "palt";
+    /* AtoZ 전용이던 font-feature-settings(ss01·cv01·cv11·palt)는 SUITE 글자 모양을
+       바꿀 수 있어 뺐다(2026-09-30). */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-text-size-adjust: 100%;
@@ -320,11 +409,12 @@
        이전에는 ellipse + SVG noise였으나, 랜딩→앱 전환 시 오브 위치·알파가
        어긋나 보여서 "다른 페이지" 느낌을 줬다. circle+30rem transparent로
        통일. */
+    /* 그림책 세계 벽지(2026-09-30) — 네이티브 SmapWallBackground와 같은 구성:
+       벽 색 + 좌상 노랑·우상 하늘 글로우. 점 무늬는 아래 body::before. */
     background:
-      radial-gradient(circle at 15% 10%, oklch(0.92 0.05 82 / 0.45), transparent 30rem),
-      radial-gradient(circle at 88% 14%, oklch(0.9 0.06 235 / 0.35), transparent 28rem),
-      radial-gradient(circle at 50% 110%, oklch(0.92 0.06 18 / 0.28), transparent 36rem),
-      var(--background);
+      radial-gradient(circle at 12% 6%, color-mix(in srgb, var(--haru-glow-yellow) 55%, transparent), transparent 45vmax),
+      radial-gradient(circle at 92% 18%, color-mix(in srgb, var(--haru-glow-sky) 45%, transparent), transparent 40vmax),
+      var(--haru-wall);
     min-height: 100dvh;
     /* 한글 음절 단위 끊김 방지.
        - keep-all: 한국어·CJK 단어가 음절 경계에서 줄바꿈되지 않게 (예: "이야기"가
@@ -334,7 +424,7 @@
     word-break: keep-all;
     overflow-wrap: break-word;
   }
-  /* 종이 결 점 패턴(22px dot grid) — 랜딩과 동일.
+  /* 벽지 점 무늬 — 34px 격자에 엇갈린 점 두 벌(#F2C9A8·#F6D9A0, 35%).
      fixed + z-index:-1 로 깔아 전체 화면을 채우지만 포인터 이벤트는 통과. */
   body::before {
     position: fixed;
@@ -342,9 +432,11 @@
     z-index: -1;
     content: "";
     background-image:
-      radial-gradient(circle, oklch(0.5 0.03 258 / 0.07) 0 1px, transparent 1.4px);
-    background-size: 22px 22px;
-    opacity: 0.6;
+      radial-gradient(circle, var(--haru-wall-dot) 0 1.4px, transparent 1.9px),
+      radial-gradient(circle, var(--haru-wall-dot-2) 0 1.2px, transparent 1.7px);
+    background-size: 34px 34px, 34px 34px;
+    background-position: 0 0, 17px 17px;
+    opacity: 0.35;
     pointer-events: none;
   }
   /* 헤딩 — 랜딩(apps/landing)과 동일한 스토리북 타이포 위계.
@@ -552,6 +644,47 @@
   .level-dots[data-level="A2"]::before { content: "●●"; letter-spacing: 1px; }
   .level-dots[data-level="B1"]::before { content: "●●●"; letter-spacing: 1px; }
   .level-dots[data-level="B2"]::before { content: "◆"; }
+
+  /* 그림책 벽지 배경 — body 밖(시트·다이얼로그 등)에서 같은 벽지가 필요할 때. */
+  .haru-wall {
+    background-color: var(--haru-wall);
+    background-image:
+      radial-gradient(circle, color-mix(in srgb, var(--haru-wall-dot) 35%, transparent) 0 1.4px, transparent 1.9px),
+      radial-gradient(circle, color-mix(in srgb, var(--haru-wall-dot-2) 35%, transparent) 0 1.2px, transparent 1.7px),
+      radial-gradient(circle at 12% 6%, color-mix(in srgb, var(--haru-glow-yellow) 55%, transparent), transparent 45vmax),
+      radial-gradient(circle at 92% 18%, color-mix(in srgb, var(--haru-glow-sky) 45%, transparent), transparent 40vmax);
+    background-size: 34px 34px, 34px 34px, auto, auto;
+    background-position: 0 0, 17px 17px, 0 0, 0 0;
+  }
+
+  /* 나무 책장 선반(책장 홈) — 행 높이(--row-h)마다 판자(나무 윗면→앞면 그라데이션 + 아래 그림자)를
+     배경으로 반복한다. 마지막 줄이 덜 차도 판자가 케이스 폭 전체를 가로지른다.
+     치수: 폰 = 책 96×128(iOS와 같음), 640px 이상 = 112×150. */
+  .haru-shelf-rows {
+    --book-w: 96px;
+    --book-h: 128px;
+    --slot-h: 150px;
+    --row-h: 212px;
+    background-image: linear-gradient(
+      to bottom,
+      transparent 0 var(--slot-h),
+      var(--haru-wood) var(--slot-h),
+      var(--haru-wood-front) calc(var(--slot-h) + 14px),
+      rgb(46 32 25 / 0.22) calc(var(--slot-h) + 14px),
+      rgb(46 32 25 / 0) calc(var(--slot-h) + 24px),
+      transparent 100%
+    );
+    background-size: 100% var(--row-h);
+    background-repeat: repeat-y;
+  }
+  @media (min-width: 640px) {
+    .haru-shelf-rows {
+      --book-w: 112px;
+      --book-h: 150px;
+      --slot-h: 172px;
+      --row-h: 238px;
+    }
+  }
 
   /* 쉬머 로더 */
   .shimmer {
@@ -788,7 +921,8 @@
   position: sticky;
   top: 0;
   z-index: 40;
-  background: oklch(from var(--paper) l c h / 0.85);
+  /* 그림책 세계 벽지 위에서 띠처럼 보이지 않도록 벽지 색 반투명(2026-09-30). */
+  background: color-mix(in srgb, var(--haru-wall) 85%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   padding-top: env(safe-area-inset-top);
@@ -1290,7 +1424,7 @@
 
 /* Sonner 토스트 — 라이브러리 기본 CSS(node_modules/sonner/dist/styles.css)가
    `[data-sonner-toaster]`에 `font-family: ui-sans-serif, system-ui, …`를 직접
-   박아넣어 우리 `var(--font-sans)`(AtoZ)가 무시되는 문제. @layer 외부에서
+   박아넣어 우리 `var(--font-sans)`(SUITE)가 무시되는 문제. @layer 외부에서
    덮어써 우선순위를 확실히 한다. wrapper와 toast item 둘 다 지정해 portal
    내부 어떤 inline 스타일/inheritance 경로로 와도 AtoZ가 적용되도록. */
 [data-sonner-toaster],

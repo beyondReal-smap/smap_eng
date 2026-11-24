@@ -38,11 +38,21 @@ export const fontSizeKey = 'reader:font-size';
 export const BACKGROUND_TTS_GAP_MS = 1500;
 export const BACKGROUND_TTS_RETRY_MS = 10_000;
 
-/** Reader 본문 영단어 문장의 타이포 클래스 — 3단계. */
+/**
+ * Reader 본문 영단어 문장의 타이포 클래스 — 3단계. 글꼴은 어린이 읽기용 Andika(font-reading),
+ * 행간 1.55(그림책 리더, 네이티브 기본 27pt와 같은 기준).
+ */
 export const PASSAGE_FONT_CLASS: Record<FontSize, string> = {
-  sm: 'text-xl leading-relaxed sm:text-[24px] sm:leading-[1.5]',
-  md: 'text-2xl leading-relaxed sm:text-[30px] sm:leading-[1.4]',
-  lg: 'text-3xl leading-relaxed sm:text-[38px] sm:leading-[1.35]',
+  sm: 'font-reading text-[20px] leading-[1.55] sm:text-[23px]',
+  md: 'font-reading text-[23px] leading-[1.55] sm:text-[27px]',
+  lg: 'font-reading text-[27px] leading-[1.5] sm:text-[33px]',
+};
+
+/** 삽화 없는 쪽 — 종이 전체를 쓰므로 3px 크게(네이티브 27 → 30과 같은 규칙). */
+export const PASSAGE_FONT_CLASS_PLAIN: Record<FontSize, string> = {
+  sm: 'font-reading text-[23px] leading-[1.55] sm:text-[26px]',
+  md: 'font-reading text-[26px] leading-[1.55] sm:text-[30px]',
+  lg: 'font-reading text-[30px] leading-[1.5] sm:text-[36px]',
 };
 
 export function isFontSize(v: unknown): v is FontSize {
@@ -79,4 +89,37 @@ export function tokenize(text: string | null | undefined): string[] {
   return text
     .split(/(\w[\w'-]*)/g)
     .filter((t): t is string => typeof t === 'string' && t !== '');
+}
+
+// 문장 종결로 오인하기 쉬운 약어 — 마침표가 문장 끝이 아니라 축약 표기인 경우.
+// 본문 400건 표본에서 실제 출현은 2건(0.5%)이지만, 오분리되면 "Mr." 한 조각이
+// 통째로 재생되어 눈에 띄게 어색해지므로 방어한다.
+const SENTENCE_ABBREV =
+  /\b(?:Mr|Mrs|Ms|Dr|St|Jr|Sr|Prof|vs|Fig|No|e\.g|i\.e)\.$/i;
+
+/**
+ * 영문 본문을 문장 단위로 분할한다. 문장 탭 재생(문장 하나만 듣기)의 단위.
+ *
+ * 반환 조각은 원문의 연속 구간이라 join('')하면 원문이 그대로 복원된다
+ * (뒤따르는 공백·줄바꿈까지 각 조각이 보유). 본문을 조각으로 나눠 렌더해도
+ * 화면상 텍스트가 달라지지 않아야 하므로 이 성질이 중요하다.
+ * — 실제 passage 400건/문장 884개로 복원 일치를 검증했다.
+ */
+export function splitSentences(text: string | null | undefined): string[] {
+  if (!text) return [];
+  const out: string[] = [];
+  let start = 0;
+  // 종결부호 + 닫는 따옴표/괄호 + 뒤따르는 공백까지를 한 조각의 끝으로 본다.
+  // ("Run!" 처럼 인용부호가 종결부호 뒤에 오는 대사체를 끊지 않기 위함)
+  const re = /[.!?]+["'”’)\]]*\s+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    // 종결부호 직전까지가 약어면 문장 경계가 아니므로 계속 이어붙인다.
+    if (SENTENCE_ABBREV.test(text.slice(start, m.index + 1))) continue;
+    const end = m.index + m[0].length;
+    out.push(text.slice(start, end));
+    start = end;
+  }
+  if (start < text.length) out.push(text.slice(start));
+  return out.filter((s) => s.trim() !== '');
 }
